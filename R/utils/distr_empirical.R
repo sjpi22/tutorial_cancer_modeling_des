@@ -18,9 +18,9 @@
 #' 
 #' @export
 dempirical <- function(x, xs = NULL, probs, max_x = NULL, warn_sum_probs = TRUE, 
-                       log.p = FALSE) {
+                       log.p = FALSE, eps = 1e-6) {
   # Sanity checks for empirical distribution
-  check_empirical(xs, probs, warn_sum_probs)
+  check_empirical(xs, probs, warn_sum_probs, eps)
   
   # Set xs if NULL to indices of probs, else sort if needed
   if(length(xs) == 0) {
@@ -82,9 +82,9 @@ dempirical <- function(x, xs = NULL, probs, max_x = NULL, warn_sum_probs = TRUE,
 pempirical <- function(q, xs = NULL, probs, discrete = FALSE, 
                        continuity_correction = "uniform", max_x = NULL, 
                        max_ex = NULL, warn_sum_probs = TRUE, lower.tail = TRUE, 
-                       log.p = FALSE) {
+                       log.p = FALSE, eps = 1e-6) {
   # Sanity checks for empirical distribution
-  check_empirical(xs, probs, warn_sum_probs)
+  check_empirical(xs, probs, warn_sum_probs, eps)
   
   # Set xs if NULL to indices of probs and flag that indices will be returned, 
   # else sort if needed
@@ -176,9 +176,9 @@ pempirical <- function(q, xs = NULL, probs, discrete = FALSE,
 qempirical <- function(p, xs = NULL, probs, discrete = FALSE, 
                        continuity_correction = "uniform", max_x = NULL, 
                        max_ex = NULL, warn_sum_probs = TRUE, lower.tail = TRUE, 
-                       log.p = FALSE) {
+                       log.p = FALSE, eps = 1e-6) {
   # Sanity checks for empirical distribution
-  check_empirical(xs, probs, warn_sum_probs)
+  check_empirical(xs, probs, warn_sum_probs, eps)
   
   # Right tail and log transform if necessary
   if(log.p) p <- exp(p)
@@ -269,9 +269,9 @@ qempirical <- function(p, xs = NULL, probs, discrete = FALSE,
 rempirical <- function(n, xs = NULL, probs, discrete = FALSE, 
                        continuity_correction = "uniform", max_x = NULL, 
                        max_ex = NULL, return_prob = FALSE,
-                       warn_sum_probs = TRUE) {
+                       warn_sum_probs = TRUE, eps = 1e-6) {
   # Sanity checks for empirical distribution
-  check_empirical(xs, probs, warn_sum_probs)
+  check_empirical(xs, probs, warn_sum_probs, eps)
   
   # Set xs if NULL to indices of probs and flag that indices will be returned, 
   # else sort if needed
@@ -332,10 +332,10 @@ rempirical <- function(n, xs = NULL, probs, discrete = FALSE,
 #' @return Vector of randomly generated values
 #' 
 #' @export
-check_empirical <- function(xs, probs, warn_sum_probs = TRUE) {
+check_empirical <- function(xs, probs, warn_sum_probs = TRUE, eps = 1e-6) {
   # Check if probabilities sum to 1, otherwise output warning
   if(warn_sum_probs) {
-    if(sum(probs) != 1) {
+    if(abs(sum(probs) - 1 ) > eps) {
       print("Probabilities do not sum to 1")
     }
   }
