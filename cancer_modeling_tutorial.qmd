@@ -8,9 +8,9 @@ editor: visual
 
 Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
 
-## Running Code
+## Default model
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+Load default parameters
 
 ```{r}
 # Setup
@@ -22,7 +22,9 @@ When you click the **Render** button a document will be generated that includes 
 load_all_params()
 ```
 
-You can add options to executable code like this
+Open
+
+Run default model
 
 ```{r}
 #| echo: false
@@ -30,3 +32,5 @@ You can add options to executable code like this
 ```
 
 The `echo: false` option disables the printing of code (only output is displayed).
+
+Visualize simulated population-level distributions

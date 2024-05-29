@@ -17,35 +17,22 @@ run_model <- function(l_params_all) {
   # Initialize list of results for each strategy
   l_results <- list()
   
-  # Convert dataframe of variables to list of lists for easier use
-  l_distr <- lapply(split(l_params_all$df_vars, l_params_all$df_vars$varID), function(x) as.list(x))
-  
-  # Clean up params lists
-  l_distr <- lapply(l_distr, function(x) {
-    x$params <- x$params[[1]]
-    return(x)
-  }
-  )
-  
-  # Add list version of variables
-  l_params_all$l_distr <- l_distr
-  
   ##############################################################################
   #### Generate data under base case strategy
   ##############################################################################
   # Initialize matrix of patient data
   m_cohort_init <- initialize_cohort(l_params_all)
   
-  # Generate baseline characteristics (demographics, risk factors, and time to death from other causes)
-  m_cohort_init <- simulate_pt_data(m_cohort_init, l_params_all, "baseline")
+  # Generate baseline characteristics
+  simulate_baseline_data(m_cohort_init, l_params_all)
   
   # Generate precancerous lesions
   m_lesions <- simulate_lesion_data(m_cohort_init, l_params_all)
   
-  # Consolidate lesion-level data to patient-level data
-  m_cohort_base <- simulate_cancer_mort(m_cohort_init, m_lesions, l_params_all)
+  # Consolidate lesion-level data to patient-level data for cancer onset and mortality
+  m_cohort_base <- simulate_cancer_data(m_cohort_init, m_lesions, l_params_all)
   
-  # Generate overall survival
+  # Add to results
   l_results[[l_params_all$v_states[1]]] <- list(m_cohort = m_cohort_base, 
                                                 m_lesions = m_lesions)
   
@@ -70,102 +57,120 @@ initialize_cohort <- function(l_params_all) {
       pt_id = 1:n_cohort,
       modality = v_strats[1]
     )
+    setkey(m_times, pt_id)
     return(m_times)
   }
   )
   return(m_times_init)
 }
 
-# Generate data for each row
-simulate_pt_data <- function(m_times, l_params_all, vargroups = NULL) {
-  m_times_updated <- with(as.list(l_params_all), {
-    # If vargroups is populated, filter to variables
-    if(!is.null(vargroups)) df_vars_calc <- df_vars[df_vars$vargroup %in% vargroups, ]
-    else df_vars_calc <- df_vars
+# Generate baseline data
+simulate_baseline_data <- function(m_times, l_params_all) {
+  with(as.list(l_params_all), {
+    # Sample male / female
+    m_times[, b_male := query_distr("r", .N, b_male$distr, b_male$params)]
     
-    # Sample variables from corresponding distributions
-    m_times[, (df_vars_calc$varname) := lapply(
-      # Convert column names to corresponding distribution variables
-      l_distr[df_vars_calc$varID],
-      
-      # Apply random sampling from distribution
-      function(distr) query_distr("r", nrow(m_times), distr$distr, lapply(distr$params,
-                                                                          function(x) eval(parse(text = x)))))
-    ]
+    # Sample time to death from other causes if male
+    m_times[b_male == 1, time_0_Do := query_distr("r", .N, time_0_Do_male$distr, time_0_Do_male$params)]
     
-    return(m_times)
+    # Sample time to death from other causes if female
+    m_times[b_male == 0, time_0_Do := query_distr("r", .N, time_0_Do_female$distr, time_0_Do_female$params)]
   }
   )
-  return(m_times_updated)
 }
 
 
 # Generate precancerous lesions
-simulate_lesion_data <- function(m_times, l_params_all, vargroup_term = "lesion") {
-  # Initialize lesion dataframe
-  m_times_lesion <- data.table()
+simulate_lesion_data <- function(m_times, l_params_all) {
   
   # Create lesion-level dataframe for each lesion type
-  for(lesiontype in l_params_all$v_lesions) {
-    # Simulate patient level lesion variables (time to first lesion and number of lesions)
-    temp_m_times <- simulate_pt_data(m_times, l_params_all, vargroup = paste(vargroup_term, "pt-level", lesiontype)) %>%
+  m_times_lesion <- with(as.list(l_params_all), {
+    # Initialize lesion dataframe
+    m_times_lesion <- data.table()
+    
+    for(lesiontype in v_lesions) {
+      # Record lesion type and simulate time to first lesion 
+      m_times[, `:=` (time_0_1 = query_distr("r", .N, get(paste0("time_0_1", lesiontype))$distr, get(paste0("time_0_1", lesiontype))$params),
+                      lesion_type = lesiontype)]
+      
+      # Simulate number of lesions before death if first lesion occurs before death from other causes
+      m_times[time_0_1 < time_0_Do, n_add := query_distr("r", .N, get(paste0("n_add", lesiontype))$distr, lapply(get(paste0("n_add", lesiontype))$params, function(x) x*(time_0_Do - time_0_1)))]
+      
+      # Create row for every lesion
+      temp_m_times_lesion <- m_times[time_0_1 < time_0_Do, .(lesionID = seq(n_add + 1)), by = names(m_times)] 
+      
+      # Get lesion-specific onset time
+      temp_m_times_lesion[, time_1_1j := query_distr("r", .N, get(paste0("time_1_1j", lesiontype))$distr, eval(parse(text = get(paste0("time_1_1j", lesiontype))$params)))]
+      
+      # Reset time of first lesion
+      temp_m_times_lesion[lesionID == 1, time_1_1j := 0]
+      
+      # Calculate time from birth to lesion-specific onset 
+      temp_m_times_lesion[, time_0_1j := time_0_1 + time_1_1j]
+      
       # Filter to lesions that occur before death time for efficiency
-      filter(time_0_1 < time_0_Do)
+      temp_m_times_lesion <- temp_m_times_lesion[time_0_1j < time_0_Do] 
+      
+      # Order by patient ID and time of lesion onset and reset lesion IDs
+      setorder(temp_m_times_lesion, pt_id, time_0_1j)
+      temp_m_times_lesion[, lesionID := seq(.N),  by = pt_id]
+      
+      # Get lesion-specific onset time and cancer conversion time
+      temp_m_times_lesion[, time_1j_2i := query_distr("r", .N, get(paste0("time_1j_2i", lesiontype))$distr, get(paste0("time_1j_2i", lesiontype))$params)]
+      
+      # Calculate time from birth to lesion cancer conversion
+      temp_m_times_lesion[, time_0_2i := time_0_1j + time_1j_2i]
+      
+      # Bind to lesion-level data table
+      m_times_lesion <- rbind(m_times_lesion, temp_m_times_lesion)
+    }
     
-    # Create row for every lesion
-    temp_m_times_lesion <- temp_m_times %>%
-      group_by(pt_id) %>%
-      uncount(n_add + 1, .remove = FALSE) %>%
-      mutate(lesiontype = lesiontype,
-             lesionID = 1:n()) %>%
-      setDT()
-    
-    # Get lesion-specific onset time and cancer conversion time
-    temp_m_times_lesion <- simulate_pt_data(temp_m_times_lesion, l_params_all, vargroup = paste(vargroup_term, "lesion-level", lesiontype))
-    
-    # Reset time of first lesion
-    temp_m_times_lesion[lesionID == 1, time_1_1j := 0]
-    
-    # Calculate time from birth to lesion-specific onset 
-    temp_m_times_lesion[, time_0_1j := time_0_1 + time_1_1j]
-    
-    # Filter to lesions that occur before death time for efficiency
-    temp_m_times_lesion <- temp_m_times_lesion[time_0_1j < time_0_Do, ] %>%
-      # Reset lesion ID in order of lesion onset
-      group_by(pt_id) %>%
-      arrange(time_0_1j, .by_group = TRUE) %>%
-      mutate(lesionID = 1:n()) %>%
-      ungroup() %>%
-      setDT()
-    
-    # Calculate time from birth to lesion cancer conversion
-    temp_m_times_lesion[, time_0_2i := time_0_1j + time_1j_2i]
-    
-    # Bind to lesion-level data table
-    m_times_lesion <- rbind(m_times_lesion, temp_m_times_lesion)
-  }
+    return(m_times_lesion)
+  })
+  
+
+  # Delete new rows from m_times
+  m_times[, c("time_0_1", "n_add", "lesion_type"):=NULL]
   
   return(m_times_lesion)
 }
 
 # Simulate cancer stage progression and mortality
-simulate_cancer_mort <- function(m_times, m_times_lesion, l_params_all) {
-  # Find lesion that first converts to cancer
-  m_times_cancer <- m_times_lesion %>%
-    group_by(pt_id) %>%
-    mutate(time_0_2 = min(time_0_2i, na.rm = TRUE)) %>%
-    ungroup %>%
-    filter(time_0_2 == time_0_2i) %>%
-    mutate(time_1_2i = time_0_2 - time_0_1) %>%
-    setDT()
+simulate_cancer_data <- function(m_times, m_times_lesion, l_params_all) {
+  # Calculate cancer onset from lesions
+  m_times_cancer <- calc_cancer_onset(m_times, m_times_lesion, l_params_all)
   
-  # Time to next stage of cancer
-  m_times_cancer <- simulate_pt_data(m_times_cancer, l_params_all, vargroup = "cancer")
+  # Time to next stage of cancer (variable name = time_2{start stage}_2{next stage})
+  with(l_params_all, {
+       vars_cancer <- paste0("time_2", v_cancer, "_2", lead(v_cancer))[-length(v_cancer)]
+       m_times_cancer[, (vars_cancer) := lapply(vars_cancer, function(var) query_distr("r", .N, get(var)$distr, get(var)$params))]
+  }
+  )
+  
+  # Time to cancer diagnosis
+  m_times_cancer[, time_2_3 := query_distr("r", .N, time_2_3$distr, time_2_3$params)]
+  
+  # Cancer mortality after diagnosis
+  m_times_cancer[, time_3_Dc := query_distr("r", .N, time_3_Dc$distr, time_3_Dc$params)]
   
   # Join cancer data to patient-level data
-  m_times_updated <- m_times %>%
-    left_join(m_times_cancer, by = "pt_id", suffix=c("",".y")) %>%
-              select(-ends_with(".y"))
+  dupe_names <- intersect(names(m_times), names(m_times_cancer))[-1]
+  m_times_updated <- merge(m_times, m_times_cancer[, (dupe_names) := NULL], by = "pt_id", all.x = TRUE)
+  
+  return(m_times_updated)
+}
+
+# Calculate cancer onset from lesions
+calc_cancer_onset <- function(m_times, m_times_lesion, l_params_all) {
+  # Find time to first lesion that converts to cancer and flag lesion
+  m_times_lesion[, time_0_2 := min(time_0_2i, na.rm = TRUE), by = pt_id]
+  m_times_lesion[, first_cancerous_lesion := (time_0_2 == time_0_2i)]
+  
+  # Filter to earliest lesion and calculate time from first lesion to cancer onset
+  m_times_cancer <- m_times_lesion[first_cancerous_lesion == 1, ]
+  m_times_cancer[, time_1_2i := time_0_2 - time_0_1]
+  
+  return(m_times_cancer)
 }
 
 # Generate overall survival
