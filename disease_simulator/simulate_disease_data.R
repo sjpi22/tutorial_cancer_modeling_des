@@ -27,7 +27,7 @@ sapply(distr.sources, source, .GlobalEnv)
 #### Modifiable parameters ####
 
 # Model structure
-n_cohort <- 100000 # Number to simulate in cohort
+n_cohort <- 1000000 # Number to simulate in cohort
 n_screen_sample <- 3/100 * n_cohort # Number for screening sample
 
 # Randomization 
@@ -56,9 +56,7 @@ v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 #### Load and update parameters ####
 
 # Load default data
-l_params_all <- load_default_params(files.prevalence = NULL,
-                                    file.incidence = NULL,
-                                    file.surv = NULL)
+l_params_all <- load_default_params(file.surv = NULL)
 
 # Jitter disease distribution parameters uniformly from 0.5*default to 2*default
 set.seed(seed)

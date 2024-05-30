@@ -141,22 +141,49 @@ simulate_cancer_data <- function(m_times, m_times_lesion, l_params_all) {
   # Calculate cancer onset from lesions
   m_times_cancer <- calc_cancer_onset(m_times, m_times_lesion, l_params_all)
   
-  # Time to next stage of cancer (variable name = time_2{start stage}_2{next stage})
   with(l_params_all, {
-       vars_cancer <- paste0("time_2", v_cancer, "_2", lead(v_cancer))[-length(v_cancer)]
-       m_times_cancer[, (vars_cancer) := lapply(vars_cancer, function(var) query_distr("r", .N, get(var)$distr, get(var)$params))]
+    # Time to next stage of cancer (variable name = time_2{start stage}_2{next stage})
+    m_times_cancer[, (vars_cancer) := lapply(vars_cancer, function(var) query_distr("r", .N, get(var)$distr, get(var)$params))]
+    
+    # Stage at cancer diagnosis
+    m_times_cancer[, stage_dx := query_distr("r", .N, stage_dx$distr, stage_dx$params)]
+    
+    # Time within stage of diagnosis 
+    m_times_cancer[, p_time_2x_3 := query_distr("r", .N, p_time_2x_3$distr, p_time_2x_3$params)]
+    
+    # Reset to 0 and add @@@
+    
+    # Time to cancer diagnosis
+    # browser()
+    m_times_cancer[, time_2_3 := rowSums(.SD), .SDcols = vars_cancer]
+    m_times_cancer[, time_0_3 := time_0_2 + time_2_3]
+    
+    # Cancer mortality after diagnosis
+    for (stg in sort(unique(m_times_cancer$stage_dx))) {
+      var <- paste0("time_3", v_cancer[stg], "_Dc")
+      m_times_cancer[stage_dx == stg, time_3_Dc := query_distr("r", .N, get(var)$distr, get(var)$params)]
+    }
   }
   )
   
-  # Time to cancer diagnosis
-  m_times_cancer[, time_2_3 := query_distr("r", .N, time_2_3$distr, time_2_3$params)]
   
-  # Cancer mortality after diagnosis
-  m_times_cancer[, time_3_Dc := query_distr("r", .N, time_3_Dc$distr, time_3_Dc$params)]
+  # Calculate death from cancer
+  m_times_cancer[, time_0_Dc := time_0_3 + time_3_Dc]
   
   # Join cancer data to patient-level data
   dupe_names <- intersect(names(m_times), names(m_times_cancer))[-1]
   m_times_updated <- merge(m_times, m_times_cancer[, (dupe_names) := NULL], by = "pt_id", all.x = TRUE)
+  
+  # Calculate death all-cause death and cause of death
+  m_times_updated[, time_0_D := pmin(time_0_Do, time_0_Dc, na.rm = TRUE)]
+  m_times_updated[, fl_death_cancer := (time_0_Do > pmin(time_0_Dc, Inf, na.rm = TRUE))]
+  
+  # Calculate screening censor date
+  m_times_updated[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
+  
+  # Calculate survival from cancer diagnosis
+  m_times_updated[time_0_3 <= time_0_D, time_3_D := time_0_D - time_0_3]
+  assertthat::are_equal(nrow(m_times_updated[(fl_death_cancer == 1) & is.na(time_3_D), ]), 0) # Check that all patients with death due to cancer have time from diagnosis to death populated
   
   return(m_times_updated)
 }

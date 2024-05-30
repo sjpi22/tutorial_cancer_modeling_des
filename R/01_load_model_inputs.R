@@ -8,9 +8,6 @@
 #' 
 #' @export
 load_default_params <- function(file.mort = "data/background_mortality.xlsx",
-                                files.prevalence = c("data/prevalence_lesion_a.csv",
-                                                     "data/prevalence_lesion_b.csv"),
-                                file.incidence = "data/incidence_cancer.csv",
                                 file.surv = "data/relative_survival_cancer.csv"){
   
   #### General setup ####
@@ -28,12 +25,19 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
   
   #### Load input data ####
   l_lifetables <- load_from_excel(file.mort) # Background mortality
-  # Disease-specific relative survival @@@
+  
+  # Disease-specific relative survival
+  if (!is.null(file.surv)) {
+    surv_data <- read.csv(file = file.surv) %>%
+      mutate(pct_died = 1 - relative_surv)
+  }
+  
   # Strategy parameters (sensitivity, treatment effect) @@@
   # Screening @@@
   
-  # Create useful variables
-  max_age <- max(l_lifetables$female$age) + 1
+  #### Create useful variables ####
+  # Maximum age
+  max_age <- max(l_lifetables$female$age, l_lifetables$male$age) + 1
   
   # Precancerous lesion starter variables
   l_distr_lesions <- list(
@@ -46,6 +50,15 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
   
   # Cancer starter variable
   time_2i_2ii <- list(distr = "gamma", params = list(shape = 2, scale = 2))
+  
+  # Survival after cancer diagnosis
+  if (!is.null(file.surv)) {
+    l_distr_surv <- list()
+    for (stg in sort(unique(surv_data$stage))) {
+      temp_surv_data <- surv_data[surv_data$stage == stg, ]
+      l_distr_surv[[stg]] <- list(distr = "empirical", params = list(xs = temp_surv_data$years_from_dx[-length(temp_surv_data$years_from_dx)], probs = pmax(diff(temp_surv_data$pct_died), 0), max_x = max_age))
+    }
+  }
   
   #### Update parameter list with distributions ####
   l_params_all <- within(l_params_all, {
@@ -66,12 +79,27 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
       }
     }
     
-    # Cancer
+    # Cancer stage progression
     for(i in seq(length(v_cancer)-1)) {
       assign(paste0("time_2", v_cancer[i], "_2", v_cancer[i+1]), time_2i_2ii)
     }
     
+    # Save cancer stage progression variables
     vars_cancer <- paste0("time_2", v_cancer, "_2", lead(v_cancer))[-length(v_cancer)]
+    
+    # Stage at diagnosis
+    stage_dx <- list(distr = "empirical", params = list(xs = seq(length(v_cancer)), probs = rep(1/length(v_cancer), length(v_cancer)), continuity_correction = NULL))
+    
+    # Time of diagnosis within stage
+    p_time_2x_3 <- list(distr = "unif", params = list(min = 0, max = 1))
+    
+    # Survival after cancer diagnosis
+    if (!is.null(file.surv)) {
+      for (stg in sort(unique(surv_data$stage))) {
+        assign(paste0("time_3", v_cancer[stg], "_Dc"), l_distr_surv[[stg]])
+      }
+    }
+    
   })
   
   

@@ -21,25 +21,51 @@ editor: visual
 
 \[Picture of model schema\]
 
-Install and load packages
+Setup
 
 ```{r}
-# Setup
-# Load packages
-```
+# Clear workspace
+rm(list = ls())
 
-Load formulas
+# Options
+options(scipen=999)
+
+# Load packages
+library(readxl)
+library(data.table)
+library(tidyverse)
+
+# Load functions
+distr.sources <- list.files("R", 
+                            pattern="*.R$", full.names=TRUE, 
+                            ignore.case=TRUE, recursive = TRUE)
+sapply(distr.sources, source, .GlobalEnv)
+```
 
 Load default parameters
 
 ```{r}
 # Load default parameters
-load_all_params()
+l_params_all <- load_default_params()
+
+# Make cohort small for testing
+l_params_all <- update_param_list(l_params_all,
+                                  list(n_cohort = 100,
+                                       v_strats = l_params_all$v_strats[1]))
 ```
 
 Visualize data inputs
 
+```{r}
+
+plot(l_params_all$time_0_Do_female$params$xs, l_params_all$time_0_Do_female$params$probs)
+```
+
 Run default model \[Exercise to look at, fix, and understand decision modeling functions\]
+
+```{r}
+results <- run_model(l_params_all)
+```
 
 Visualize outputs
 
