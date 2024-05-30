@@ -41,11 +41,12 @@ run_model <- function(l_params_all) {
   ##############################################################################
   if(length(l_params_all$v_strats) > 1) {
     for (str in l_params_all$v_strats[-1]) {
+      
+      # Add to results
+      l_results[[str]] <- list(m_cohort = m_cohort_base, 
+                               m_lesions = m_lesions)
     }
   }
-  
-  # Set labels for results list
-  names(l_results) <- l_params_all$v_strats
   
   return(l_results)
 }

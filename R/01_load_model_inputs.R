@@ -8,9 +8,10 @@
 #' 
 #' @export
 load_default_params <- function(file.mort = "data/background_mortality.xlsx",
-                                file.incidence = NULL,
-                                file.prevalence = NULL,
-                                file.surv = NULL){
+                                files.prevalence = c("data/prevalence_lesion_a.csv",
+                                                     "data/prevalence_lesion_b.csv"),
+                                file.incidence = "data/incidence_cancer.csv",
+                                file.surv = "data/relative_survival_cancer.csv"){
   
   #### General setup ####
   # Initialize list to store all parameters

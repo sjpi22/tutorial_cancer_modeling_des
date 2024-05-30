@@ -4,33 +4,51 @@ format: html
 editor: visual
 ---
 
-## Quarto
+# Discrete event simulation tutorial: Application to cancer modeling
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+## Introduction
 
-## Default model
+### Modeling for cancer screening policy
 
-Load default parameters
+\[Motivation\] \[Inputs, outputs\] \[Methods\] \[Past examples\]
+
+### Discrete event simulation
+
+-   Idea: sample time to various states for individual patient trajectories
+-   \[Pros and cons\]
+
+## Default discrete event simulation model
+
+\[Picture of model schema\]
+
+Install and load packages
 
 ```{r}
 # Setup
 # Load packages
 ```
 
+Load formulas
+
+Load default parameters
+
 ```{r}
 # Load default parameters
 load_all_params()
 ```
 
-Open
+Visualize data inputs
 
-Run default model
+Run default model \[Exercise to look at, fix, and understand decision modeling functions\]
 
-```{r}
-#| echo: false
-2 * 2
-```
+Visualize outputs
 
-The `echo: false` option disables the printing of code (only output is displayed).
+## Calibration
 
-Visualize simulated population-level distributions
+Why calibrate? How?
+
+Visualize calibration targets
+
+Run calibration
+
+Visualize results and compare to before calibration

@@ -1,89 +1,64 @@
 
-# Calculate prevalence
-calc_prevalence <- function(m_time, start_var, end_var, censor_var) {
+
+# Calculate prevalence in the intervals spanned by [v_ages[i], v_ages[i+1])
+calc_prevalence <- function(m_time, start_var, end_var, censor_var, v_ages = NULL) {
   # Number in cohort
   n_cohort <- nrow(m_time)
   
-  # Flag start times, end times, and death times
-  m_time_ordered <- copy(m_time)
-  
-  start_events <- m_time_ordered[get(start_var) < get(censor_var), ] %>%
-    select(all_of(start_var)) %>%
-    mutate(delta_condition = 1) %>%
-    rename(time = start_var)
-  
-  end_events <- m_time[get(start_var) < get(censor_var), ] %>%
-    mutate(time = pmin(get(end_var), get(censor_var)),
-           delta_condition = -1) %>%
-    select(time, delta_condition)
-  
-  censor_events <- m_time %>%
-    select(all_of(censor_var)) %>%
-    mutate(delta_total = -1) %>%
-    rename(time = censor_var)
-  
-  # Combine and calculate population totals over time
-  all_events <- rbind(start_events, end_events, censor_events, fill=TRUE) %>%
-    arrange(by = time) %>%
-    mutate_all(~replace(., is.na(.), 0)) %>%
-    # Collapse by time in case of multiple events at the same time
-    group_by(time) %>%
-    summarise(delta_condition = sum(delta_condition),
-              delta_total = sum(delta_total)) %>%
-    ungroup() %>%
-    mutate(n_condition = cumsum(delta_condition),
-           n_total = n_cohort + cumsum(delta_total)) %>%
-    mutate(prevalence = n_condition / n_total) 
-  
-  # Calculate prevalence closest to each discrete age
-  v_ages <- seq(ceiling(min(all_events$time)),
-                max(all_events$time[!is.infinite(all_events$time)]))
-  indices <- with(all_events, {
-    indices <- sapply(v_ages,
-                      function(x) which.max(time[time <= x]))
+  # If v_ages is null, set to find prevalence by year
+  if(is.null(v_ages)) {
+    v_ages <- seq(0, ceiling(max(m_time[, get(censor_var)])))
+  } else {
+    # Sort v_ages
+    v_ages <- sort(v_ages)
   }
+  
+  # Create age range data frame
+  res <- data.frame(
+    age_start = v_ages[-length(v_ages)],
+    age_end = v_ages[-1]
   )
   
-  df_prevalence <- cbind(age = v_ages, 
-                         prevalence = all_events$prevalence[indices],
-                         n_population = all_events$n_total[indices])
+  # Calculate prevalence in the given age ranges
+  res <- cbind(res, t(mapply(
+    function(age_start, age_end) {
+      denom = sum(pmax(m_time[ , pmin(get(censor_var), age_end)] - age_start, 0))
+      num = sum(pmax(m_time[ , pmin(get(end_var), get(censor_var), age_end)] - m_time[ , pmax(get(start_var), age_start)], 0, na.rm = TRUE))
+      return(c(person_years_cases = num, person_years_total = denom, prevalence = num/denom))
+    }, res$age_start, res$age_end))) %>%
+    mutate(n_total = round(person_years_total / (age_end - age_start))) %>%
+    relocate(prevalence, .after = last_col())
   
-  return(df_prevalence)
+  return(res)
 }
 
 # Calculate annual incidence
-calc_incidence <- function(m_time, time_var, censor_var, age_upper_bounds,
+calc_incidence <- function(m_time, time_var, censor_var, age_lower_bounds,
                            strat_var = NULL,
                            rate_unit = 100000) {
   
   # Number in cohort
   n_cohort <- nrow(m_time)
   
-  # Create age labels
-  m_time_ordered <- copy(m_time)
-  m_time_ordered[, `:=`(year_censor = floor(get(censor_var)),
-                        year_event = floor(get(time_var)))]
-  
   # Create age category labels
-  age_lower_bounds <- lag(age_upper_bounds, default = 0)
-  age_ranges <- paste(age_lower_bounds, 
-                      age_upper_bounds-1, sep = "-")
-  age_ranges <- c(age_ranges, paste0(max(age_upper_bounds), "+"))
-  age_bounds <- c(age_lower_bounds, max(age_upper_bounds))
+  age_lower_bounds_orig <- age_lower_bounds # Save original vector of ages
+  age_lower_bounds <- unique(c(0, age_lower_bounds)) # Add 0 as lower bound if necessary
+  age_ranges <- paste(age_lower_bounds[-length(age_lower_bounds)], 
+                      age_lower_bounds[-1]-1, sep = "-")
+  age_ranges <- c(age_ranges, paste0(max(age_lower_bounds), "+"))
+  age_df <- data.frame(age_ranges = age_ranges, 
+                       age_min = age_lower_bounds,
+                       age_max = lead(age_lower_bounds, default = ceiling(max(m_time[, get(censor_var)]))))
   
-  # Deaths by age
-  censor_counts_year <- m_time_ordered %>%
-    group_by(year_censor) %>%
-    summarise(n_died = n()) %>%
-    ungroup() %>%
-    mutate(age_range = sapply(year_censor,
-                              function(x) age_ranges[which.max(age_bounds[x >= age_bounds])]),
-           n_start = n_cohort - cumsum(c(0, n_died[-length(n_died)])))
-  
-  # Deaths by category
-  censor_counts_range <- censor_counts_year %>%
-    group_by(age_range) %>%
-    summarise(person_years_at_risk = sum(n_start))
+  # Exposure time by age range
+  person_years_at_risk <- data.frame(age_range = age_df$age_ranges, 
+                                     total_atrisk = mapply(
+                                       function(age_start, age_end) {
+                                         total_atrisk = sum(pmax(m_time[ , pmin(get(censor_var), age_end)] - age_start, 0))
+                                       }, age_df$age_min, age_df$age_max),
+                                     age_diff = age_df$age_max - age_df$age_min) %>%
+    mutate(n_population = round(total_atrisk / age_diff)) %>%
+    filter(age_range %in% age_df$age_range[age_df$age_min %in% age_lower_bounds_orig])
   
   # Set grouping variables
   group_vars <- "age_range"
@@ -93,21 +68,40 @@ calc_incidence <- function(m_time, time_var, censor_var, age_upper_bounds,
   if(is.null(rate_unit)) rate_unit <- 1
   
   # Events by category and stage
-  event_counts <- m_time_ordered %>%
+  event_counts <- m_time %>%
     filter(get(time_var) <= get(censor_var)) %>%
-    mutate(age_range = sapply(year_event,
-                              function(x) age_ranges[which.max(age_bounds[x >= age_bounds])])) %>%
+    mutate(age_range = sapply(get(time_var),
+                              function(x) age_ranges[which.max(age_lower_bounds[x >= age_lower_bounds])])) %>%
     group_by_at(group_vars) %>%
-    summarise(n_events = n()) %>%
-    ungroup() 
+    summarise(n_events = n(),
+              .groups = "drop")
+  
+  # Make sure all values of stratifying variable are represented
+  if(!is.null(strat_var)) {
+    # Get sorted values of stratifying variable
+    strat_var_vals <- sort(unique(m_time[[strat_var]]))
+    
+    # Initialize dataframe with all combinations of age range and stratifying variables
+    all_var_vals <- data.frame(
+      age_range = rep(sort(unique(event_counts$age_range)), each = length(strat_var_vals))
+    )
+    
+    # Add stratifying variables
+    all_var_vals[, as.character(strat_var)] <- rep(strat_var_vals, length(unique(event_counts$age_range)))
+    
+    # Merge event counts
+    event_counts <- all_var_vals %>%
+      left_join(event_counts, by = group_vars)
+  }
   
   if(nrow(event_counts) > 0) {
-    event_counts <- censor_counts_range %>%
+    event_counts <- person_years_at_risk %>%
       left_join(event_counts, by = "age_range") %>%
       mutate(n_events = replace_na(n_events, 0)) %>%
-      mutate(incidence = n_events / person_years_at_risk * rate_unit)
+      mutate(incidence_raw = n_events / total_atrisk) %>%
+      mutate(incidence = incidence_raw * rate_unit)
   } else {
-    event_counts <- censor_counts_range %>%
+    event_counts <- person_years_at_risk %>%
       mutate(n_events = 0,
              incidence = 0)
   }

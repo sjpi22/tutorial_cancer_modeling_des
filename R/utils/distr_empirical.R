@@ -116,7 +116,7 @@ pempirical <- function(q, xs = NULL, probs, discrete = FALSE,
   # Find index of largest probability for which p >= CMF and set lower bound for 
   # quantile
   lb_index <- sapply(q, function(x) which.max(xs[x >= xs]))
-  val <- probs[lb_index]
+  val <- cmf[lb_index]
   
   # Apply uniform correction
   if (!is.null(continuity_correction)) {
@@ -133,7 +133,7 @@ pempirical <- function(q, xs = NULL, probs, discrete = FALSE,
       }
       
       # Otherwise update quantile with correction
-      val <- val + (probs[pmin(lb_index + 1, length(probs))] - probs[lb_index]) * v_correction
+      val <- val + (cmf[pmin(lb_index + 1, length(probs))] - cmf[lb_index]) * v_correction
     } else stop(paste0(continuity_correction, " continuity correction is not recognized"))
   }
   

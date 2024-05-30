@@ -161,16 +161,31 @@ qhazard <- function(p, haz_rate = NULL, haz_cumulative = NULL,
   max_q <- quantiles[prob_index + 1]
   
   # Find time value where cumulative distribution function equals probability
-  val <- sapply(seq(length(p)), function(i) {
-    if(p[i] == 0) {
-      return(0)
-    } else if(p[i] == 1) {
-      return(Inf)
-    } else {
-      uniroot(function(x) phazard(x, haz_rate, haz_cumulative) - p[i],
-              lower = min_q[i],
-              upper = max_q[i])$root}
-  })
+  if(!is.null(haz_cumulative)) {
+    val <- sapply(seq(length(p)), function(i) {
+      if(p[i] == 0) {
+        return(0)
+      } else if(p[i] == 1) {
+        return(Inf)
+      } else {
+        uniroot(function(q) match.fun(haz_cumulative)(q) + log(1 - p[i]),
+                lower = min_q[i],
+                upper = max_q[i])$root}
+    })
+  } else if(!is.null(haz_rate)) {
+    val <- sapply(seq(length(p)), function(i) {
+      if(p[i] == 0) {
+        return(0)
+      } else if(p[i] == 1) {
+        return(Inf)
+      } else {
+        uniroot(function(q) integrate(function(u) match.fun(haz_rate)(u), 
+                                      lower = 0, 
+                                      upper = q)$value + log(1 - p[i]),
+                lower = min_q[i],
+                upper = max_q[i])$root}
+    })
+  }
   
   # Return quantile
   return(val)
