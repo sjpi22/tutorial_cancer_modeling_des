@@ -33,7 +33,7 @@ run_model <- function(l_params_all) {
   m_cohort_base <- simulate_cancer_data(m_cohort_init, m_lesions, l_params_all)
   
   # Add to results
-  l_results[[l_params_all$v_states[1]]] <- list(m_cohort = m_cohort_base, 
+  l_results[[l_params_all$v_strats[1]]] <- list(m_cohort = m_cohort_base, 
                                                 m_lesions = m_lesions)
   
   ##############################################################################

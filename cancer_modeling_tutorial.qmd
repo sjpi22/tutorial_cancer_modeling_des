@@ -17,6 +17,10 @@ editor: visual
 -   Idea: sample time to various states for individual patient trajectories
 -   \[Pros and cons\]
 
+### Calibration
+
+-   \[How to quantify uncertainty\] \[Why from Bayesian perspective\]
+
 ## Default discrete event simulation model
 
 \[Picture of model schema\]
@@ -34,6 +38,7 @@ options(scipen=999)
 library(readxl)
 library(data.table)
 library(tidyverse)
+library(patchwork)
 
 # Load functions
 distr.sources <- list.files("R", 
@@ -54,26 +59,79 @@ l_params_all <- update_param_list(l_params_all,
                                        v_strats = l_params_all$v_strats[1]))
 ```
 
-Visualize data inputs
+Visualize data inputs: Background mortality
 
 ```{r}
+# Background mortality
+n_mort_ages <- length(l_params_all$time_0_Do_female$params$xs)
+df_mort <- data.frame(sex = c(rep("Female", n_mort_ages),
+                              rep("Male", n_mort_ages)),
+                      yrs = c(l_params_all$time_0_Do_female$params$xs,
+                              l_params_all$time_0_Do_male$params$xs),
+                      prob = c(1 - c(0, cumsum(l_params_all$time_0_Do_female$params$probs[-n_mort_ages])),
+                               1 - c(0, cumsum(l_params_all$time_0_Do_male$params$probs[-n_mort_ages])))
+)
 
-plot(l_params_all$time_0_Do_female$params$xs, l_params_all$time_0_Do_female$params$probs)
+plot_mort <- ggplot(df_mort, aes(yrs, prob, color = sex)) + 
+  geom_line() + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0, 1)) +
+  labs(title = "Background mortality",
+       x = "Years from birth",
+       y = "Proportion alive",
+       color = "Sex")
+
+# Survival after diagnosis
+n_surv_ages <- length(l_params_all[[var]]$params$xs)
+df_surv <- data.frame()
+for (stg in l_params_all$v_cancer) {
+  var <- paste0("time_3", stg, "_Dc")
+  temp_df_surv <- data.frame(stage = toupper(stg),
+                             yrs = l_params_all[[var]]$params$xs,
+                             prob = 1 - c(0, cumsum(l_params_all[[var]]$params$probs[-n_surv_ages])))
+    
+  df_surv <- rbind(df_surv, temp_df_surv)
+}
+
+plot_surv <- ggplot(df_surv, aes(yrs, prob, color = stage)) + 
+  geom_line() + 
+  geom_point(alpha = 0.7) +
+  theme_minimal() +
+  coord_cartesian(ylim=c(0, 1)) +
+  labs(title = "Survival after diagnosis",
+       x = "Years from diagnosis",
+       y = "Proportion alive",
+       color = "Stage at diagnosis")
+
+# Plot together
+(plot_mort + plot_surv) + 
+  plot_layout(
+    ncol = 2,
+    guides = "collect",
+    axes = "collect",
+    axis_titles = "collect"
+  ) &
+  theme(legend.position = 'bottom')
 ```
 
 Run default model \[Exercise to look at, fix, and understand decision modeling functions\]
 
 ```{r}
 results <- run_model(l_params_all)
+results_noscreening <- results[['None']]
 ```
 
 Visualize outputs
+
+```{r}
+
+```
 
 ## Calibration
 
 Why calibrate? How?
 
-Visualize calibration targets
+Visualize calibration targets and default model
 
 Run calibration
 

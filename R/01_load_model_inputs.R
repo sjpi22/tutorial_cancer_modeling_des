@@ -55,8 +55,16 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
   if (!is.null(file.surv)) {
     l_distr_surv <- list()
     for (stg in sort(unique(surv_data$stage))) {
+      # Filter survival data to stage at diagnosis
       temp_surv_data <- surv_data[surv_data$stage == stg, ]
-      l_distr_surv[[stg]] <- list(distr = "empirical", params = list(xs = temp_surv_data$years_from_dx[-length(temp_surv_data$years_from_dx)], probs = pmax(diff(temp_surv_data$pct_died), 0), max_x = max_age))
+      
+      # Calculate probability mass function from CDF
+      # probs <- pmax(diff(temp_surv_data$pct_died), 0)
+      probs <- diff(temp_surv_data$pct_died)
+      probs <- c(probs, 1 - sum(probs))
+      
+      # Create distribution data
+      l_distr_surv[[stg]] <- list(distr = "empirical", params = list(xs = temp_surv_data$years_from_dx, probs = probs, max_x = max_age))
     }
   }
   
