@@ -32,13 +32,14 @@ debug <- FALSE
 # Model structure
 if(debug) {
   n_cohort <- 1000 # Number to simulate in cohort
+  n_screen_sample <- 100
 } else {
-  n_cohort <- 2000000 # Number to simulate in cohort
+  n_cohort <- 1000000 # Number to simulate in cohort
+  n_screen_sample <- 500
 }
-n_screen_sample <- round(3/100 * n_cohort) # Number for screening sample
 
 # Randomization 
-seed <- 100 # Random seed
+seed <- 8 # Random seed for generating data
 jitter_multiplier_low <- 0.5 # Jitter for default parameters - lower bound in uniform distribution
 jitter_multiplier_high <- 2 # Jitter for default parameters - upper bound in uniform distribution
 
@@ -144,11 +145,11 @@ m_cohort_cancer[, p_cure := p_cure(prog_3s)]
 m_cohort_cancer[, fl_cure := rbinom(.N, size = 1, prob = p_cure)]
 
 # Flag life extension from treatment if not cured
-m_cohort_cancer[, cdf_nocure := runif(.N)]
-m_cohort_cancer[, time_3_Dc_nocure := time_3_Dc(cdf_nocure, prog_3s)]
+m_cohort_cancer[fl_cure == 0, cdf_nocure := runif(.N)]
+m_cohort_cancer[fl_cure == 0, time_3_Dc_nocure := time_3_Dc(cdf_nocure, prog_3s)]
 
 # Calculate death from cancer
-m_cohort_cancer[, time_3_Dc := ifelse(fl_die_surgery, 0, ifelse(fl_cure, Inf, time_3_Du + time_3_Dc_nocure))]
+m_cohort_cancer[, time_3_Dc := pmin(ifelse(fl_die_surgery, 1/52, Inf), ifelse(fl_cure, Inf, time_3_Du + time_3_Dc_nocure))]
 m_cohort_cancer[, time_0_Dc := time_0_3 + time_3_Dc]
 
 
@@ -232,16 +233,18 @@ output_surv <- with(summary(cancer_surv_fit, times = 0:10),
                stage = strata,
                years_from_dx = time,
                surv = surv
-             ))
+             )) %>%
+  mutate(stage = sapply(stage, as.character)) %>%
+  mutate(stage = substring(stage, nchar(stage), nchar(stage)))
 
 # Plot survival curve
-ggsurvplot(cancer_surv_fit, 
-           data = m_cohort_cancer_dx, 
-           con.int = TRUE,
-           xlim = c(0, 10),
-           break.time.by = 1,
-           ggtheme = theme_minimal(),
-           risk.table = TRUE)
+# ggsurvplot(cancer_surv_fit, 
+           # data = m_cohort_cancer_dx, 
+           # con.int = TRUE,
+           # xlim = c(0, 10),
+           # break.time.by = 1,
+           # ggtheme = theme_minimal(),
+           # risk.table = TRUE)
 
 
 # # Get background percentage alive by years from age at diagnosis (for male and female)

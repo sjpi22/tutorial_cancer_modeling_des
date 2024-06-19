@@ -29,7 +29,7 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
   # Disease-specific relative survival
   if (!is.null(file.surv)) {
     surv_data <- read.csv(file = file.surv) %>%
-      mutate(pct_died = 1 - relative_surv)
+      mutate(pct_died = 1 - surv)
   }
   
   # Strategy parameters (sensitivity, treatment effect) @@@
@@ -41,15 +41,15 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
   
   # Precancerous lesion starter variables
   l_distr_lesions <- list(
-    time_0_1 = list(distr = "weibull", params = list(shape = 2, scale = 75)),
-    n_add = list(distr = "pois", params = list(lambda = 0.05)),
-    time_1_1j = list(distr = "unif", params = "list(max = (time_0_Do - time_0_1))"),
-    time_1j_2i = list(distr = "gamma", params = list(shape = 8, scale = 8)),
-    size_1j_2 = list(distr = "unif", params = list(min = 10, max = 40))
+    time_0_1 = list(distr = "weibull", params = list(shape = 2, scale = 75), src = "unknown"),
+    n_add = list(distr = "pois", params = list(lambda = 0.05), src = "unknown"),
+    time_1_1j = list(distr = "unif", params = "list(max = (time_0_Do - time_0_1))", src = "assumed"),
+    time_1j_2i = list(distr = "gamma", params = list(shape = 8, scale = 8), src = "unknown"),
+    size_1j_2 = list(distr = "unif", params = list(min = 10, max = 40), src = "unknown")
   )
   
   # Cancer starter variable
-  time_2i_2ii <- list(distr = "gamma", params = list(shape = 2, scale = 2))
+  time_2i_2ii <- list(distr = "gamma", params = list(shape = 2, scale = 2), src = "unknown")
   
   # Survival after cancer diagnosis
   if (!is.null(file.surv)) {
@@ -64,7 +64,7 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
       probs <- c(probs, 1 - sum(probs))
       
       # Create distribution data
-      l_distr_surv[[stg]] <- list(distr = "empirical", params = list(xs = temp_surv_data$years_from_dx, probs = probs, max_x = max_age))
+      l_distr_surv[[stg]] <- list(distr = "empirical", params = list(xs = temp_surv_data$years_from_dx, probs = probs, max_x = max_age), src = "known")
     }
   }
   
@@ -74,11 +74,11 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
     max_age <- max_age
     
     # Sex
-    b_male <- list(distr = "binom", params = list(size = 1, prob = 0.5))
+    b_male <- list(distr = "binom", params = list(size = 1, prob = 0.5), src = "known")
     
     # Time to death from other causes
-    time_0_Do_male <- list(distr = "empirical", params = list(xs = l_lifetables$male$age, probs = l_lifetables$male$p_death , max_x = max_age))
-    time_0_Do_female <- list(distr = "empirical", params = list(xs = l_lifetables$female$age, probs = l_lifetables$female$p_death , max_x = max_age))
+    time_0_Do_male <- list(distr = "empirical", params = list(xs = l_lifetables$male$age, probs = l_lifetables$male$p_death , max_x = max_age), src = "known")
+    time_0_Do_female <- list(distr = "empirical", params = list(xs = l_lifetables$female$age, probs = l_lifetables$female$p_death , max_x = max_age), src = "known")
     
     # Precancerous lesions
     for(lesiontype in v_lesions) {
@@ -96,10 +96,10 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
     vars_cancer <- paste0("time_2", v_cancer, "_2", lead(v_cancer))[-length(v_cancer)]
     
     # Stage at diagnosis
-    stage_dx <- list(distr = "empirical", params = list(xs = seq(length(v_cancer)), probs = rep(1/length(v_cancer), length(v_cancer)), continuity_correction = NULL))
+    stage_dx <- list(distr = "empirical", params = list(xs = seq(length(v_cancer)), probs = rep(1/length(v_cancer), length(v_cancer)), continuity_correction = NULL), src = "unknown")
     
     # Time of diagnosis within stage
-    p_time_2x_3 <- list(distr = "unif", params = list(min = 0, max = 1))
+    p_time_2x_3 <- list(distr = "unif", params = list(min = 0, max = 1), src = "assumed")
     
     # Survival after cancer diagnosis
     if (!is.null(file.surv)) {

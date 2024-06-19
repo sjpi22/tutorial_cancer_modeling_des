@@ -32,6 +32,39 @@ calc_prevalence <- function(m_time, start_var, end_var, censor_var, v_ages = NUL
   return(res)
 }
 
+# Calculate precancerous lesion (PCL) prevalence from lesion-level and individual-level data
+calc_pcl_prevalence <- function(l_params_all, m_patients, m_lesions, v_ages) {
+  # Initialize containers for results
+  output_prev <- c()
+  names_output_prev <- c()
+  
+  # Loop over lesion types
+  for (lesiontype in l_params_all$v_lesions) {
+    # Get times for specific lesion type
+    temp_lesion_type <- unique(m_lesions[lesion_type == lesiontype, c("pt_id", "time_0_1")], by = c("pt_id", "time_0_1"))
+    
+    # Rename variable to avoid conflict when merging with original data
+    setnames(temp_lesion_type, "time_0_1", "time_0_1_lesion")
+    
+    # Merge to final data
+    temp_m_cohort <- merge(m_patients, temp_lesion_type, by = "pt_id", all.x = TRUE)
+    temp_prev <- calc_prevalence(temp_m_cohort, "time_0_1_lesion", "time_0_2", "time_screen_censor", v_ages[[lesiontype]]) %>%
+      select(-c("person_years_cases", "person_years_total")) %>%
+      mutate(confint_lb = qbinom((1-l_params_all$conf_level)/2, size = n_total, prob = prevalence) / n_total,
+             confint_ub = qbinom((1+l_params_all$conf_level)/2, size = n_total, prob = prevalence) / n_total)
+    
+    # Save outputs
+    output_prev <- c(output_prev, list(temp_prev))
+    names_output_prev <- c(names_output_prev, lesiontype)
+  }
+  
+  # Save results
+  names(output_prev) <- names_output_prev
+  
+  # Return prevalence output
+  return(output_prev)
+}
+
 # Calculate annual incidence
 calc_incidence <- function(m_time, time_var, censor_var, age_lower_bounds,
                            strat_var = NULL,
@@ -44,21 +77,21 @@ calc_incidence <- function(m_time, time_var, censor_var, age_lower_bounds,
   age_lower_bounds_orig <- age_lower_bounds # Save original vector of ages
   age_lower_bounds <- unique(c(0, age_lower_bounds)) # Add 0 as lower bound if necessary
   age_ranges <- paste(age_lower_bounds[-length(age_lower_bounds)], 
-                      age_lower_bounds[-1]-1, sep = "-")
+                      age_lower_bounds[-1], sep = "-")
   age_ranges <- c(age_ranges, paste0(max(age_lower_bounds), "+"))
-  age_df <- data.frame(age_ranges = age_ranges, 
-                       age_min = age_lower_bounds,
-                       age_max = lead(age_lower_bounds, default = ceiling(max(m_time[, get(censor_var)]))))
+  age_df <- data.frame(age_range = age_ranges, 
+                       age_start = age_lower_bounds,
+                       age_end = lead(age_lower_bounds, default = ceiling(max(m_time[, get(censor_var)]))))
   
   # Exposure time by age range
-  person_years_at_risk <- data.frame(age_range = age_df$age_ranges, 
+  person_years_at_risk <- data.frame(age_df, 
                                      total_atrisk = mapply(
                                        function(age_start, age_end) {
                                          total_atrisk = sum(pmax(m_time[ , pmin(get(censor_var), age_end)] - age_start, 0))
-                                       }, age_df$age_min, age_df$age_max),
-                                     age_diff = age_df$age_max - age_df$age_min) %>%
+                                       }, age_df$age_start, age_df$age_end),
+                                     age_diff = age_df$age_end - age_df$age_start) %>%
     mutate(n_population = round(total_atrisk / age_diff)) %>%
-    filter(age_range %in% age_df$age_range[age_df$age_min %in% age_lower_bounds_orig])
+    filter(age_range %in% age_df$age_range[age_df$age_start %in% age_lower_bounds_orig])
   
   # Set grouping variables
   group_vars <- "age_range"

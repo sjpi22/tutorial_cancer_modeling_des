@@ -28,6 +28,10 @@ editor: visual
 Setup
 
 ```{r}
+# Run this once
+# install.packages("devtools")
+# devtools::install_github("carolyner/imabc")
+
 # Clear workspace
 rm(list = ls())
 
@@ -39,6 +43,9 @@ library(readxl)
 library(data.table)
 library(tidyverse)
 library(patchwork)
+library(survival)
+library(imabc)
+library(keras)
 
 # Load functions
 distr.sources <- list.files("R", 
@@ -55,11 +62,11 @@ l_params_all <- load_default_params()
 
 # Make cohort small for testing
 l_params_all <- update_param_list(l_params_all,
-                                  list(n_cohort = 100,
+                                  list(n_cohort = 10000,
                                        v_strats = l_params_all$v_strats[1]))
 ```
 
-Visualize data inputs: Background mortality
+Visualize data inputs: Background mortality and survival from diagnosis
 
 ```{r}
 # Background mortality
@@ -82,10 +89,10 @@ plot_mort <- ggplot(df_mort, aes(yrs, prob, color = sex)) +
        color = "Sex")
 
 # Survival after diagnosis
-n_surv_ages <- length(l_params_all[[var]]$params$xs)
 df_surv <- data.frame()
 for (stg in l_params_all$v_cancer) {
   var <- paste0("time_3", stg, "_Dc")
+  n_surv_ages <- length(l_params_all[[var]]$params$xs)
   temp_df_surv <- data.frame(stage = toupper(stg),
                              yrs = l_params_all[[var]]$params$xs,
                              prob = 1 - c(0, cumsum(l_params_all[[var]]$params$probs[-n_surv_ages])))
@@ -125,6 +132,7 @@ Visualize outputs
 
 ```{r}
 
+
 ```
 
 ## Calibration
@@ -133,6 +141,58 @@ Why calibrate? How?
 
 Visualize calibration targets and default model
 
-Run calibration
+```{r}
+# Load calibration targets
+true_prevalence_a <- read.csv(file = 'data/prevalence_lesion_a.csv')
+true_prevalence_b <- read.csv(file = 'data/prevalence_lesion_b.csv')
+true_incidence_cancer <- read.csv(file = 'data/incidence_cancer.csv')
+
+# Load calibration parameter sample
+load('data/calibration_sample.RData')
+
+# Create censor variable for screening
+results_noscreening$m_cohort[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
+
+# Get vector of ages
+v_ages <- list('a' = c(true_prevalence_a$age_start[1], true_prevalence_a$age_end),
+               'b' = c(true_prevalence_b$age_start[1], true_prevalence_b$age_end[1]))
+
+# Calculate prevalence with default model
+default_prevalence <- calc_pcl_prevalence(l_params_all, results_noscreening$m_cohort, results_noscreening$m_lesions, v_ages)
+
+# Plot true and default prevalence
+full_prevalence_df <- rbind(true_prevalence_a %>%
+                              mutate(lesion = 'a',
+                                     label = 'True'), 
+                            true_prevalence_b %>%
+                              mutate(lesion = 'b', 
+                                     label = 'True'),
+                            default_prevalence$a %>%
+                              mutate(lesion = 'a',
+                                     label = 'Default'), 
+                            default_prevalence$b %>%
+                              mutate(lesion = 'b',
+                                     label = 'Default')) %>%
+  mutate(median_age = (age_end + age_start) / 2) %>%
+  mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)))
+
+ggplot(full_prevalence_df, aes(x = median_age, 
+                               y = prevalence,
+                               color = lesion,
+                               linetype = label)) + 
+  geom_point() + 
+  geom_errorbar(aes(x=median_age, ymin=confint_lb, ymax=confint_ub), alpha = 0.5) + 
+  labs(title = 'Precancerous lesion prevalence',
+       x = 'Age',
+       y = 'Prevalence')
+```
+
+How would you describe the fit of the default parameters to the calibration targets?
+
+### BayCANN: Bayesian Calibration with Artificial Neural Network
+
+```{r}
+
+```
 
 Visualize results and compare to before calibration
