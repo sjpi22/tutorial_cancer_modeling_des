@@ -1,7 +1,7 @@
 
 
 # Calculate prevalence in the intervals spanned by [v_ages[i], v_ages[i+1])
-calc_prevalence <- function(m_time, start_var, end_var, censor_var, v_ages = NULL) {
+calc_prevalence <- function(m_time, start_var, end_var, censor_var, v_ages = NULL, conf_level = 0.95) {
   # Number in cohort
   n_cohort <- nrow(m_time)
   
@@ -27,7 +27,9 @@ calc_prevalence <- function(m_time, start_var, end_var, censor_var, v_ages = NUL
       return(c(person_years_cases = num, person_years_total = denom, prevalence = num/denom))
     }, res$age_start, res$age_end))) %>%
     mutate(n_total = round(person_years_total / (age_end - age_start))) %>%
-    relocate(prevalence, .after = last_col())
+    relocate(prevalence, .after = last_col()) %>%
+    mutate(ci_lb = qbinom((1-conf_level)/2, size = n_total, prob = prevalence) / n_total,
+           ci_ub = qbinom((1+conf_level)/2, size = n_total, prob = prevalence) / n_total)
   
   return(res)
 }
@@ -49,9 +51,7 @@ calc_pcl_prevalence <- function(l_params_all, m_patients, m_lesions, v_ages) {
     # Merge to final data
     temp_m_cohort <- merge(m_patients, temp_lesion_type, by = "pt_id", all.x = TRUE)
     temp_prev <- calc_prevalence(temp_m_cohort, "time_0_1_lesion", "time_0_2", "time_screen_censor", v_ages[[lesiontype]]) %>%
-      select(-c("person_years_cases", "person_years_total")) %>%
-      mutate(confint_lb = qbinom((1-l_params_all$conf_level)/2, size = n_total, prob = prevalence) / n_total,
-             confint_ub = qbinom((1+l_params_all$conf_level)/2, size = n_total, prob = prevalence) / n_total)
+      dplyr::select(-c("person_years_cases", "person_years_total"))
     
     # Save outputs
     output_prev <- c(output_prev, list(temp_prev))
@@ -66,7 +66,7 @@ calc_pcl_prevalence <- function(l_params_all, m_patients, m_lesions, v_ages) {
 }
 
 # Calculate annual incidence
-calc_incidence <- function(m_time, time_var, censor_var, age_lower_bounds,
+calc_incidence <- function(m_time, time_var, censor_var, v_ages,
                            strat_var = NULL,
                            rate_unit = 100000) {
   
@@ -74,14 +74,12 @@ calc_incidence <- function(m_time, time_var, censor_var, age_lower_bounds,
   n_cohort <- nrow(m_time)
   
   # Create age category labels
-  age_lower_bounds_orig <- age_lower_bounds # Save original vector of ages
-  age_lower_bounds <- unique(c(0, age_lower_bounds)) # Add 0 as lower bound if necessary
-  age_ranges <- paste(age_lower_bounds[-length(age_lower_bounds)], 
-                      age_lower_bounds[-1], sep = "-")
-  age_ranges <- c(age_ranges, paste0(max(age_lower_bounds), "+"))
+  age_bounds <- unique(c(0, v_ages)) # Add 0 as lower bound if necessary
+  age_ranges <- paste(age_bounds[-length(age_bounds)], 
+                      age_bounds[-1], sep = "-")
   age_df <- data.frame(age_range = age_ranges, 
-                       age_start = age_lower_bounds,
-                       age_end = lead(age_lower_bounds, default = ceiling(max(m_time[, get(censor_var)]))))
+                       age_start = age_bounds[-length(age_bounds)],
+                       age_end = age_bounds[-1])
   
   # Exposure time by age range
   person_years_at_risk <- data.frame(age_df, 
@@ -91,21 +89,21 @@ calc_incidence <- function(m_time, time_var, censor_var, age_lower_bounds,
                                        }, age_df$age_start, age_df$age_end),
                                      age_diff = age_df$age_end - age_df$age_start) %>%
     mutate(n_population = round(total_atrisk / age_diff)) %>%
-    filter(age_range %in% age_df$age_range[age_df$age_start %in% age_lower_bounds_orig])
+    filter(age_range %in% age_df$age_range[age_df$age_start %in% v_ages[-length(v_ages)]])
   
   # Set grouping variables
-  group_vars <- "age_range"
-  if(!is.null(strat_var)) group_vars <- c(group_vars, strat_var)
+  grouping_vars <- "age_range"
+  if(!is.null(strat_var)) grouping_vars <- c(grouping_vars, strat_var)
   
   # Set rate unit
   if(is.null(rate_unit)) rate_unit <- 1
   
-  # Events by category and stage
+  # Number of events by category
   event_counts <- m_time %>%
-    filter(get(time_var) <= get(censor_var)) %>%
+    filter(get(time_var) <= pmin(get(censor_var), max(age_bounds))) %>%
     mutate(age_range = sapply(get(time_var),
-                              function(x) age_ranges[which.max(age_lower_bounds[x >= age_lower_bounds])])) %>%
-    group_by_at(group_vars) %>%
+                              function(x) age_ranges[which.max(age_bounds[x >= age_bounds])])) %>%
+    group_by_at(grouping_vars) %>%
     summarise(n_events = n(),
               .groups = "drop")
   
@@ -124,21 +122,72 @@ calc_incidence <- function(m_time, time_var, censor_var, age_lower_bounds,
     
     # Merge event counts
     event_counts <- all_var_vals %>%
-      left_join(event_counts, by = group_vars)
+      left_join(event_counts, by = grouping_vars)
   }
   
   if(nrow(event_counts) > 0) {
     event_counts <- person_years_at_risk %>%
       left_join(event_counts, by = "age_range") %>%
       mutate(n_events = replace_na(n_events, 0)) %>%
-      mutate(incidence_raw = n_events / total_atrisk) %>%
-      mutate(incidence = incidence_raw * rate_unit)
+      mutate(unit = rate_unit) %>%
+      mutate(incidence = n_events / total_atrisk * rate_unit,
+             se = sqrt(n_events) / total_atrisk * rate_unit)
   } else {
     event_counts <- person_years_at_risk %>%
       mutate(n_events = 0,
-             incidence = 0)
+             unit = rate_unit,
+             incidence = 0,
+             se = 0)
   }
   
   return(event_counts)
 }
 
+# Calculate stage distribution from patient-level data
+calc_stage_distr <- function(m_time, grouping_var, event_var, censor_var, groups_expected = c(1,2,3,4), conf_level = 0.95) {
+  # Count patients diagnosed at each stage
+  distr <- m_time %>%
+    filter(get(event_var) <= get(censor_var)) %>%
+    group_by_at(grouping_var) %>%
+    summarize(count = n(), .groups = 'drop') 
+  
+  # Create dataframe of expected stages
+  df_groups_expected <- setNames(data.frame(groups_expected), grouping_var)
+  
+  # If any stages not represented, convert to 0
+  distr <- df_groups_expected %>%
+    left_join(distr, by = grouping_var) %>%
+    mutate_all(~replace(., is.na(.), 0)) 
+  
+  # If no patients diagnosed at any stage, create dataframe of zeros
+  if (nrow(distr) == 0) {
+    distr <- df_groups_expected %>%
+      mutate(count = 0)
+  }
+  
+  # Add percentages and confidence intervals
+  distr <- distr %>%
+    mutate(pct = count / sum(count)) %>%
+    mutate(ci_lb = qbinom((1-conf_level)/2, size = sum(count), prob = pct) / sum(count),
+           ci_ub = qbinom((1+conf_level)/2, size = sum(count), prob = pct) / sum(count)) %>%
+    mutate_all(~replace(., is.na(.), 0)) 
+  
+  return(distr)
+}
+
+# Get prevalence age range for input into calc_prevalence from list of prevalence dataframes
+get_age_range_from_list <- function(l_df_inputs) {
+  l_v_ages <- list()
+  for (lesiontype in names(l_df_inputs)) {
+    df_inputs <- l_df_inputs[[lesiontype]]
+    l_v_ages[[lesiontype]] <- get_age_range(df_inputs)
+  }
+  
+  return(l_v_ages)
+}
+
+# Get prevalence age range for input into calc_prevalence from prevalence dataframe
+get_age_range <- function(df_inputs) {
+  v_ages <- c(df_inputs$age_start[1], df_inputs$age_end)
+  return(v_ages)
+}

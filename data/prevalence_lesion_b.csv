@@ -1,2 +1,2 @@
-"age_start","age_end","n_total","prevalence","confint_lb","confint_ub"
+"age_start","age_end","n_total","prevalence","ci_lb","ci_ub"
 50,80,302,0.276048310009908,0.225165562913907,0.327814569536424

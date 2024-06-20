@@ -57,7 +57,9 @@ time_3_Dc <- function(cdf, prog) {pmax(0, log(1/cdf - 1) / (-0.5) + 10 - prog * 
 # Outcome reporting
 v_age_lesion_a <- c(seq(20, 85, 5), 100) # Age for lesion A prevalence
 v_age_lesion_b <- c(50, 80) # Ages for lesion B prevalence
-v_age_cancer_incidence <- v_age_lesion_a[-length(v_age_lesion_a)] # Age for cancer incidence 
+v_ages_prevalence <- list(a = v_age_lesion_a,
+                          b = v_age_lesion_b) # List of ages for lesion-specific prevalence
+v_age_cancer_incidence <- v_age_lesion_a # Age for cancer incidence 
 v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 
 
@@ -163,9 +165,6 @@ m_cohort_final <- merge(m_cohort_init, m_cohort_cancer[, (dupe_names) := NULL], 
 m_cohort_final[, time_0_D := pmin(time_0_Do, time_0_Dc, na.rm = TRUE)]
 m_cohort_final[, fl_death_cancer := (time_0_Do > pmin(time_0_Dc, Inf, na.rm = TRUE))]
 
-# Calculate screening censor date
-m_cohort_final[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
-
 # Calculate survival from cancer diagnosis
 m_cohort_final[time_0_3 <= time_0_D, time_3_D := time_0_D - time_0_3]
 assertthat::are_equal(nrow(m_cohort_final[(fl_death_cancer == 1) & is.na(time_3_D), ]), 0) # Check that all patients with death due to cancer have time from diagnosis to death populated
@@ -175,46 +174,13 @@ assertthat::are_equal(nrow(m_cohort_final[(fl_death_cancer == 1) & is.na(time_3_
 # Generate outputs
 ################################################################################
 
-#### Lesion prevalence in undiagnosed patients ####
-
-# Randomly sample patients for screening
-m_screen_sample <- m_cohort_final[sample(.N, n_screen_sample)]
-
-# Initialize containers for results
-output_prev <- c()
-names_output_prev <- c()
-
-# Loop over lesion types
-for (lesiontype in l_params_all$v_lesions) {
-  # Get times for specific lesion type
-  temp_lesion_type <- unique(m_lesions[lesion_type == lesiontype, c("pt_id", "time_0_1")], by = c("pt_id", "time_0_1"))
-  
-  # Rename variable to avoid conflict when merging with original data
-  setnames(temp_lesion_type, "time_0_1", "time_0_1_lesion")
-  
-  # Merge to final data
-  temp_m_cohort <- merge(m_screen_sample, temp_lesion_type, by = "pt_id", all.x = TRUE)
-  temp_prev <- calc_prevalence(temp_m_cohort, "time_0_1_lesion", "time_0_2", "time_screen_censor", get(paste("v_age_lesion", lesiontype, sep = "_"))) %>%
-    select(-c("person_years_cases", "person_years_total")) %>%
-    mutate(confint_lb = qbinom((1-l_params_all$conf_level)/2, size = n_total, prob = prevalence) / n_total,
-           confint_ub = qbinom((1+l_params_all$conf_level)/2, size = n_total, prob = prevalence) / n_total)
-  
-  # Save outputs
-  output_prev <- c(output_prev, list(temp_prev))
-  names_output_prev <- c(names_output_prev, lesiontype)
-}
-
-# Save results
-names(output_prev) <- names_output_prev
-
-
-#### Cancer incidence by age and stage ####
-
-# Get incidence outputs and clean
-output_inc <- calc_incidence(m_cohort_final, "time_0_3", "time_0_D", age_lower_bounds = v_age_cancer_incidence, strat_var = "stage_dx") %>%
-  select(age_range, n_population, stage_dx, incidence) %>%
-  rename(incidence_per_100000 = incidence)
-
+# Get prevalence, incidence, and stage outputs
+l_outputs <- calc_calib_targets(l_params_all, 
+                                m_cohort_final, 
+                                m_lesions, 
+                                v_ages_prevalence, 
+                                v_age_cancer_incidence,
+                                n_screen_sample)
 
 #### Relative survival by stage and years from diagnosis ####
 
@@ -291,11 +257,14 @@ output_surv <- with(summary(cancer_surv_fit, times = 0:10),
 if(!debug) {
   # Lesion prevalence
   for (lesiontype in l_params_all$v_lesions) {
-    write.csv(output_prev[[lesiontype]], paste0("data/prevalence_lesion_", lesiontype, ".csv"), row.names = FALSE)
+    write.csv(l_outputs$prevalence[[lesiontype]], paste0("data/prevalence_lesion_", lesiontype, ".csv"), row.names = FALSE)
   }
   
   # Cancer incidence
-  write.csv(output_inc, "data/incidence_cancer.csv", row.names = FALSE)
+  write.csv(l_outputs$incidence, "data/incidence_cancer.csv", row.names = FALSE)
+  
+  # Stage distribution
+  write.csv(l_outputs$stage_distr, "data/stage_distr.csv", row.names = FALSE)
   
   # Survival
   write.csv(output_surv, "data/relative_survival_cancer.csv", row.names = FALSE)

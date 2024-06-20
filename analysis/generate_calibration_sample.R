@@ -16,8 +16,15 @@ sapply(distr.sources, source, .GlobalEnv)
 ###  Prepare parameters for calibration                                      ###
 ################################################################################
 
-# Variables
-n_samp <- 1000
+# Flag for debugging
+debug <- FALSE
+
+# Number of samples
+if (debug) {
+  n_samp <- 10
+} else {
+  n_samp <- 1000
+}
 
 # Load default data
 l_params_all <- load_default_params()
@@ -84,6 +91,21 @@ param_map$prior_max <- 3 * param_map$param_val
 
 # Get number of params to calibrate
 n_param <- nrow(param_map)
+
+# Vectors of ages for targets
+
+# Load calibration targets for vectors of ages
+true_prevalence_a <- read.csv(file = 'data/prevalence_lesion_a.csv')
+true_prevalence_b <- read.csv(file = 'data/prevalence_lesion_b.csv')
+true_incidence_cancer <- read.csv(file = 'data/incidence_cancer.csv')
+
+# Get vector of ages for prevalence
+v_ages_prevalence <- list()
+v_ages_prevalence[['a']] <- get_age_range(true_prevalence_a)
+v_ages_prevalence[['b']] <- get_age_range(true_prevalence_b)
+
+# Get vector of ages for incidence
+v_ages_incidence <- get_age_range(true_incidence_cancer)
   
 ################################################################################
 ###  Generate a random sample of input values                                ###
@@ -105,10 +127,24 @@ colnames(m_param_samp) <- param_map$var_id
 ###  Generate corresponding outputs                                          ###
 ################################################################################
 # Run model for each input parameter sample and get corresponding targets
+out_calib_targets <- data.frame()
+start_time <- Sys.time()
 for (i in 1:n_samp) {
+  # Print index for progress
+  if(debug) {
+    print(i)
+  } else {
+    if (i %% 100 == 1) print(i)
+  }
+  
   v_params_update <- m_param_samp[i,]
-  v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, param_map)
+  v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, param_map,
+                                             v_ages_prevalence, v_ages_incidence)
+  
+  out_calib_targets <- rbind(out_calib_targets, t(v_calib_targets))
 }
+end_time <- Sys.time()
+print(paste('Simulation time:', end_time - start_time))
 
 # Save data files
-save(param_map, m_param_samp, file = 'data/calibration_sample.RData')
+save(param_map, m_param_samp, out_calib_targets, file = 'data/calibration_sample.RData')

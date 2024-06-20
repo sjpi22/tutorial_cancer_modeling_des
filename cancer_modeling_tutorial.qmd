@@ -154,8 +154,9 @@ load('data/calibration_sample.RData')
 results_noscreening$m_cohort[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
 
 # Get vector of ages
-v_ages <- list('a' = c(true_prevalence_a$age_start[1], true_prevalence_a$age_end),
-               'b' = c(true_prevalence_b$age_start[1], true_prevalence_b$age_end[1]))
+v_ages <- list()
+v_ages[['a']] <- get_prevalence_age_range(true_prevalence_a)
+v_ages[['b']] <- get_prevalence_age_range(true_prevalence_b)
 
 # Calculate prevalence with default model
 default_prevalence <- calc_pcl_prevalence(l_params_all, results_noscreening$m_cohort, results_noscreening$m_lesions, v_ages)
