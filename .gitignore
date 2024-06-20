@@ -53,3 +53,4 @@ rsconnect/
 
 # Custom
 examples/
+output/model*.*
