@@ -29,7 +29,8 @@ calc_prevalence <- function(m_time, start_var, end_var, censor_var, v_ages = NUL
     mutate(n_total = round(person_years_total / (age_end - age_start))) %>%
     relocate(prevalence, .after = last_col()) %>%
     mutate(ci_lb = qbinom((1-conf_level)/2, size = n_total, prob = prevalence) / n_total,
-           ci_ub = qbinom((1+conf_level)/2, size = n_total, prob = prevalence) / n_total)
+           ci_ub = qbinom((1+conf_level)/2, size = n_total, prob = prevalence) / n_total) %>%
+    mutate_all(~replace(., is.na(.), 0))
   
   return(res)
 }
@@ -107,7 +108,7 @@ calc_incidence <- function(m_time, time_var, censor_var, v_ages,
     summarise(n_events = n(),
               .groups = "drop")
   
-  # Make sure all values of stratifying variable are represented
+  # Make sure all values of stratifying variables are represented
   if(!is.null(strat_var)) {
     # Get sorted values of stratifying variable
     strat_var_vals <- sort(unique(m_time[[strat_var]]))

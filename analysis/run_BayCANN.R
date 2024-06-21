@@ -1,7 +1,7 @@
 ###########################  BayCANN   #########################################
 #
-#  Objective: Script to perform an emulator-based Bayesian calibration on SimCRC
-########################### <<<<<>>>>> ##############################################
+#  Objective: Script to perform an emulator-based Bayesian calibration
+########################### <<<<<>>>>> #########################################
 
 # Sources: Jalal H, Trikalinos TA, Alarid-Escudero F. BayCANN: Streamlining 
 # Bayesian Calibration With Artificial Neural Network Metamodeling. Front 
@@ -16,6 +16,8 @@
 
 
 #### 1.Libraries and functions  ==================================================
+# Clean environment
+rm(list = ls())
 
 library(keras)   #Install previously tensorflow
 library(rstan)
@@ -27,15 +29,17 @@ rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
 
-###### 1.1 Load baycann functions =================================================
-#* Clean environment
-rm(list = ls())
-source("R/03_calibration_general_functions.R")
-source("R/03a_baycann_functions.R")
+###### 1.1 Load  functions =================================================
+
+# Load functions
+distr.sources <- list.files("R", 
+                            pattern="*.R$", full.names=TRUE, 
+                            ignore.case=TRUE, recursive = TRUE)
+sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
 
-###### 2.1 parameters for Data preparation 
+###### 2.1 parameters for data preparation 
 scale_type <- 1  ## 1: for scale from -1 to 1; 2: for standardization ; 3: for scale from 0 to 1
 seed <- 123
 train_split <- 0.8
@@ -45,6 +49,12 @@ targets_files <- list(prevalence = list(
   b = "data/prevalence_lesion_b.csv"),
   incidence = "data/incidence_cancer.csv",
   stage_distr = "data/stage_distr.csv")
+
+path_keras_model <- paste0("output/model_keras_BayCANN.h5")    ##File path for the compiled model
+path_baycann_params <- paste0("output/parameters_BayCANN.RData")
+path_posterior <- "output/calibrated_posteriors_BayCANN.csv"
+file_stan <- "stan/post_multi_perceptron.stan"
+file_stan_normalized <- "stan/post_multi_perceptron_normal.stan"
 
 ###### 2.1 parameters for ANN 
 verbose          <- 0
@@ -88,7 +98,17 @@ load(sample_file)
 
 data_sim_param <- as.matrix(m_param_samp)
 
+# Remove inputs for which there are no outputs
+if(nrow(out_calib_targets) < nrow(m_param_samp)) data_sim_param <- data_sim_param[1:nrow(out_calib_targets),]
+
 ###### 4.2 Model Outputs ####
+
+# Change NAs to 0 with warning
+if (sum(sapply(out_calib_targets, function(x) any(is.nan(x)))) > 0) {
+  print('Warning: Nans in targets, replacing with 0')
+  out_calib_targets <- out_calib_targets %>%
+    mutate_all(~replace(., is.na(.), 0))
+}
 
 data_sim_target <- as.matrix(out_calib_targets)
 
@@ -157,7 +177,6 @@ y_targets_se <- t(as.matrix(y_targets_se))
 #### 11. Keras Section BayCANN SimCRC ==============================================
 
 # File name of keras model
-path_keras_model <- paste0("output/model_keras_BayCANN.h5")    ##File path for the compiled model
 
 model <- keras_model_sequential()
 mdl_string <- paste("model %>% layer_dense(units = n_hidden_nodes, kernel_initializer=init_W, activation = activation_fun, input_shape = n_inputs) %>%",
@@ -273,7 +292,6 @@ ggplot(data = ann_valid_transpose4, aes(x = model, y = pred)) +
 
 #### 12. Stan section ==============================================================
 
-path_posterior <- "output/calibrated_posteriors_BayCANN.csv"
 
 weights <- get_weights(model) #get ANN weights
 
@@ -311,9 +329,9 @@ stan.dat=list(
 # Select the stan file based on data transformation
 
 if (Normalize_inputs) {
-  file_perceptron <- "stan/post_multi_perceptron_normal.stan"
+  file_perceptron <- file_stan_normalized
 } else {
-  file_perceptron <- "stan/post_multi_perceptron.stan"  
+  file_perceptron <- file_stan 
 }
 
 # Run stan file
@@ -511,7 +529,6 @@ ggsave(gg_prior_post,
 # 14. Save BayCANN parameters  -------------------------------------------------
 
 ##Save BayCANN parameters
-path_baycann_params <- paste0("output/parameters_BayCANN.RData")
 param_BayCANN <- list(scale_type,
                       scale_type, 
                       verbose,

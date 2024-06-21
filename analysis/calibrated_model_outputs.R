@@ -1,6 +1,6 @@
 ###########################  Calibrated model   #########################################
 #
-#  Objective: Script to aclculate decision model outputs with BayCANN calibrated parameters
+#  Objective: Script to calculate decision model outputs with BayCANN calibrated parameters
 ########################### <<<<<>>>>> ##############################################
 
 

@@ -1,29 +1,40 @@
-# Program to generate model outputs with various inputs for model calibration
+###########################  Generate BayCANN Sample  ##########################
+#
+#  Objective: Program to simulate parameter inputs and model outputs for 
+#  BayCANN model calibration
+########################### <<<<<>>>>> #########################################
 
-# Load packages
+
+#### 1.Libraries and functions  ==================================================
+# Clean environment
+rm(list = ls())
+
 library(readxl)
 library(data.table)
 library(tidyverse)
 library(lhs)
+library(doParallel)
+library(foreach)
 
-# Load functions
+###### 1.1 Load  functions =================================================
 distr.sources <- list.files("R", 
                             pattern="*.R$", full.names=TRUE, 
                             ignore.case=TRUE, recursive = TRUE)
 sapply(distr.sources, source, .GlobalEnv)
 
-################################################################################
-###  Prepare parameters for calibration                                      ###
-################################################################################
+#### 2. General parameters ========================================================
 
-#### Modifiable parameters ####
-# For debugging
-debug_small <- FALSE
-debug_large <- FALSE
-print_increment = 0.05
-
-# File paths
+###### 2.1 file paths 
 data_inpath <- data_outpath <- 'data/'
+
+###### 2.2 modifiable parameters
+# Control variables for running on cluster
+slurm <- FALSE # change to TRUE if running on Sherlock/slurm
+
+# For debugging and viewing outputs
+debug_small <- FALSE
+debug_large <- TRUE
+print_increment = 0.05
 
 # Multiplier
 prior_multiplier_min <- 1/3
@@ -34,7 +45,7 @@ if (debug_small) {
   n_samp <- 10
   n_cohort = 1000
 } else if (debug_large) {
-  n_samp <- 5
+  n_samp <- 10
   n_cohort <- 500000
 } else {
   n_samp <- 2000
@@ -42,9 +53,9 @@ if (debug_small) {
 }
 
 
-#### Processing ####
+#### 3. Pre-processing actions  ===========================================
 
-# Check if directory exists, make if not
+# Create directory if it does not exist
 dir.create(file.path(data_outpath), showWarnings = FALSE)
 
 # Load default data
@@ -81,10 +92,8 @@ v_ages_prevalence[['b']] <- get_age_range(true_prevalence_b)
 
 # Get vector of ages for incidence
 v_ages_incidence <- get_age_range(true_incidence_cancer)
-  
-################################################################################
-###  Generate a random sample of input values                                ###
-################################################################################
+
+#### 4. Generate random set of inputs  ===========================================
 
 # Sample unit Latin Hypercube
 m_lhs_unit <- randomLHS(n_samp, n_param)
@@ -98,9 +107,9 @@ for (i in 1:n_param) {
 }
 colnames(m_param_samp) <- param_map$var_id
 
-################################################################################
-###  Generate corresponding outputs                                          ###
-################################################################################
+
+#### 5. Generate corresponding outputs  ===========================================
+
 # Run model for each input parameter sample and get corresponding targets
 out_calib_targets <- data.frame()
 verbose <- FALSE
@@ -116,6 +125,10 @@ for (i in 1:n_samp) {
       print('================')
       print(paste('Simulation', i))
       verbose = TRUE
+      if (i == 3) {
+        end_time <- Sys.time()
+        print(paste('Simulation time:', end_time - start_time))
+      }
     } else verbose = FALSE
   } else {
     # For progress, print every 5% of the way
@@ -134,6 +147,11 @@ for (i in 1:n_samp) {
 end_time <- Sys.time()
 print(paste('Simulation time:', end_time - start_time))
 
-# Save data files
+
+#### 6. Save data files  ===========================================
+# Check for any NaN
+assertthat::validate_that(sum(sapply(m_param_samp, function(x) any(is.nan(x)))) == 0)
+assertthat::validate_that(sum(sapply(out_calib_targets, function(x) any(is.nan(x)))) == 0)
+
 if(!debug_small & !debug_large)
   save(param_map, m_param_samp, out_calib_targets, file = paste0(data_outpath, 'calibration_sample.RData'))

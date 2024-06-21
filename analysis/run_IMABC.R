@@ -1,7 +1,7 @@
 # Run IMABC: Vignette at https://github.com/c-rutter/imabc
 
 # Run once
-install.packages("imabc")
+# install.packages("imabc")
 
 # Load packages
 library(imabc)

@@ -131,7 +131,7 @@ simulate_lesion_data <- function(m_times, l_params_all, verbose = FALSE) {
       temp_m_times_lesion[, time_0_2i := time_0_1j + time_1j_2i]
       
       # Bind to lesion-level data table
-      m_times_lesion <- rbind(m_times_lesion, temp_m_times_lesion)
+      m_times_lesion <- rbindlist(list(m_times_lesion, temp_m_times_lesion))
     }
     
     return(m_times_lesion)
