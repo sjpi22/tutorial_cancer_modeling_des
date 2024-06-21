@@ -104,7 +104,6 @@ if (Remove_outliers) {
 
 #### 7. Train/test partition ======================================================
 
-# library(caTools)
 train.rows <- sample.int(nrow(data_sim_param), 
                          size = train_split * nrow(data_sim_param),
                          replace = FALSE)
@@ -331,7 +330,7 @@ t_calibration <- proc.time() - stan.time # stan sampling time
 t_calibration <- t_calibration[3] / 60
 summary(m)
 
-path_stan_model <- paste0("output/stan_model_BayCANN.rds")
+path_stan_model <- paste0("output/model_stan_BayCANN.rds")
 
 param_names    <- colnames(data_sim_param)
 
@@ -352,7 +351,7 @@ stan_plot(m,pars=param_names, point_est = "mean", show_density = TRUE, fill_colo
 stan_hist(m,pars=param_names, inc_warmup = FALSE)
 
 standensity <- stan_dens(m,pars=param_names, inc_warmup = FALSE, separate_chains=TRUE)
-ggsave(filename = paste0(folder,"/fig_posterior_distribution_chains",BayCANN_version,".png"),
+ggsave(filename = paste0("output/fig_posterior_distribution_chains_BayCANN.png"),
        standensity,
        width = 24, height = 16)
 
@@ -436,13 +435,13 @@ gg_calib_post_pair_corr <- GGally::ggpairs(df_post,
         strip.text = element_text(hjust = 0))
 gg_calib_post_pair_corr
 
-ggsave(filename = paste0(folder,"/fig_posterior_distribution_pairwise_corr_",BayCANN_version,".png"),
+ggsave(filename = paste0("output/fig_posterior_distribution_pairwise_corr_BayCANN_version.png"),
        gg_calib_post_pair_corr,
        width = 36, height = 24)
 
 
 #### Prior and prior graph
-n_samp <- 1000
+n_samp <- min(1000, nrow(data_sim_param_train))
 df_samp_prior <- melt(cbind(Distribution = "Prior",
                             as.data.frame(data_sim_param_train[1:n_samp, ])),
                       variable.name = "Parameter")
@@ -478,7 +477,7 @@ df_maps_n_true_params$Parameter<-as.factor(x_names)
 
 library(dampack)
 
-gg_ann_vs_imis <- ggplot(df_samp_prior_post,
+gg_prior_post <- ggplot(df_samp_prior_post,
                          aes(x = value, y = ..density.., fill = Distribution)) +
   facet_wrap(~Parameter, scales = "free",
              ncol = 5,
@@ -500,21 +499,20 @@ gg_ann_vs_imis <- ggplot(df_samp_prior_post,
         strip.background = element_rect(fill = "white",
                                         color = "white"),
         strip.text = element_text(hjust = 0))
-gg_ann_vs_imis
-ggsave(gg_ann_vs_imis,
-       filename = paste0(folder,"/fig_ANN-vs-IMIS-posterior.pdf"),
+gg_prior_post
+ggsave(gg_prior_post,
+       filename = paste0("output/fig_BayCANN-prior-posterior.pdf"),
        width = 36, height = 24)
-ggsave(gg_ann_vs_imis,
-       filename = paste0(folder,"/fig_ANN-vs-IMIS-posterior.png"),
+ggsave(gg_prior_post,
+       filename = paste0("output/fig_BayCANN-prior-posterior.png"),
        width = 36, height = 24)
 
 
 # 14. Save BayCANN parameters  -------------------------------------------------
 
 ##Save BayCANN parameters
-path_baycann_params <- paste0(folder,"/parameters_",BayCANN_version,".RData")
-param_BayCANN <- list(BayCANN_version, 
-                      scale_type,
+path_baycann_params <- paste0("output/parameters_BayCANN.RData")
+param_BayCANN <- list(scale_type,
                       scale_type, 
                       verbose,
                       n_batch_size,
@@ -535,11 +533,8 @@ param_BayCANN <- list(BayCANN_version,
                       Standardize_targets,
                       Saved_data,
                       Selected_targets,
-                      params_file,
-                      selected_params,
-                      outputs_file,
-                      selected_targets,
-                      targets_file,
+                      sample_file,
+                      targets_files,
                       path_keras_model,
                       t_training,
                       metric_loss,
@@ -549,7 +544,6 @@ param_BayCANN <- list(BayCANN_version,
                       file_perceptron, 
                       t_calibration,
                       path_stan_model,
-                      path_validation_ANN,
                       path_baycann_params
 )
 

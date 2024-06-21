@@ -40,7 +40,8 @@ update_calib_params <- function(l_params_all, v_params_update, param_map) {
 }
 
 # Run model and generate calibration target outputs
-calc_calib_targets <- function(l_params_all, m_patients, m_lesions, v_ages_prevalence, v_ages_incidence,
+calc_calib_targets <- function(l_params_all, m_patients, m_lesions, 
+                               v_ages_prevalence, v_ages_incidence,
                                n_screen_sample = NULL) {
   
   # Sample patient cohort for screening if 'n_screen_sample" is populated
@@ -75,12 +76,17 @@ calc_calib_targets <- function(l_params_all, m_patients, m_lesions, v_ages_preva
 
 # Reshape calibration targets to single vector
 # Inputs: list with items list[['prevalence']][['lesiontype']] and list[['incidence']]
-reshape_calib_targets <- function(l_calib_targets, output_se = FALSE, conf_level = 0.95) {
-  # Initialize vector of outputs
+reshape_calib_targets <- function(l_calib_targets, output_se = FALSE, 
+                                  output_map = FALSE,
+                                  conf_level = 0.95) {
+  # Initialize vector(s) of outputs
   v_targets <- c()
   if (output_se) {
     v_se <- c()
     z <- qnorm(conf_level + (1-conf_level)/2, 0, 1)
+  }
+  if (output_map) {
+    target_map <- data.frame()
   }
   
   # Prevalence by lesion type
@@ -101,6 +107,13 @@ reshape_calib_targets <- function(l_calib_targets, output_se = FALSE, conf_level
       names(v_temp_se) <- prev_df$varname
       v_se <- c(v_se, v_temp_se)
     }
+    
+    # Get output mapping
+    if (output_map) {
+      target_map <- rbind(target_map,
+                      data.frame(target_groups = paste("Prevalence of lesion type", lesiontype),
+                                 target_index = (prev_df$age_start + prev_df$age_end)/2))
+    }
   }
   
   # Extract incidence and name as varname and append to target vector
@@ -117,6 +130,13 @@ reshape_calib_targets <- function(l_calib_targets, output_se = FALSE, conf_level
     v_se <- c(v_se, v_temp_se)
   }
   
+  # Get output mapping
+  if (output_map) {
+    target_map <- rbind(target_map,
+                    data.frame(target_groups = "Cancer incidence",
+                               target_index = (inc_df$age_start + inc_df$age_end)/2))
+  }
+  
   # Stage distribution
   stage_df <- l_calib_targets[['stage_distr']] %>%
     mutate(varname = paste('stage', stage_dx, sep = '_'))
@@ -131,14 +151,29 @@ reshape_calib_targets <- function(l_calib_targets, output_se = FALSE, conf_level
     v_se <- c(v_se, v_temp_se)
   }
   
+  # Get output mapping
+  if (output_map) {
+    target_map <- rbind(target_map,
+                    data.frame(target_groups = "Stage at diagnosis",
+                               target_index = stage_df$stage_dx))
+  }
+  
   # Return outputs
-  if (output_se) {
-    return(list(v_targets = v_targets, v_se = v_se))
+  if (output_se | output_map) {
+    v_outputs <- list(v_targets = v_targets)
+    if (output_se) {
+      v_outputs$v_se <- v_se
+    } 
+    if (output_map) {
+      v_outputs$target_map <- target_map
+    }
+    return(v_outputs)
   } else return(v_targets)
 }
 
 # Wrapper for running calibration and outputting vector of outputs
-params_to_calib_targets <- function(l_params_all, v_params_update, param_map, v_ages_prevalence, v_ages_incidence) {
+params_to_calib_targets <- function(l_params_all, v_params_update, param_map, v_ages_prevalence, v_ages_incidence, reshape_output = TRUE,
+                                    output_se = FALSE, output_map = FALSE, conf_level = 0.95) {
   # Update parameters
   l_params_update <- update_calib_params(l_params_all, v_params_update, param_map)
   
@@ -152,7 +187,12 @@ params_to_calib_targets <- function(l_params_all, v_params_update, param_map, v_
                                         results_noscreening$m_lesions, 
                                         v_ages_prevalence, 
                                         v_ages_incidence)
-  v_calib_targets <- reshape_calib_targets(l_calib_targets)
+  if (reshape_output) {
+    v_calib_targets <- reshape_calib_targets(l_calib_targets, output_se = output_se,
+                                             output_map = output_map, conf_level = 0.95)
+    return(v_calib_targets)
+  } else {
+    return(l_calib_targets)
+  }
   
-  return(v_calib_targets)
 }
