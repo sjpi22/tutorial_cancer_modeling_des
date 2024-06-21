@@ -155,8 +155,8 @@ results_noscreening$m_cohort[, time_screen_censor := pmin(time_0_D, time_0_3, na
 
 # Get vector of ages
 v_ages <- list()
-v_ages[['a']] <- get_prevalence_age_range(true_prevalence_a)
-v_ages[['b']] <- get_prevalence_age_range(true_prevalence_b)
+v_ages[['a']] <- get_age_range(true_prevalence_a)
+v_ages[['b']] <- get_age_range(true_prevalence_b)
 
 # Calculate prevalence with default model
 default_prevalence <- calc_pcl_prevalence(l_params_all, results_noscreening$m_cohort, results_noscreening$m_lesions, v_ages)
@@ -182,7 +182,7 @@ ggplot(full_prevalence_df, aes(x = median_age,
                                color = lesion,
                                linetype = label)) + 
   geom_point() + 
-  geom_errorbar(aes(x=median_age, ymin=confint_lb, ymax=confint_ub), alpha = 0.5) + 
+  geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
   labs(title = 'Precancerous lesion prevalence',
        x = 'Age',
        y = 'Prevalence')

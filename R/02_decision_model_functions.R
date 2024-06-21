@@ -5,7 +5,7 @@
 #' @return Data table of time to event data for each individual
 #' 
 #' @export
-run_model <- function(l_params_all) {
+run_model <- function(l_params_all, verbose = FALSE) {
   ##############################################################################
   #### Initialization
   ##############################################################################
@@ -21,16 +21,21 @@ run_model <- function(l_params_all) {
   #### Generate data under base case strategy
   ##############################################################################
   # Initialize matrix of patient data
-  m_cohort_init <- initialize_cohort(l_params_all)
+  m_cohort_init <- initialize_cohort(l_params_all, verbose = verbose)
   
   # Generate baseline characteristics
-  simulate_baseline_data(m_cohort_init, l_params_all)
+  simulate_baseline_data(m_cohort_init, l_params_all, verbose = verbose)
   
   # Generate precancerous lesions
-  m_lesions <- simulate_lesion_data(m_cohort_init, l_params_all)
+  m_lesions <- simulate_lesion_data(m_cohort_init, l_params_all, verbose = verbose)
   
-  # Consolidate lesion-level data to patient-level data for cancer onset and mortality
-  m_cohort_base <- simulate_cancer_data(m_cohort_init, m_lesions, l_params_all)
+  # Consolidate lesion-level data to patient-level data for cancer onset and progression
+  m_cohort_cancer <- simulate_cancer_progression(m_cohort_init, m_lesions, l_params_all, 
+                                                 verbose = verbose)
+  
+  # Compile overall mortality outcomes from backgrount and cancer data
+  m_cohort_base <- calc_mortality_outcomes(m_cohort_init, m_cohort_cancer, 
+                                           verbose = verbose)
   
   # Add to results
   l_results[[l_params_all$v_strats[1]]] <- list(m_cohort = m_cohort_base, 
@@ -52,7 +57,8 @@ run_model <- function(l_params_all) {
 }
 
 # Initialize time to event matrix for patient cohort with patient IDs and baseline strategy
-initialize_cohort <- function(l_params_all) {
+initialize_cohort <- function(l_params_all, verbose = FALSE) {
+  if(verbose) print('Initializing cohort')
   m_times_init <- with(as.list(l_params_all), {
     m_times <- data.table(
       pt_id = 1:n_cohort,
@@ -65,8 +71,9 @@ initialize_cohort <- function(l_params_all) {
   return(m_times_init)
 }
 
-# Generate baseline data
-simulate_baseline_data <- function(m_times, l_params_all) {
+# Generate baseline data - updates by reference in-place, so does not return anything
+simulate_baseline_data <- function(m_times, l_params_all, verbose = FALSE) {
+  if(verbose) print('Simulating baseline data')
   with(as.list(l_params_all), {
     # Sample male / female
     m_times[, b_male := query_distr("r", .N, b_male$distr, b_male$params)]
@@ -82,7 +89,8 @@ simulate_baseline_data <- function(m_times, l_params_all) {
 
 
 # Generate precancerous lesions
-simulate_lesion_data <- function(m_times, l_params_all) {
+simulate_lesion_data <- function(m_times, l_params_all, verbose = FALSE) {
+  if(verbose) print('Simulating lesion data')
   
   # Create lesion-level dataframe for each lesion type
   m_times_lesion <- with(as.list(l_params_all), {
@@ -137,25 +145,28 @@ simulate_lesion_data <- function(m_times, l_params_all) {
 }
 
 # Simulate cancer stage progression and mortality
-simulate_cancer_data <- function(m_times, m_times_lesion, l_params_all) {
+simulate_cancer_progression <- function(m_times, m_times_lesion, l_params_all, verbose = FALSE) {
+  if(verbose) print('Simulating cancer progression')
+  
   # Calculate cancer onset from lesions
   m_times_cancer <- calc_cancer_onset(m_times, m_times_lesion, l_params_all)
   
   with(l_params_all, {
-    # Time to next stage of cancer (variable name = time_2{start stage}_2{next stage})
-    m_times_cancer[, (vars_cancer) := lapply(vars_cancer, function(var) query_distr("r", .N, get(var)$distr, get(var)$params))]
+    # Time to next stage of preclinical cancer (variable name = time_2{start stage}_2{next stage})
+    m_times_cancer[, (vars_preclin_nextstage) := lapply(vars_preclin_nextstage, function(var) query_distr("r", .N, get(var)$distr, get(var)$params))]
     
-    # Stage at cancer diagnosis
-    m_times_cancer[, stage_dx := query_distr("r", .N, stage_dx$distr, stage_dx$params)]
+    # Time to detection from preclinical stage (variable name = time_2{stage}_3)
+    m_times_cancer[, (vars_preclin_detect) := lapply(vars_preclin_detect, function(var) query_distr("r", .N, get(var)$distr, get(var)$params))]
     
-    # Time within stage of diagnosis 
-    m_times_cancer[, p_time_2x_3 := query_distr("r", .N, p_time_2x_3$distr, p_time_2x_3$params)]
-    
-    # Reset to 0 and add @@@
+    # Stage at cancer diagnosis - earliest stage at which time to detection is less than time to next stage
+    m_times_cancer[, stage_dx := 0]
+    m_times_cancer[, time_2_3 := 0]
+    for (i in 1:(length(v_cancer)-1)) # Iteratively set stage at diagnosis
+      m_times_cancer[stage_dx == 0, stage_dx := fifelse(get(vars_preclin_detect[i]) < get(vars_preclin_nextstage[i]), i, 0)]
+      m_times_cancer[, time_2_3 := time_2_3 + (stage_dx == 0) * get(vars_preclin_nextstage[i]) + (stage_dx == i) * get(vars_preclin_detect[i])]
+    m_times_cancer[stage_dx == 0, stage_dx := length(v_cancer)] # If not set yet, detected at last stage
     
     # Time to cancer diagnosis
-    # browser()
-    m_times_cancer[, time_2_3 := rowSums(.SD), .SDcols = vars_cancer]
     m_times_cancer[, time_0_3 := time_0_2 + time_2_3]
     
     # Cancer mortality after diagnosis
@@ -166,26 +177,10 @@ simulate_cancer_data <- function(m_times, m_times_lesion, l_params_all) {
   }
   )
   
-  
   # Calculate death from cancer
   m_times_cancer[, time_0_Dc := time_0_3 + time_3_Dc]
   
-  # Join cancer data to patient-level data
-  dupe_names <- intersect(names(m_times), names(m_times_cancer))[-1]
-  m_times_updated <- merge(m_times, m_times_cancer[, (dupe_names) := NULL], by = "pt_id", all.x = TRUE)
-  
-  # Calculate death all-cause death and cause of death
-  m_times_updated[, time_0_D := pmin(time_0_Do, time_0_Dc, na.rm = TRUE)]
-  m_times_updated[, fl_death_cancer := (time_0_Do > pmin(time_0_Dc, Inf, na.rm = TRUE))]
-  
-  # Calculate screening censor date
-  m_times_updated[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
-  
-  # Calculate survival from cancer diagnosis
-  m_times_updated[time_0_3 <= time_0_D, time_3_D := time_0_D - time_0_3]
-  assertthat::are_equal(nrow(m_times_updated[(fl_death_cancer == 1) & is.na(time_3_D), ]), 0) # Check that all patients with death due to cancer have time from diagnosis to death populated
-  
-  return(m_times_updated)
+  return(m_times_cancer)
 }
 
 # Calculate cancer onset from lesions
@@ -201,5 +196,24 @@ calc_cancer_onset <- function(m_times, m_times_lesion, l_params_all) {
   return(m_times_cancer)
 }
 
-# Generate overall survival
-
+# Generate mortality outcomes
+calc_mortality_outcomes <- function(m_times, m_times_cancer, verbose = FALSE) {
+  if(verbose) print('Calculating mortality outcomes')
+  
+  # Join cancer data to patient-level data
+  dupe_names <- intersect(names(m_times), names(m_times_cancer))[-1]
+  m_times_updated <- merge(m_times, m_times_cancer[, (dupe_names) := NULL], by = "pt_id", all.x = TRUE)
+  
+  # Calculate death all-cause death and cause of death
+  m_times_updated[, time_0_D := pmin(time_0_Do, time_0_Dc, na.rm = TRUE)]
+  m_times_updated[, fl_death_cancer := (time_0_Do > pmin(time_0_Dc, Inf, na.rm = TRUE))]
+  
+  # Calculate screening censor date
+  m_times_updated[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
+  
+  # Calculate survival from cancer diagnosis
+  m_times_updated[time_0_3 <= time_0_D, time_3_D := time_0_D - time_0_3]
+  assertthat::assert_that(nrow(m_times_updated[(fl_death_cancer == 1) & is.na(time_3_D), ]) == 0) # Check that all patients with death due to cancer have time from diagnosis to death populated
+  
+  return(m_times_updated)
+}

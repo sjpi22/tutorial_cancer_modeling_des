@@ -42,6 +42,11 @@ targets_files <- list(prevalence = list(
 # Load default data
 l_params_all <- load_default_params()
 
+# Update defaults
+l_params_all <- update_param_list(l_params_all,
+                                  list(n_cohort = 100000,
+                                       v_strats = l_params_all$v_strats[1]))
+
 
 #### 3. Pre-processing actions  ===========================================
 
@@ -91,16 +96,18 @@ df <- data.frame(
   target_groups = make.names(l_true_reshaped$target_map$target_groups),
   target_names = names(l_true_reshaped$v_targets),
   targets = unname(l_true_reshaped$v_targets),
-  current_lower_bounds = unname(l_true_reshaped$v_targets) - qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
-  current_upper_bounds = unname(l_true_reshaped$v_targets) + qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
-  stopping_lower_bounds = unname(l_true_reshaped$v_targets) - unname(l_true_reshaped$v_se),
-  stopping_upper_bounds = unname(l_true_reshaped$v_targets) + unname(l_true_reshaped$v_se)
+  current_lower_bounds = unname(l_true_reshaped$v_targets) - 10*qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
+  current_upper_bounds = unname(l_true_reshaped$v_targets) + 10*qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
+  stopping_lower_bounds = unname(l_true_reshaped$v_targets) - 10*unname(l_true_reshaped$v_se),
+  stopping_upper_bounds = unname(l_true_reshaped$v_targets) + 10*unname(l_true_reshaped$v_se)
 )
 targets <- as.targets(df)
 
 # Define Target Function
 fn <- function(v_params_update) {
-  params_to_calib_targets(l_params_all, v_params_update, param_map, v_ages_prevalence, v_ages_incidence)
+  v_targets <- params_to_calib_targets(l_params_all, v_params_update, param_map, 
+                                       v_ages_prevalence, v_ages_incidence)
+  return(v_targets)
 }
 
 target_fun <- define_target_function(
@@ -113,9 +120,17 @@ calibration_results <- imabc(
   targets = targets,
   target_fun = target_fun,
   seed = l_params_all$seed,
-  N_start = 2000,
-  N_centers = 2,
-  Center_n = 500,
+  # N_start = 2000,
+  # N_centers = 2,
+  # Center_n = 500,
+  N_start = 500,
+  N_centers = 1,
+  Center_n = 100,
   N_cov_points = 50,
-  N_post = 100
+  N_post = 100,
+  verbose = TRUE,
+  max_iter = 10
 )
+
+# Getting error: Error in imabc(priors = priors, targets = targets, target_fun = target_fun,  : 
+# No valid parameters to work from.

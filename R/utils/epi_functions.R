@@ -131,7 +131,7 @@ calc_incidence <- function(m_time, time_var, censor_var, v_ages,
       mutate(n_events = replace_na(n_events, 0)) %>%
       mutate(unit = rate_unit) %>%
       mutate(incidence = n_events / total_atrisk * rate_unit,
-             se = sqrt(n_events) / total_atrisk * rate_unit)
+             se = sqrt(n_events / age_diff) / (total_atrisk / age_diff) * rate_unit)
   } else {
     event_counts <- person_years_at_risk %>%
       mutate(n_events = 0,

@@ -1,4 +1,5 @@
 # Disease simulator for heterogeneous disease with two precursor lesions: a and b
+# Alternative version with data generating function different from assumed model
 
 ################################################################################
 # Setup
@@ -28,6 +29,12 @@ sapply(distr.sources, source, .GlobalEnv)
 
 #### Modifiable parameters ####
 debug <- FALSE
+data_outpath <- 'data/alt/'
+true_param_outpath <- 'disease_simulator/'
+label <- 'alt'
+
+# Check if directory exists, make if not
+dir.create(file.path(data_outpath), showWarnings = FALSE)
 
 # Model structure
 if(debug) {
@@ -69,25 +76,24 @@ v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 l_params_all <- load_default_params(file.surv = NULL)
 
 # Jitter disease distribution parameters uniformly from 0.5*default to 2*default
+assertthat::are_equal((seed == l_params_all$seed), FALSE)
 set.seed(seed)
 
-# Apply jitter to parameters of cancer-related variables
-vars_cancer <- grep("time_0_1|time_1|time_2|size_1|n_add", names(l_params_all))
-for(p in names(l_params_all)[vars_cancer]) {
-  params <- l_params_all[[p]]$params
-  for(i in 1:length(params)) {
-    if(is.numeric(params[[i]])) {
-      l_params_all[[p]]$params[[i]] <- runif(1, jitter_multiplier_low*params[[i]], jitter_multiplier_high*params[[i]])
-    }
-  }
-}
+# Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
+param_map <- make_param_map(l_params_all)
+
+# Apply jitter to unknown parameters
+v_param_update <- sapply(param_map$param_val, function(x) runif(1, jitter_multiplier_low*x, jitter_multiplier_high*x))
 
 # Update params
+l_params_all <- update_param_from_map(l_params_all, v_param_update, param_map)
 l_params_all <- update_param_list(l_params_all,
                                   list(seed = seed,
                                        n_cohort = n_cohort,
                                        v_strats = l_params_all$v_strats[1]))
- 
+
+# Update parameter map
+param_map$param_val <- v_param_update
 
 # Add variables specific to disease generating process
 time_2_Du <- list(distr = "gamma", 
@@ -203,117 +209,23 @@ output_surv <- with(summary(cancer_surv_fit, times = 0:10),
   mutate(stage = sapply(stage, as.character)) %>%
   mutate(stage = substring(stage, nchar(stage), nchar(stage)))
 
-# Plot survival curve
-# ggsurvplot(cancer_surv_fit, 
-           # data = m_cohort_cancer_dx, 
-           # con.int = TRUE,
-           # xlim = c(0, 10),
-           # break.time.by = 1,
-           # ggtheme = theme_minimal(),
-           # risk.table = TRUE)
-
-
-# # Get background percentage alive by years from age at diagnosis (for male and female)
-# m_cohort_cancer_dx[b_male == 1, (paste("pct_alive_bg", v_time_surv, sep = "_")) := lapply(v_time_surv, function(t) {
-#   (1 - query_distr("p", time_0_3 + t, l_params_all$time_0_Do_male$distr, l_params_all$time_0_Do_male$params)) / 
-#     (1 - query_distr("p", time_0_3, l_params_all$time_0_Do_male$distr, l_params_all$time_0_Do_male$params))
-# })]
-# 
-# m_cohort_cancer_dx[b_male == 0, (paste("pct_alive_bg", v_time_surv, sep = "_")) := lapply(v_time_surv, function(t) {
-#   (1 - query_distr("p", time_0_3 + t, l_params_all$time_0_Do_female$distr, l_params_all$time_0_Do_female$params)) / 
-#     (1 - query_distr("p", time_0_3, l_params_all$time_0_Do_female$distr, l_params_all$time_0_Do_female$params))
-# })]
-# 
-# # Get average age-matched background percentage alive by stage and years from age at diagnosis
-# pct_bg_alive = m_cohort_cancer_dx[, lapply(.SD, mean), by=stage_dx, .SDcols = grepl("pct_alive_bg" , names(m_cohort_cancer_dx) )]
-# 
-# # Get percentage of diagnosed patients alive by stage and years after diagnosis
-# output_surv <- c()
-# for(stg in sort(unique(m_cohort_cancer_dx[, stage_dx]))) {
-#   # Filter to patients diagnosed at stage
-#   temp_cohort_data <- m_cohort_cancer_dx[stage_dx == stg]
-#   
-#   # Get actual and relative survival by stage
-#   temp_surv <- data.frame(stage = stg,
-#                           years_from_dx = v_time_surv,
-#                           n_total = length(unique(temp_cohort_data$pt_id)),
-#                           n_surv = sapply(v_time_surv, 
-#                                           function(t) {nrow(temp_cohort_data[time_3_D >= t, ])},
-#                                           simplify=TRUE),
-#                           pct_bg_alive = as.numeric(pct_bg_alive[stage_dx == stg])[-1]) %>%
-#     mutate(pct_surv = n_surv / n_total) %>%
-#     mutate(relative_surv = pct_surv / pct_bg_alive) %>%
-#     select(stage, years_from_dx, relative_surv)
-#   
-#   # Append to results list
-#   output_surv <- c(output_surv, list(temp_surv))
-# }
-# 
-# # Convert survival results from list to data frame
-# output_surv <- rbindlist(output_surv)
-
 
 #### Save outputs to data folder ####
 if(!debug) {
   # Lesion prevalence
   for (lesiontype in l_params_all$v_lesions) {
-    write.csv(l_outputs$prevalence[[lesiontype]], paste0("data/prevalence_lesion_", lesiontype, ".csv"), row.names = FALSE)
+    write.csv(l_outputs$prevalence[[lesiontype]], paste0(data_outpath, "prevalence_lesion_", lesiontype, ".csv"), row.names = FALSE)
   }
   
   # Cancer incidence
-  write.csv(l_outputs$incidence, "data/incidence_cancer.csv", row.names = FALSE)
+  write.csv(l_outputs$incidence, paste0(data_outpath, "incidence_cancer.csv"), row.names = FALSE)
   
   # Stage distribution
-  write.csv(l_outputs$stage_distr, "data/stage_distr.csv", row.names = FALSE)
+  write.csv(l_outputs$stage_distr, paste0(data_outpath, "stage_distr.csv"), row.names = FALSE)
   
   # Survival
-  write.csv(output_surv, "data/relative_survival_cancer.csv", row.names = FALSE)
+  write.csv(output_surv, paste0(data_outpath, "relative_survival_cancer.csv"), row.names = FALSE)
+  
+  # Save true parameters in current folder
+  save(param_map, file = paste0(true_param_outpath, "true_param_map_", label, ".RData"))
 }
-
-
-#### Visualize outputs ####
-# # Create dataframe for plotting survival from diagnosis by stage
-# df_surv <- m_cohort_cancer_dx[, c("stage_dx", "time_3_D")]
-# setorder(df_surv, stage_dx, time_3_D)
-# df_surv[, `:=` (n_events_init = 1:.N,
-#                 total_events = .N), by = stage_dx]
-# df_surv[, n_events := max(n_events_init), by = c("stage_dx", "time_3_D")]
-# df_surv <- df_surv[n_events_init == n_events, ]
-# df_surv[, surv := 1 - n_events/total_events]
-# 
-# # Plot survival CDF
-# ggplot(df_surv, 
-#        aes(x = time_3_D, 
-#            y = surv, 
-#            color = factor(stage_dx))) +
-#   geom_line() +
-#   xlab("Time from diagnosis") +
-#   ylab("Proportion alive") + 
-#   labs(color = "Stage at diagnosis") +
-#   coord_cartesian(xlim=c(0, 10)) +
-#   ggtitle("Survival from diagnosis by stage")
-# 
-# 
-# # Create dataframe for plotting survival from diagnosis by stage and age
-# df_surv <- m_cohort_cancer_dx[, c("stage_dx", "time_0_3", "time_3_D")]
-# df_surv[, dx_lt_60 := (time_0_3 < 60)]
-# setorder(df_surv, stage_dx, dx_lt_60, time_3_D)
-# df_surv[, `:=` (n_events_init = 1:.N,
-#                 total_events = .N), by = c("stage_dx", "dx_lt_60")]
-# df_surv[, n_events := max(n_events_init), by = c("stage_dx", "dx_lt_60", "time_3_D")]
-# df_surv <- df_surv[n_events_init == n_events, ]
-# df_surv[, surv := 1 - n_events/total_events]
-# 
-# # Plot survival CDF
-# ggplot(df_surv, 
-#        aes(x = time_3_D, 
-#            y = surv, 
-#            color = factor(stage_dx),
-#            linetype = dx_lt_60)) +
-#   geom_line() +
-#   xlab("Time from diagnosis") +
-#   ylab("Proportion alive") + 
-#   labs(color = "Stage at diagnosis", linetype = "Age < 60 before diagnosis") +
-#   coord_cartesian(xlim=c(0, 10)) +
-#   ggtitle("Survival from diagnosis by stage")
-

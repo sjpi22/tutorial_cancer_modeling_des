@@ -1,5 +1,7 @@
 # Dependencies:
-# calc_pcl_prevalence from utils/epi_functions.R
+# calc_pcl_prevalence from R/utils/epi_functions.R
+# update_param_from_map from R/01_load_model_inputs.R
+# run_model from R/02_decision_model_functions.R
 
 # Recursively read CSV files from list of lists of file paths
 recursive_read_csv <- function(l_files) {
@@ -13,45 +15,24 @@ recursive_read_csv <- function(l_files) {
   return(file_data)
 }
 
-# Update list of model parameters given in the specified parameter vector and mapping
-update_calib_params <- function(l_params_all, v_params_update, param_map) {
-  # Make copy of parameter list
-  l_params_update <- copy(l_params_all)
-  
-  # Update parameters based on mapping
-  assertthat::are_equal(length(v_params_update), nrow(param_map))
-  for (i in seq(length(v_params_update))) {
-    # Get value to update variable to
-    val <- v_params_update[i]
-    
-    # Get parameter to update
-    var_info <- unlist(param_map[i,])
-    l_params_update[[var_info['var_name']]]$params[[var_info['param_name']]][as.integer(var_info['param_index'])] <- val
-  }
-  
-  # After resetting all tunable parameters, for empirical distributions, rescale so that probability sums to 1
-  for (var in unique(param_map$var_name)) {
-    if (l_params_update[[var]]$distr == 'empirical') {
-      l_params_update[[var]]$params$probs <- l_params_update[[var]]$params$probs / sum(l_params_update[[var]]$params$probs)
-    }
-  }
-  
-  return(l_params_update)
-}
 
 # Run model and generate calibration target outputs
 calc_calib_targets <- function(l_params_all, m_patients, m_lesions, 
                                v_ages_prevalence, v_ages_incidence,
-                               n_screen_sample = NULL) {
+                               n_screen_sample = NULL,
+                               verbose = FALSE) {
   
   # Sample patient cohort for screening if 'n_screen_sample" is populated
   if (!is.null(n_screen_sample)) {
     if (n_screen_sample < nrow(m_patients)) {
+      if(verbose) print(paste('Sampling', n_screen_sample, 'patients for lesion prevalence'))
       m_screen_sample <- m_patients[sample(.N, n_screen_sample)]
     } else {
+      if(verbose) print(paste('Inputted screening sample size of', n_screen_sample, '< number of patients', nrow(m_patients)))
       m_screen_sample <- m_patients
     }
   } else {
+    if(verbose) print('Using full sample for lesion prevalence')
     m_screen_sample <- m_patients
   }
   
@@ -62,10 +43,12 @@ calc_calib_targets <- function(l_params_all, m_patients, m_lesions,
   prevalence <- calc_pcl_prevalence(l_params_all, m_screen_sample, m_lesions, v_ages_prevalence)
   
   # Calculate cancer age-specific incidence
+  if(verbose) print('Calculating age-specific incidence')
   incidence <- calc_incidence(m_patients, "time_0_3", "time_0_D", v_ages_incidence) %>%
     dplyr::select(-c("total_atrisk", "age_diff"))
   
   # Calculate cancer stage distribution
+  if(verbose) print('Calculating stage distribution')
   stage_distr <- calc_stage_distr(m_patients, "stage_dx", "time_0_3", "time_0_D")
   
   # Return outputs
@@ -172,13 +155,17 @@ reshape_calib_targets <- function(l_calib_targets, output_se = FALSE,
 }
 
 # Wrapper for running calibration and outputting vector of outputs
-params_to_calib_targets <- function(l_params_all, v_params_update, param_map, v_ages_prevalence, v_ages_incidence, reshape_output = TRUE,
-                                    output_se = FALSE, output_map = FALSE, conf_level = 0.95) {
+params_to_calib_targets <- function(l_params_all, v_params_update, param_map, 
+                                    v_ages_prevalence, v_ages_incidence, 
+                                    reshape_output = TRUE,
+                                    output_se = FALSE, output_map = FALSE, 
+                                    conf_level = 0.95,
+                                    verbose = FALSE) {
   # Update parameters
-  l_params_update <- update_calib_params(l_params_all, v_params_update, param_map)
+  l_params_update <- update_param_from_map(l_params_all, v_params_update, param_map)
   
   # Run decision model
-  results <- run_model(l_params_update)
+  results <- run_model(l_params_update, verbose = verbose)
   results_noscreening <- results[['None']]
   
   # Get calibration targets and reshape to vector
@@ -186,7 +173,8 @@ params_to_calib_targets <- function(l_params_all, v_params_update, param_map, v_
                                         results_noscreening$m_cohort, 
                                         results_noscreening$m_lesions, 
                                         v_ages_prevalence, 
-                                        v_ages_incidence)
+                                        v_ages_incidence,
+                                        verbose = verbose)
   if (reshape_output) {
     v_calib_targets <- reshape_calib_targets(l_calib_targets, output_se = output_se,
                                              output_map = output_map, conf_level = 0.95)
