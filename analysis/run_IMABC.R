@@ -27,6 +27,7 @@ distr.sources <- list.files("R",
 sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
+debug <- TRUE
 
 ###### 2.1 file paths 
 sample_file <- "data/calibration_sample.RData"
@@ -47,7 +48,6 @@ l_params_all <- update_param_list(l_params_all,
                                   list(n_cohort = 100000,
                                        v_strats = l_params_all$v_strats[1]))
 
-
 #### 3. Pre-processing actions  ===========================================
 
 # Set random seed
@@ -55,6 +55,20 @@ set.seed(l_params_all$seed)
 
 # Load parameter mapping
 load(sample_file) # Only need parameter mapping param_map here
+
+# If debug, use narrow range around true values
+if (debug) {
+  # Resave param map
+  model_param_map <- param_map
+  
+  # Load true parameters
+  true_param_path <- 'disease_simulator/true_param_map_consistent.RData'
+  load(true_param_path)
+  model_param_map$prior_min <- param_map$param_val * 0.9
+  model_param_map$prior_max <- param_map$param_val * 1.2
+  
+  param_map <- model_param_map
+}
 
 # Load targets
 l_true_targets <- recursive_read_csv(targets_files)
@@ -96,10 +110,10 @@ df <- data.frame(
   target_groups = make.names(l_true_reshaped$target_map$target_groups),
   target_names = names(l_true_reshaped$v_targets),
   targets = unname(l_true_reshaped$v_targets),
-  current_lower_bounds = unname(l_true_reshaped$v_targets) - 10*qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
-  current_upper_bounds = unname(l_true_reshaped$v_targets) + 10*qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
-  stopping_lower_bounds = unname(l_true_reshaped$v_targets) - 10*unname(l_true_reshaped$v_se),
-  stopping_upper_bounds = unname(l_true_reshaped$v_targets) + 10*unname(l_true_reshaped$v_se)
+  current_lower_bounds = unname(l_true_reshaped$v_targets) - qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
+  current_upper_bounds = unname(l_true_reshaped$v_targets) + qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
+  stopping_lower_bounds = unname(l_true_reshaped$v_targets) - unname(l_true_reshaped$v_se),
+  stopping_upper_bounds = unname(l_true_reshaped$v_targets) + unname(l_true_reshaped$v_se)
 )
 targets <- as.targets(df)
 

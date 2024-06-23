@@ -43,8 +43,10 @@ q()
 $ scp -r ~/tutorial_cancer_modeling_des sjpi@login.sherlock.stanford.edu:
 [Input password and two-factor authenticate]
 
-# Update specific file
+# Examples for updating specific files
 $ scp ~/tutorial_cancer_modeling_des/sherlock/generate_BayCANN_sample.sbatch sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/sherlock/
+$ scp ~/tutorial_cancer_modeling_des/analysis/generate_BayCANN_sample.R sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/analysis/
+
 
 [Go back to original terminal]
 # Navigate to directory

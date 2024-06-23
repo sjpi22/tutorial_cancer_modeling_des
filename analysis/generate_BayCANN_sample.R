@@ -29,12 +29,12 @@ data_inpath <- data_outpath <- 'data/'
 
 ###### 2.2 modifiable parameters
 # Control variables for running on cluster and/or parallelized
-run_slurm <- FALSE # change to TRUE if running on Sherlock/slurm
+run_slurm <- TRUE # change to TRUE if running on Sherlock/slurm
 run_parallel <- TRUE
 
 # For debugging and viewing outputs
 debug_small <- FALSE
-debug_large <- TRUE
+debug_large <- FALSE
 print_increment = 0.05
 
 # Multiplier
@@ -49,7 +49,7 @@ if (debug_small) {
   n_samp <- 10
   n_cohort <- 500000
 } else {
-  n_samp <- 2000
+  n_samp <- 10000
   n_cohort <- 500000
 }
 
@@ -127,21 +127,21 @@ verbose <- FALSE
 if(run_parallel) {
   # Parallel processing
   stime <- system.time({
-    df <- foreach(i=1:n_samp, .combine=rbind, 
-                  .inorder=FALSE, 
-                  .packages=c("data.table","tidyverse")) %dopar% {
-                    
-                    # Get row of parameters and calculate targets
-                    v_params_update <- m_param_samp[i,]
-                    v_calib_targets <- params_to_calib_targets(l_params_all, 
-                                                               v_params_update, 
-                                                               param_map,
-                                                               v_ages_prevalence, 
-                                                               v_ages_incidence,
-                                                               verbose = verbose)
-                    # Call item to save
-                    t(v_calib_targets)
-                  }
+    out_calib_targets <- foreach(i=1:n_samp, .combine=rbind, 
+                                 .inorder=FALSE, 
+                                 .packages=c("data.table","tidyverse")) %dopar% {
+                                   
+                                   # Get row of parameters and calculate targets
+                                   v_params_update <- m_param_samp[i,]
+                                   v_calib_targets <- params_to_calib_targets(l_params_all, 
+                                                                              v_params_update, 
+                                                                              param_map,
+                                                                              v_ages_prevalence, 
+                                                                              v_ages_incidence,
+                                                                              verbose = verbose)
+                                   # Call item to save
+                                   t(v_calib_targets)
+                                 }
   })
   
   closeAllConnections()
@@ -191,5 +191,7 @@ assertthat::validate_that(sum(sapply(out_calib_targets, function(x) any(is.nan(x
 
 #### 6. Save data files  ===========================================
 
-if(!debug_small & !debug_large)
+if(!debug_small & !debug_large) {
+  print('Saving output')
   save(param_map, m_param_samp, out_calib_targets, file = paste0(data_outpath, 'calibration_sample.RData'))
+}

@@ -30,21 +30,24 @@ sapply(distr.sources, source, .GlobalEnv)
 true_param_path <- 'disease_simulator/true_param_map_consistent.RData'
 load(true_param_path)
 
-# Check if directory exists, make if not
-dir.create(file.path(data_outpath), showWarnings = FALSE)
-
 # Load default data
 l_params_all <- load_default_params()
 
 # Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
-param_map <- make_param_map(l_params_all)
+default_param_map <- make_param_map(l_params_all)
 
 # Merge true and default parameters
-compare_param_map <- data.frame(compare_param_map,
-                                default_val = param_map$param_val)
+compare_param_map <- data.frame(param_map,
+                                default_val = default_param_map$param_val)
 
 # Compare multiplied difference
-within(compare_param_map,
-       ratio_of_default = param_val / default_val)
+within(compare_param_map, { ratio_of_default = param_val / default_val})
 
 View(compare_param_map)
+
+ 
+# Load generated sample mapping file and check if true val is within bounds
+load(sample_file)
+param_map <- param_map %>%
+  mutate(within_bounds = (compare_param_map$param_val >=  prior_min) & (compare_param_map$param_val <= prior_max))
+
