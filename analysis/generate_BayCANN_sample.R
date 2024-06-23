@@ -28,8 +28,9 @@ sapply(distr.sources, source, .GlobalEnv)
 data_inpath <- data_outpath <- 'data/'
 
 ###### 2.2 modifiable parameters
-# Control variables for running on cluster
-slurm <- FALSE # change to TRUE if running on Sherlock/slurm
+# Control variables for running on cluster and/or parallelized
+run_slurm <- FALSE # change to TRUE if running on Sherlock/slurm
+run_parallel <- TRUE
 
 # For debugging and viewing outputs
 debug_small <- FALSE
@@ -50,6 +51,15 @@ if (debug_small) {
 } else {
   n_samp <- 2000
   n_cohort <- 500000
+}
+
+# Set number of cores to use
+if(run_slurm) {
+  # use the environment variable SLURM_NTASKS_PER_NODE to set
+  # the number of cores to use
+  registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
+} else if(run_parallel) {
+  registerDoParallel(cores=min(detectCores(logical = TRUE), 6) - 2)  
 }
 
 
@@ -113,45 +123,73 @@ colnames(m_param_samp) <- param_map$var_id
 # Run model for each input parameter sample and get corresponding targets
 out_calib_targets <- data.frame()
 verbose <- FALSE
-start_time <- Sys.time()
-for (i in 1:n_samp) {
-  # Print index for progress
-  if (debug_small) {
-    print('================')
-    print(paste('Simulation', i))
-    verbose = TRUE
-  } else if (debug_large) {
-    if (i <= 3) {
+
+if(run_parallel) {
+  # Parallel processing
+  stime <- system.time({
+    df <- foreach(i=1:n_samp, .combine=rbind, 
+                  .inorder=FALSE, 
+                  .packages=c("data.table","tidyverse")) %dopar% {
+                    
+                    # Get row of parameters and calculate targets
+                    v_params_update <- m_param_samp[i,]
+                    v_calib_targets <- params_to_calib_targets(l_params_all, 
+                                                               v_params_update, 
+                                                               param_map,
+                                                               v_ages_prevalence, 
+                                                               v_ages_incidence,
+                                                               verbose = verbose)
+                    # Call item to save
+                    t(v_calib_targets)
+                  }
+  })
+  
+  closeAllConnections()
+} else {
+  start_time <- Sys.time()
+  for (i in 1:n_samp) {
+    # Print index for progress
+    if (debug_small) {
       print('================')
       print(paste('Simulation', i))
       verbose = TRUE
-      if (i == 3) {
-        end_time <- Sys.time()
-        print(paste('Simulation time:', end_time - start_time))
+    } else if (debug_large) {
+      if (i <= 3) {
+        print('================')
+        print(paste('Simulation', i))
+        verbose = TRUE
+        if (i == 3) {
+          end_time <- Sys.time()
+          print(paste('Simulation time:', end_time - start_time))
+        }
+      } else verbose = FALSE
+    } else {
+      # For progress, print every 5% of the way
+      if (round(i %% (n_samp * print_increment)) == 1) {
+        print(paste0(round(i/n_samp * 100, 1), '% of simulations generated'))
       }
-    } else verbose = FALSE
-  } else {
-    # For progress, print every 5% of the way
-    if (round(i %% (n_samp * print_increment)) == 1) {
-      print(paste0(round(i/n_samp * 100, 1), '% of simulations generated'))
     }
+    
+    # Get row of parameters and calculate targets
+    v_params_update <- m_param_samp[i,]
+    v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, param_map,
+                                               v_ages_prevalence, v_ages_incidence,
+                                               verbose = verbose)
+    
+    # Append target vector to dataframe
+    out_calib_targets <- rbind(out_calib_targets, t(v_calib_targets))
   }
-  
-  v_params_update <- m_param_samp[i,]
-  v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, param_map,
-                                             v_ages_prevalence, v_ages_incidence,
-                                             verbose = verbose)
-  
-  out_calib_targets <- rbind(out_calib_targets, t(v_calib_targets))
+  end_time <- Sys.time()
+  print(paste('Simulation time:', end_time - start_time))
 }
-end_time <- Sys.time()
-print(paste('Simulation time:', end_time - start_time))
 
+# Check for any NaN
+assertthat::validate_that(sum(sapply(m_param_samp, function(x) any(is.nan(x)))) == 0, 
+                          msg = 'Parameters include NaN')
+assertthat::validate_that(sum(sapply(out_calib_targets, function(x) any(is.nan(x)))) == 0, 
+                          msg = 'Outputs include NaN')
 
 #### 6. Save data files  ===========================================
-# Check for any NaN
-assertthat::validate_that(sum(sapply(m_param_samp, function(x) any(is.nan(x)))) == 0)
-assertthat::validate_that(sum(sapply(out_calib_targets, function(x) any(is.nan(x)))) == 0)
 
 if(!debug_small & !debug_large)
   save(param_map, m_param_samp, out_calib_targets, file = paste0(data_outpath, 'calibration_sample.RData'))

@@ -1,0 +1,66 @@
+################################################################################
+# Sherlock command line steps
+################################################################################
+# Comments are noted with # symbol
+# Interactive steps are noted with []
+
+[Open Terminal]
+# Change sjpi to your own SUNet ID below
+% ssh sjpi@login.sherlock.stanford.edu
+[Input password]
+[Duo two-factor login]
+
+# After successful login, start interactive shell session to load R packages
+# It turns out, I got an error message when installing tidyverse that mentioned adding the directory containing fribidi.pc, so I added the fribidi module before launching the R session
+# More info about interactive shells here: https://www.sherlock.stanford.edu/docs/user-guide/running-jobs/?h=sh_dev#compute-nodes
+$ sh_dev
+$ ml R/4.3.2 fribidi
+$ R
+
+# Install R packages
+# See here for more info: https://www.sherlock.stanford.edu/docs/software/using/R/
+install.packages('readxl')
+[Warning - Answer y twice to create a directory for future R packages]
+[Selected 1 for CRAN mirror]
+install.packages('data.table')
+install.packages('tidyverse')
+install.packages('lhs')
+install.packages('doParallel')
+install.packages('foreach')
+# You can manually check at the end if each module is available by calling library(<package>)
+
+# You can also update R packages using > update.packages() which updates everything or > update.packages('<package name>')
+
+# When done installing R packages, type q() to return to command window
+q()
+[Hit n to not save workspace image]
+
+
+
+[Open separate terminal window to transfer files from home directory to Sherlock - this can be done at any point before the next step]
+# Transfer files from local to Sherlock, changing sjpi to your own SUNet ID below
+# May need / at the end of the directory to copy the parent folder?
+$ scp -r ~/tutorial_cancer_modeling_des sjpi@login.sherlock.stanford.edu:
+[Input password and two-factor authenticate]
+
+# Update specific file
+$ scp ~/tutorial_cancer_modeling_des/sherlock/generate_BayCANN_sample.sbatch sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/sherlock/
+
+[Go back to original terminal]
+# Navigate to directory
+$ cd tutorial_cancer_modeling_des
+
+# Run batch script, making sure all file paths in referenced files are from the directory that you execute from; Error and output logs will be in the directory you launch your job in
+$ sbatch sherlock/generate_BayCANN_sample.sbatch
+
+# Other helpful commands
+# See your jobs in the queue
+squeue -u $USER
+# Cancel job (job ID can be found by running squeue -u $USER)
+scancel <job id>
+# See modification date of file
+stat <filename>
+# Delete file (add -r in front of filename if recursive directory delete)
+rm <filename>
+# Read file
+more <filename>
