@@ -54,3 +54,4 @@ rsconnect/
 # Custom
 examples/
 output/model*.*
+sherlock/output
