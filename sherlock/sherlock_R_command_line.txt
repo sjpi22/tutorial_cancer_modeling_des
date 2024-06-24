@@ -11,31 +11,39 @@
 [Duo two-factor login]
 
 # After successful login, start interactive shell session to load R packages
-# It turns out, I got an error message when installing tidyverse that mentioned adding the directory containing fribidi.pc, so I added the fribidi module before launching the R session
 # More info about interactive shells here: https://www.sherlock.stanford.edu/docs/user-guide/running-jobs/?h=sh_dev#compute-nodes
 $ sh_dev
-$ ml R/4.3.2 fribidi
+$ ml R/4.3.2
 $ R
 
-# Install R packages
+# Install R packages (use library <package> to check if package does not exist)
 # See here for more info: https://www.sherlock.stanford.edu/docs/software/using/R/
-install.packages('readxl')
+> install.packages('readxl')
 [Warning - Answer y twice to create a directory for future R packages]
 [Selected 1 for CRAN mirror]
-install.packages('data.table')
-install.packages('tidyverse')
-install.packages('lhs')
-install.packages('doParallel')
-install.packages('foreach')
-# You can manually check at the end if each module is available by calling library(<package>)
+> install.packages('data.table')
+> install.packages('tidyverse')
+> install.packages('lhs')
+> install.packages('doParallel')
+> install.packages('foreach')
+> install.packages('asserthis')
+> install.packages('bestNormalize')
+> install.packages('MASS')
+> install.packages('truncnorm')
+> install.packages('imabc')
+# You can manually check at the end if each library is installed by calling library(<package>)
 
 # You can also update R packages using > update.packages() which updates everything or > update.packages('<package name>')
 
 # When done installing R packages, type q() to return to command window
-q()
+> q()
 [Hit n to not save workspace image]
 
-
+# It turns out, I got an error message when installing tidyverse that mentioned adding the directory containing fribidi.pc, so I added the fribidi module before launching the R session
+$ ml R/4.3.2 fribidi
+$ R
+> install.packages('tidyverse')
+> q()
 
 [Open separate terminal window to transfer files from home directory to Sherlock - this can be done at any point before the next step]
 # Transfer files from local to Sherlock, changing sjpi to your own SUNet ID below
@@ -46,6 +54,8 @@ $ scp -r ~/tutorial_cancer_modeling_des sjpi@login.sherlock.stanford.edu:
 # Examples for updating specific files
 $ scp ~/tutorial_cancer_modeling_des/sherlock/generate_BayCANN_sample.sbatch sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/sherlock/
 $ scp ~/tutorial_cancer_modeling_des/analysis/generate_BayCANN_sample.R sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/analysis/
+$ scp ~/tutorial_cancer_modeling_des/analysis/run_IMABC.R sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/analysis/
+$ scp ~/tutorial_cancer_modeling_des/sherlock/run_IMABC.sbatch sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/sherlock/
 
 
 [Go back to original terminal]
@@ -54,6 +64,16 @@ $ cd tutorial_cancer_modeling_des
 
 # Run batch script, making sure all file paths in referenced files are from the directory that you execute from; Error and output logs will be in the directory you launch your job in
 $ sbatch sherlock/generate_BayCANN_sample.sbatch
+$ sbatch sherlock/run_IMABC.sbatch
+
+# Move outputs and logs from Sherlock to local
+$ scp sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/generate_BayCANN_sample.log ~/tutorial_cancer_modeling_des/sherlock
+$ scp sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/data/calibration_sample.RData ~/tutorial_cancer_modeling_des/sherlock
+# For generate_BayCANN_sample.log, I got the following error and we had 8750 instead of 10k simulations: "error: Detected 1 oom_kill event in StepId=48813921.batch. Some of the step tasks have been OOM Killed." This could be because the memory of 10G that I set was not enough for one core (source: https://stackoverflow.com/questions/68041107/mclapply-warnings-scheduled-cores-did-not-deliver-results-all-values-of-th)
+$ scp sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/output/IMABC_calibration_debug.RData ~/tutorial_cancer_modeling_des/output
+$ scp sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/run_IMABC.log ~/tutorial_cancer_modeling_des/sherlock
+
+
 
 # Other helpful commands
 # See your jobs in the queue
@@ -64,5 +84,10 @@ scancel <job id>
 stat <filename>
 # Delete file (add -r in front of filename if recursive directory delete)
 rm <filename>
-# Read file
+# Read file contents (helpful for reading logs and making sure if changes were updated in a file)
 more <filename>
+# Transfer only files that have changed
+$ rsync -a ~/tutorial_cancer_modeling_des/output/ <sunetid>@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/output/
+
+
+

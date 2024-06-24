@@ -51,3 +51,7 @@ load(sample_file)
 param_map <- param_map %>%
   mutate(within_bounds = (compare_param_map$param_val >=  prior_min) & (compare_param_map$param_val <= prior_max))
 
+# Check generated sample data
+sherlock_sample_data <- 'sherlock/calibration_sample.RData'
+load(sherlock_sample_data)
+nrow(out_calib_targets) 

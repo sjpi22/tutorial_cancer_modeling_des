@@ -16,6 +16,7 @@ library(stats)
 library(utils)
 library(readxl)
 library(tidyverse)
+library(doParallel)
 
 #* Clean environment
 rm(list = ls())
@@ -27,7 +28,9 @@ distr.sources <- list.files("R",
 sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
-debug <- TRUE
+debug <- FALSE
+run_slurm <- TRUE
+run_parallel <- TRUE
 
 ###### 2.1 file paths 
 sample_file <- "data/calibration_sample.RData"
@@ -37,6 +40,8 @@ targets_files <- list(prevalence = list(
   b = "data/prevalence_lesion_b.csv"),
   incidence = "data/incidence_cancer.csv",
   stage_distr = "data/stage_distr.csv")
+
+outpath <- 'output/'
 
 ###### 2.1 model parameters 
 
@@ -52,6 +57,15 @@ l_params_all <- update_param_list(l_params_all,
 
 # Set random seed
 set.seed(l_params_all$seed)
+
+# Set number of cores to use
+if(run_slurm) {
+  # use the environment variable SLURM_NTASKS_PER_NODE to set
+  # the number of cores to use
+  registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
+} else if(run_parallel) {
+  registerDoParallel(cores=min(detectCores(logical = TRUE), 6) - 2)  
+}
 
 # Load parameter mapping
 load(sample_file) # Only need parameter mapping param_map here
@@ -101,20 +115,31 @@ priors <- as.priors(
   parameter_name = "name_var", dist_base_name = "dist_var"
 )
 
-
+# Multiplier for SD to get bounds
+if (debug) {
+  current_multiplier <- rep(5, length(l_true_reshaped$v_targets))
+  stopping_multiplier <- rep(2, length(l_true_reshaped$v_targets))
+  
+  current_multiplier[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 60
+  stopping_multiplier[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 30
+} else {
+  current_multiplier <- 3
+  stopping_multiplier <- 1
+}
 
 # Define Target Values
-
-
 df <- data.frame(
   target_groups = make.names(l_true_reshaped$target_map$target_groups),
   target_names = names(l_true_reshaped$v_targets),
   targets = unname(l_true_reshaped$v_targets),
-  current_lower_bounds = unname(l_true_reshaped$v_targets) - qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
-  current_upper_bounds = unname(l_true_reshaped$v_targets) + qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
-  stopping_lower_bounds = unname(l_true_reshaped$v_targets) - unname(l_true_reshaped$v_se),
-  stopping_upper_bounds = unname(l_true_reshaped$v_targets) + unname(l_true_reshaped$v_se)
+  current_lower_bounds = pmax(0, 
+                              unname(l_true_reshaped$v_targets) - current_multiplier * qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se)),
+  current_upper_bounds = unname(l_true_reshaped$v_targets) + current_multiplier * qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
+  stopping_lower_bounds = pmax(0, 
+                               unname(l_true_reshaped$v_targets) - stopping_multiplier * qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se)),
+  stopping_upper_bounds = unname(l_true_reshaped$v_targets) + stopping_multiplier * qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se)
 )
+
 targets <- as.targets(df)
 
 # Define Target Function
@@ -128,23 +153,29 @@ target_fun <- define_target_function(
   targets, priors, FUN = fn, use_seed = FALSE
 )
 
-# Calibrate model
+# Calibrate model - see here for documentation: https://github.com/c-rutter/imabc/tree/a58a3b7c8db18948ff87fb6be55c6175399f41a2
 calibration_results <- imabc(
   priors = priors,
   targets = targets,
   target_fun = target_fun,
   seed = l_params_all$seed,
-  # N_start = 2000,
-  # N_centers = 2,
-  # Center_n = 500,
-  N_start = 500,
-  N_centers = 1,
-  Center_n = 100,
-  N_cov_points = 50,
-  N_post = 100,
+  N_start = 1000 * length(priors),
+  N_centers = 10,
+  Center_n = 1000,
+  output_directory = 'output/imabc/',
+  N_post = 5000,
   verbose = TRUE,
-  max_iter = 10
+  max_iter = 1000,
+  validate_run = TRUE
 )
+
+if(debug) {
+  print('Saving debug output')
+  save(calibration_results, file = paste0(outpath, 'IMABC_calibration_debug.RData'))
+} else {
+  print('Saving output')
+  save(calibration_results, file = paste0(outpath, 'IMABC_calibration.RData'))
+}
 
 # Getting error: Error in imabc(priors = priors, targets = targets, target_fun = target_fun,  : 
 # No valid parameters to work from.

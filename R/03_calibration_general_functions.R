@@ -169,7 +169,7 @@ params_to_calib_targets <- function(l_params_all, v_params_update, param_map,
   results_noscreening <- results[['None']]
   
   # Get calibration targets and reshape to vector
-  l_calib_targets <- calc_calib_targets(l_params_all, 
+  l_calib_targets <- calc_calib_targets(l_params_update, 
                                         results_noscreening$m_cohort, 
                                         results_noscreening$m_lesions, 
                                         v_ages_prevalence, 

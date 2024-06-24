@@ -183,6 +183,7 @@ update_param_from_map <- function(l_params_all, v_params_update, param_map) {
   
   # Update parameters based on mapping
   assertthat::are_equal(length(v_params_update), nrow(param_map))
+  browser()
   for (i in seq(length(v_params_update))) {
     # Get value to update variable to
     val <- v_params_update[i]

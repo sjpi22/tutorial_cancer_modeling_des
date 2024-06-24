@@ -144,6 +144,8 @@ if(run_parallel) {
                                  }
   })
   
+  print(stime)
+  
   closeAllConnections()
 } else {
   start_time <- Sys.time()
