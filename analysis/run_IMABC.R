@@ -41,8 +41,6 @@ targets_files <- list(prevalence = list(
   incidence = "data/incidence_cancer.csv",
   stage_distr = "data/stage_distr.csv")
 
-outpath <- 'output/'
-
 ###### 2.1 model parameters 
 
 # Load default data
@@ -63,8 +61,24 @@ if(run_slurm) {
   # use the environment variable SLURM_NTASKS_PER_NODE to set
   # the number of cores to use
   registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
+  outpath <- 'sherlock/output/imabc'
+  
+  # Create directory if it does not exist
+  dir.create(file.path(outpath))
 } else if(run_parallel) {
   registerDoParallel(cores=min(detectCores(logical = TRUE), 6) - 2)  
+  outpath <- 'output/imabc'
+  
+  # Create directory if it does not exist
+  dir.create(file.path(outpath))
+}
+
+# File path for debug
+if (debug) {
+  outpath <- paste0(outpath, '/debug')
+  
+  # Create directory if it does not exist
+  dir.create(file.path(outpath))
 }
 
 # Load parameter mapping
@@ -117,30 +131,37 @@ priors <- as.priors(
 
 # Multiplier for SD to get bounds
 if (debug) {
-  current_multiplier <- rep(5, length(l_true_reshaped$v_targets))
-  stopping_multiplier <- rep(2, length(l_true_reshaped$v_targets))
+  alpha_current = rep(0.0001, length(l_true_reshaped$v_targets))
+  alpha_current[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-30
+  alpha_current[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-30
   
-  current_multiplier[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 60
-  stopping_multiplier[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 30
+  alpha_stop = rep(0.001, length(l_true_reshaped$v_targets))
+  alpha_stop[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-10
+  alpha_stop[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-15
 } else {
-  current_multiplier <- 3
-  stopping_multiplier <- 1
+  alpha_current = rep(0.0001, length(l_true_reshaped$v_targets))
+  alpha_current[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-15
+  alpha_current[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-30
+  
+  alpha_stop = rep(0.05, length(l_true_reshaped$v_targets))
+  alpha_stop[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-7
+  alpha_stop[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-15
 }
 
 # Define Target Values
-df <- data.frame(
+target_df <- data.frame(
   target_groups = make.names(l_true_reshaped$target_map$target_groups),
   target_names = names(l_true_reshaped$v_targets),
   targets = unname(l_true_reshaped$v_targets),
   current_lower_bounds = pmax(0, 
-                              unname(l_true_reshaped$v_targets) - current_multiplier * qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se)),
-  current_upper_bounds = unname(l_true_reshaped$v_targets) + current_multiplier * qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se),
+                              unname(l_true_reshaped$v_targets) - qnorm((1-alpha_current) + alpha_current/2) * unname(l_true_reshaped$v_se)),
+  current_upper_bounds = unname(l_true_reshaped$v_targets) + qnorm((1-alpha_current) + alpha_current/2) * unname(l_true_reshaped$v_se),
   stopping_lower_bounds = pmax(0, 
-                               unname(l_true_reshaped$v_targets) - stopping_multiplier * qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se)),
-  stopping_upper_bounds = unname(l_true_reshaped$v_targets) + stopping_multiplier * qnorm(l_params_all$conf_level + (1-l_params_all$conf_level)/2) * unname(l_true_reshaped$v_se)
+                               unname(l_true_reshaped$v_targets) - qnorm((1-alpha_stop) + alpha_stop/2) * unname(l_true_reshaped$v_se)),
+  stopping_upper_bounds = unname(l_true_reshaped$v_targets) + qnorm((1-alpha_stop) + alpha_stop/2) * unname(l_true_reshaped$v_se)
 )
 
-targets <- as.targets(df)
+targets <- as.targets(target_df)
 
 # Define Target Function
 fn <- function(v_params_update) {
@@ -162,7 +183,7 @@ calibration_results <- imabc(
   N_start = 1000 * length(priors),
   N_centers = 10,
   Center_n = 1000,
-  output_directory = 'output/imabc/',
+  output_directory = outpath,
   N_post = 5000,
   verbose = TRUE,
   max_iter = 1000,

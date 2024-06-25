@@ -55,3 +55,10 @@ param_map <- param_map %>%
 sherlock_sample_data <- 'sherlock/calibration_sample.RData'
 load(sherlock_sample_data)
 nrow(out_calib_targets) 
+
+
+# Check IMABC data
+sherlock_imabc_params_file <- 'sherlock/output/imabc/SimulatedParameters_20240623_2209PDT.csv'
+sherlock_imabc_targets_file <- 'sherlock/output/imabc/SimulatedTargets_20240623_2209PDT.csv'
+imabc_params <- read.csv(sherlock_imabc_params_file)
+imabc_targets <- read.csv(sherlock_imabc_targets_file)

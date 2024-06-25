@@ -72,6 +72,7 @@ $ scp sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/data/calibra
 # For generate_BayCANN_sample.log, I got the following error and we had 8750 instead of 10k simulations: "error: Detected 1 oom_kill event in StepId=48813921.batch. Some of the step tasks have been OOM Killed." This could be because the memory of 10G that I set was not enough for one core (source: https://stackoverflow.com/questions/68041107/mclapply-warnings-scheduled-cores-did-not-deliver-results-all-values-of-th)
 $ scp sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/output/IMABC_calibration_debug.RData ~/tutorial_cancer_modeling_des/output
 $ scp sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/run_IMABC.log ~/tutorial_cancer_modeling_des/sherlock
+$ rsync -a sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/sherlock/output/imabc/ ~/tutorial_cancer_modeling_des/sherlock/output/imabc/
 
 
 
@@ -84,10 +85,12 @@ scancel <job id>
 stat <filename>
 # Delete file (add -r in front of filename if recursive directory delete)
 rm <filename>
+# See contents in current directory
+$ ls
 # Read file contents (helpful for reading logs and making sure if changes were updated in a file)
 more <filename>
 # Transfer only files that have changed
-$ rsync -a ~/tutorial_cancer_modeling_des/output/ <sunetid>@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/output/
+$ rsync -a ~/tutorial_cancer_modeling_des/analysis/ sjpi@login.sherlock.stanford.edu:tutorial_cancer_modeling_des/analysis/
 
 
 

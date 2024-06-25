@@ -2,6 +2,7 @@
 title: "Cancer Modeling Tutorial"
 format: html
 editor: visual
+bibliography: references.bib
 ---
 
 # Discrete event simulation tutorial: Application to cancer modeling
@@ -146,6 +147,7 @@ Visualize calibration targets and default model
 true_prevalence_a <- read.csv(file = 'data/prevalence_lesion_a.csv')
 true_prevalence_b <- read.csv(file = 'data/prevalence_lesion_b.csv')
 true_incidence_cancer <- read.csv(file = 'data/incidence_cancer.csv')
+true_stage_distr <- read.csv(file = 'data/stage_distr.csv')
 
 # Load calibration parameter sample
 load('data/calibration_sample.RData')
@@ -154,14 +156,17 @@ load('data/calibration_sample.RData')
 results_noscreening$m_cohort[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
 
 # Get vector of ages
-v_ages <- list()
-v_ages[['a']] <- get_age_range(true_prevalence_a)
-v_ages[['b']] <- get_age_range(true_prevalence_b)
+v_ages_prevalence <- list()
+v_ages_prevalence[['a']] <- get_age_range(true_prevalence_a)
+v_ages_prevalence[['b']] <- get_age_range(true_prevalence_b)
 
-# Calculate prevalence with default model
-default_prevalence <- calc_pcl_prevalence(l_params_all, results_noscreening$m_cohort, results_noscreening$m_lesions, v_ages)
+v_ages_incidence <- get_age_range(true_incidence_cancer)
 
+# Calculate calibration targets with default model
+l_calib_outputs <- calc_calib_targets(l_params_all, results_noscreening$m_cohort, results_noscreening$m_lesions, v_ages_prevalence, v_ages_incidence)
+  
 # Plot true and default prevalence
+default_prevalence <- l_calib_outputs$prevalence
 full_prevalence_df <- rbind(true_prevalence_a %>%
                               mutate(lesion = 'a',
                                      label = 'True'), 
@@ -188,6 +193,46 @@ ggplot(full_prevalence_df, aes(x = median_age,
        y = 'Prevalence')
 ```
 
+```{r}
+# Plot true and default incidence
+default_incidence <- l_calib_outputs$incidence
+full_incidence_df <- rbind(true_incidence_cancer %>%
+                              mutate(label = 'True'), 
+                            default_incidence %>%
+                              mutate(label = 'Default')) %>%
+  mutate(median_age = (age_end + age_start) / 2) %>%
+  mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)),
+         ci_lb = incidence - 1.96 * se,
+         ci_ub = incidence + 1.96 * se)
+  
+ggplot(full_incidence_df, aes(x = median_age, 
+                               y = incidence,
+                               color = label)) + 
+  geom_point() + 
+  geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+  labs(title = 'Cancer incidence',
+       x = 'Age',
+       y = 'Incidence')
+```
+
+```{r}
+# Stage distribution
+default_stage_distr <- l_calib_outputs$stage_distr
+full_stage_distr_df <- rbind(true_stage_distr %>%
+                              mutate(label = 'True'), 
+                            default_stage_distr %>%
+                              mutate(label = 'Default'))
+  
+ggplot(full_stage_distr_df, aes(x = stage_dx, 
+                               y = pct,
+                               color = label)) + 
+  geom_point() + 
+  geom_errorbar(aes(x=stage_dx, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+  labs(title = 'Cancer stage distribution',
+       x = 'Stage',
+       y = 'Percentage')
+```
+
 How would you describe the fit of the default parameters to the calibration targets?
 
 ### BayCANN: Bayesian Calibration with Artificial Neural Network
@@ -197,3 +242,5 @@ How would you describe the fit of the default parameters to the calibration targ
 ```
 
 Visualize results and compare to before calibration
+
+[@Rutter2019]
