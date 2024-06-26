@@ -33,7 +33,7 @@ run_model <- function(l_params_all, verbose = FALSE) {
   m_cohort_cancer <- simulate_cancer_progression(m_cohort_init, m_lesions, l_params_all, 
                                                  verbose = verbose)
   
-  # Compile overall mortality outcomes from backgrount and cancer data
+  # Compile overall mortality outcomes from background and cancer data
   m_cohort_base <- calc_mortality_outcomes(m_cohort_init, m_cohort_cancer, 
                                            verbose = verbose)
   
