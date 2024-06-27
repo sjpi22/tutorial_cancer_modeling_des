@@ -54,16 +54,20 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
       
       # Create distribution data
       l_distr_surv[[i]] <- list(distr = "empirical", 
-                                  params = list(xs = temp_surv_data$years_from_dx, 
-                                                probs = probs, 
-                                                max_x = max_age), 
-                                  src = "known")
+                                params = list(xs = temp_surv_data$years_from_dx, 
+                                              probs = probs, 
+                                              max_x = max_age), 
+                                src = "known",
+                                description = paste("Survival from diagnosis at stage", i))
     }
   } else {
     # If no survival file uploaded, use true survival distribution of exponential from diagnosis
     l_distr_surv <- list()
     for (i in 1:length(l_params_all$v_cancer)) {    
-      l_distr_surv[[i]] <- list(distr = "exp", params = list(rate = 0.2 * i - 0.1), src = "known")
+      l_distr_surv[[i]] <- list(distr = NULL,
+                                params = NULL,
+                                src = "known",
+                                description = paste("Survival from diagnosis at stage", i))
     }
   }
   
@@ -80,29 +84,45 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
                            params = list(xs = l_lifetables$male$age, 
                                          probs = l_lifetables$male$p_death, 
                                          max_x = max_age), 
-                           src = "known")
+                           src = "known",
+                           description = "Background mortality for males")
     
     time_0_Do_female <- list(distr = "empirical", 
                              params = list(xs = l_lifetables$female$age, 
                                            probs = l_lifetables$female$p_death,
                                            max_x = max_age),
-                             src = "known")
+                             src = "known",
+                             description = "Background mortality for females")
     
     # Precancerous lesions
-    time_0_1 = list(distr = "weibull", params = list(shape = 2, scale = 75), src = "unknown")
-    time_1_2 = list(distr = "gamma", params = list(shape = 8, scale = 8), src = "unknown")
+    time_0_1 = list(distr = "weibull", 
+                    params = list(shape = 1, scale = 1), 
+                    src = "unknown",
+                    description = "Time from birth to precancerous lesion state")
+    time_1_2 = list(distr = "exp", 
+                    params = list(rate = 1), 
+                    src = "unknown",
+                    description = "Time from precancerous lesion state to cancer onset")
       
     # Cancer preclinical stage progression
-    time_2i_2ii <- list(distr = "exp", params = list(rate = 1), src = "unknown")
+    time_2i_2ii <- list(distr = "exp", 
+                        params = list(rate = 1), 
+                        src = "unknown",
+                        description = "Time from early to late stage cancer")
     
     # Cancer symptomatic detection by stage
-    time_2i_3 <- list(distr = "exp", params = list(rate = 1), src = "unknown")
-    time_2ii_3 <- list(distr = "exp", params = list(rate = 1), src = "unknown")
+    time_2i_3 <- list(distr = "exp", 
+                      params = list(rate = 1), 
+                      src = "unknown",
+                      description = "Time from early stage cancer onset to symptomatic detection")
+    time_2ii_3 <- list(distr = "exp", 
+                       params = list(rate = 1), 
+                       src = "unknown",
+                       description = "Time from late stage cancer onset to symptomatic detection")
     
     # Survival after cancer diagnosis
-    for (i in 1:length(v_cancer)) {
-      assign(paste0("time_3", v_cancer[i], "_Dc"), l_distr_surv[[i]])
-    }
+    time_3i_Dc <- l_distr_surv[[1]]
+    time_3ii_Dc <- l_distr_surv[[2]]
     
   })
   
@@ -161,14 +181,7 @@ update_param_from_map <- function(l_params_all, v_params_update, param_map) {
     
     # Get parameter to update
     var_info <- unlist(param_map[i,])
-    l_params_update[[var_info['var_name']]]$params[[var_info['param_name']]][as.integer(var_info['param_index'])] <- val
-  }
-  
-  # After resetting all tunable parameters, for empirical distributions, rescale so that probability sums to 1
-  for (var in unique(param_map$var_name)) {
-    if (l_params_update[[var]]$distr == 'empirical') {
-      l_params_update[[var]]$params$probs <- l_params_update[[var]]$params$probs / sum(l_params_update[[var]]$params$probs)
-    }
+    l_params_update[[var_info['var_name']]]$params[[var_info['param_name']]] <- val
   }
   
   return(l_params_update)
@@ -223,25 +236,14 @@ make_param_map <- function(l_params_all, src = 'unknown') {
         par <- var$params
         
         # Consolidate params and names
-        if (var$distr == 'empirical' & 'probs' %in% names(par)) {
-          # For empirical probabilities, save probabilities as calibrate-able value
-          df <- data.frame(var_name = x,
-                           var_distr = var$distr,
-                           param_name = 'probs',
-                           param_index = par$xs,
-                           param_val = par$probs)
-          
-          # Remove last row (whose value is 1 - sum of other values)
-          return(df[-nrow(df),])
-        } else {
-          df <- data.frame(var_name = x,
-                           var_distr = var$distr,
-                           param_name = names(par),
-                           param_index = 1,
-                           param_val = unname(unlist(par)))
-          
-          return(df)
-        }
+        df <- data.frame(var_name = x,
+                         var_distr = var$distr,
+                         param_name = names(par),
+                         param_val = unname(unlist(par)),
+                         var_description = var$description)
+        
+        return(df)
+        
       }
     }
   })
@@ -249,7 +251,7 @@ make_param_map <- function(l_params_all, src = 'unknown') {
   # Combine list into dataframe
   param_map <- rbindlist(param_map) %>%
     # Set variable identifier
-    mutate(var_id = paste(var_name, param_name, param_index, sep = '.'))
+    mutate(var_id = paste(var_name, param_name, sep = '.'))
   
   return(param_map)
 }

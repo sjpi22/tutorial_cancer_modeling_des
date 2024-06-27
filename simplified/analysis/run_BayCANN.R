@@ -44,9 +44,7 @@ scale_type <- 1  ## 1: for scale from -1 to 1; 2: for standardization ; 3: for s
 seed <- 123
 train_split <- 0.8
 sample_file <- "data/calibration_sample.RData"
-targets_files <- list(prevalence = list(
-  a = "data/prevalence_lesion_a.csv",
-  b = "data/prevalence_lesion_b.csv"),
+targets_files <- list(prevalence = "data/prevalence_lesion.csv",
   incidence = "data/incidence_cancer.csv",
   stage_distr = "data/stage_distr.csv")
 
@@ -54,7 +52,6 @@ path_keras_model <- paste0("output/model_keras_BayCANN.h5")    ##File path for t
 path_baycann_params <- paste0("output/parameters_BayCANN.RData")
 path_posterior <- "output/calibrated_posteriors_BayCANN.csv"
 file_stan <- "stan/post_multi_perceptron.stan"
-file_stan_normalized <- "stan/post_multi_perceptron_normal.stan"
 
 ###### 2.1 parameters for ANN 
 verbose          <- 0
@@ -80,7 +77,6 @@ n_chains <- 4
 
 set.seed(seed)
 
-Normalize_inputs    <- FALSE  # TRUE if we want to normalize inputs
 Normalize_outputs   <- FALSE  # TRUE if we want to normalize outputs 
 Scale_inputs        <- TRUE   # TRUE if we want to scale inputs
 Scale_outputs       <- TRUE   # TRUE if we want to scale outputs 
@@ -327,12 +323,7 @@ stan.dat=list(
   weight_last = weight_last)
 
 # Select the stan file based on data transformation
-
-if (Normalize_inputs) {
-  file_perceptron <- file_stan_normalized
-} else {
-  file_perceptron <- file_stan 
-}
+file_perceptron <- file_stan 
 
 # Run stan file
 stan.time <- proc.time()
@@ -542,7 +533,6 @@ param_BayCANN <- list(scale_type,
                       init_W,
                       n_iter,
                       n_thin,
-                      Normalize_inputs,
                       Normalize_outputs,
                       Scale_inputs,
                       Scale_outputs,

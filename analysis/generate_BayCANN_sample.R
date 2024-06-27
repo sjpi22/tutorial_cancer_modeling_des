@@ -29,11 +29,11 @@ data_inpath <- data_outpath <- 'data/'
 
 ###### 2.2 modifiable parameters
 # Control variables for running on cluster and/or parallelized
-run_slurm <- TRUE # change to TRUE if running on Sherlock/slurm
+run_slurm <- FALSE # change to TRUE if running on Sherlock/slurm
 run_parallel <- TRUE
 
 # For debugging and viewing outputs
-debug_small <- FALSE
+debug_small <- TRUE
 debug_large <- FALSE
 print_increment = 0.05
 

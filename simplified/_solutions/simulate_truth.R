@@ -41,16 +41,14 @@ if(debug) {
   n_screen_sample <- 100
 } else {
   n_cohort <- 100000 # Number to simulate in cohort
-  n_screen_sample <- 500
+  n_screen_sample <- 2000
 }
 
 # Randomization 
 seed <- 1 # Random seed for generating data
-jitter_multiplier_low <- 0.5 # Jitter for default parameters - lower bound in uniform distribution
-jitter_multiplier_high <- 2 # Jitter for default parameters - upper bound in uniform distribution
 
 # Outcome reporting
-v_age_prevalence <- c(seq(20, 85, 5), 100) # Age for lesion prevalence
+v_age_prevalence <- c(seq(30, 80, 10), 100) # Age for lesion prevalence
 v_age_cancer_incidence <- v_age_prevalence # Age for cancer incidence 
 v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 
@@ -60,15 +58,17 @@ v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 # Load default data
 l_params_all <- load_default_params(file.surv = NULL)
 
-# Jitter disease distribution parameters uniformly from 0.5*default to 2*default
-assertthat::are_equal((seed == l_params_all$seed), FALSE)
-set.seed(seed)
+# Add true survival distribution of exponential from diagnosis
+l_params_all$time_3i_Dc$distr <- "exp"
+l_params_all$time_3i_Dc$params <- list(rate = 0.1)
+l_params_all$time_3ii_Dc$distr <- "exp"
+l_params_all$time_3ii_Dc$params <- list(rate = 0.3)
 
 # Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
 param_map <- make_param_map(l_params_all)
 
-# Apply jitter to unknown parameters
-v_param_update <- sapply(param_map$param_val, function(x) runif(1, jitter_multiplier_low*x, jitter_multiplier_high*x))
+# Set "true" parameters
+v_param_update <- c(0.42, 0.25, 0.5, 0.06, 2, 75)
 
 # Update params
 l_params_all <- update_param_from_map(l_params_all, v_param_update, param_map)

@@ -51,7 +51,7 @@ calc_calib_targets <- function(l_params_all, m_patients,
   
   # Calculate cancer stage distribution
   if(verbose) print('Calculating stage distribution')
-  stage_distr <- calc_stage_distr(m_patients, "stage_dx", "time_0_3", "time_0_D")
+  stage_distr <- calc_stage_distr(l_params_all, m_patients, "stage_dx", "time_0_3", "time_0_D")
   
   # Return outputs
   return(list(prevalence = prevalence,
@@ -60,7 +60,6 @@ calc_calib_targets <- function(l_params_all, m_patients,
 }
 
 # Reshape calibration targets to single vector
-# Inputs: list with items list[['prevalence']][['lesiontype']] and list[['incidence']]
 reshape_calib_targets <- function(l_calib_targets, output_se = FALSE, 
                                   output_map = FALSE,
                                   conf_level = 0.95) {
@@ -75,30 +74,29 @@ reshape_calib_targets <- function(l_calib_targets, output_se = FALSE,
   }
   
   # Prevalence by lesion type
-  for (lesiontype in names(l_calib_targets[['prevalence']])) {
-    prev_df <- l_calib_targets[['prevalence']][[lesiontype]] %>%
-      mutate(varname = paste('prev', lesiontype, age_start, age_end, sep = '_'))
+  prev_df <- l_calib_targets[['prevalence']] %>%
+    mutate(varname = paste('prev', age_start, age_end, sep = '_'))
+  
+  # Extract prevalence and name as varname
+  v_prev <- prev_df$prevalence
+  names(v_prev) <- prev_df$varname
+  
+  # Append to target vector
+  v_targets = c(v_targets, v_prev)
+  
+  # Get standard error
+  if (output_se) {
+    v_temp_se <- (prev_df$ci_ub - prev_df$ci_lb) / (2 * z)
+    names(v_temp_se) <- prev_df$varname
+    v_se <- c(v_se, v_temp_se)
+  }
+  
+  # Get output mapping
+  if (output_map) {
+    target_map <- rbind(target_map,
+                        data.frame(target_groups = paste("Prevalence of precancerous lesion"),
+                                   target_index = (prev_df$age_start + prev_df$age_end)/2))
     
-    # Extract prevalence and name as varname
-    v_prev <- prev_df$prevalence
-    names(v_prev) <- prev_df$varname
-    
-    # Append to target vector
-    v_targets = c(v_targets, v_prev)
-    
-    # Get standard error
-    if (output_se) {
-      v_temp_se <- (prev_df$ci_ub - prev_df$ci_lb) / (2 * z)
-      names(v_temp_se) <- prev_df$varname
-      v_se <- c(v_se, v_temp_se)
-    }
-    
-    # Get output mapping
-    if (output_map) {
-      target_map <- rbind(target_map,
-                      data.frame(target_groups = paste("Prevalence of lesion type", lesiontype),
-                                 target_index = (prev_df$age_start + prev_df$age_end)/2))
-    }
   }
   
   # Extract incidence and name as varname and append to target vector

@@ -28,16 +28,11 @@ distr.sources <- list.files("R",
 sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
-debug <- FALSE
-run_slurm <- TRUE
+debug <- TRUE
 run_parallel <- TRUE
 
 ###### 2.1 file paths 
-sample_file <- "data/calibration_sample.RData"
-
-targets_files <- list(prevalence = list(
-  a = "data/prevalence_lesion_a.csv",
-  b = "data/prevalence_lesion_b.csv"),
+targets_files <- list(prevalence = "data/prevalence_lesion.csv",
   incidence = "data/incidence_cancer.csv",
   stage_distr = "data/stage_distr.csv")
 
@@ -57,15 +52,7 @@ l_params_all <- update_param_list(l_params_all,
 set.seed(l_params_all$seed)
 
 # Set number of cores to use
-if(run_slurm) {
-  # use the environment variable SLURM_NTASKS_PER_NODE to set
-  # the number of cores to use
-  registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
-  outpath <- 'sherlock/output/imabc'
-  
-  # Create directory if it does not exist
-  dir.create(file.path(outpath))
-} else if(run_parallel) {
+if(run_parallel) {
   registerDoParallel(cores=min(detectCores(logical = TRUE), 6) - 2)  
   outpath <- 'output/imabc'
   
@@ -82,7 +69,7 @@ if (debug) {
 }
 
 # Load parameter mapping
-load(sample_file) # Only need parameter mapping param_map here
+param_map <- make_param_map(l_params_all)
 
 # If debug, use narrow range around true values
 if (debug) {
@@ -90,10 +77,10 @@ if (debug) {
   model_param_map <- param_map
   
   # Load true parameters
-  true_param_path <- 'disease_simulator/true_param_map_consistent.RData'
+  true_param_path <- '_solutions/true_param_map.RData'
   load(true_param_path)
-  model_param_map$prior_min <- param_map$param_val * 0.9
-  model_param_map$prior_max <- param_map$param_val * 1.2
+  model_param_map$prior_min <- param_map$param_val * 0.7
+  model_param_map$prior_max <- param_map$param_val * 1.5
   
   param_map <- model_param_map
 }
@@ -105,9 +92,7 @@ l_true_targets <- recursive_read_csv(targets_files)
 l_true_reshaped <- reshape_calib_targets(l_true_targets, output_se = TRUE, output_map = TRUE)
 
 # Get vector of ages for prevalence
-v_ages_prevalence <- list()
-v_ages_prevalence[['a']] <- get_age_range(l_true_targets$prevalence[['a']])
-v_ages_prevalence[['b']] <- get_age_range(l_true_targets$prevalence[['b']])
+v_ages_prevalence <- get_age_range(l_true_targets$prevalence)
 
 # Get vector of ages for incidence
 v_ages_incidence <- get_age_range(l_true_targets$incidence)
@@ -119,7 +104,7 @@ v_ages_incidence <- get_age_range(l_true_targets$incidence)
 # Define Model Parameters/Priors
 param_df <- data.frame(
   name_var = param_map$var_id,
-  dist_var = param_map$prior_distr,
+  dist_var = "unif",
   min = param_map$prior_min,
   max = param_map$prior_max
 )
@@ -130,23 +115,14 @@ priors <- as.priors(
 )
 
 # Multiplier for SD to get bounds
-if (debug) {
-  alpha_current = rep(0.0001, length(l_true_reshaped$v_targets))
-  alpha_current[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-30
-  alpha_current[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-30
-  
-  alpha_stop = rep(0.001, length(l_true_reshaped$v_targets))
-  alpha_stop[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-10
-  alpha_stop[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-15
-} else {
-  alpha_current = rep(0.0001, length(l_true_reshaped$v_targets))
-  alpha_current[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-15
-  alpha_current[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-30
-  
-  alpha_stop = rep(0.05, length(l_true_reshaped$v_targets))
-  alpha_stop[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-7
-  alpha_stop[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-15
-}
+alpha_current = rep(0.0001, length(l_true_reshaped$v_targets))
+alpha_current[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-15
+alpha_current[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-15
+
+alpha_stop = rep(0.05, length(l_true_reshaped$v_targets))
+alpha_stop[l_true_reshaped$target_map$target_groups == 'Cancer incidence'] <- 1e-7
+alpha_stop[l_true_reshaped$target_map$target_groups == 'Stage at diagnosis'] <- 1e-7
+
 
 # Define Target Values
 target_df <- data.frame(
@@ -180,11 +156,12 @@ calibration_results <- imabc(
   targets = targets,
   target_fun = target_fun,
   seed = l_params_all$seed,
-  N_start = 1000 * length(priors),
-  N_centers = 10,
-  Center_n = 1000,
+  # N_start = 1000 * length(priors),
+  N_start = 1000,
+  N_centers = 1,
+  Center_n = 100,
   output_directory = outpath,
-  N_post = 5000,
+  N_post = 1000,
   verbose = TRUE,
   max_iter = 1000,
   validate_run = TRUE

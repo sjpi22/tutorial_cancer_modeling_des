@@ -1,0 +1,7 @@
+"parameter_name","dist_base_name","min","max","prior_sd"
+"time_2ii_3.rate","unif",0.294,0.63,0.0974597151669205
+"time_2i_3.rate","unif",0.175,0.375,0.0579896615938231
+"time_2i_2ii.rate","unif",0.35,0.75,0.116014272322656
+"time_1_2.rate","unif",0.042,0.09,0.0139296085419751
+"time_0_1.shape","unif",1.4,3,0.4636368549435
+"time_0_1.scale","unif",52.5,112.5,17.4128499557657

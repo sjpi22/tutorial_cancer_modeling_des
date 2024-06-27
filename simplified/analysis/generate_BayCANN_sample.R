@@ -29,7 +29,6 @@ data_inpath <- data_outpath <- 'data/'
 
 ###### 2.2 modifiable parameters
 # Control variables for running on cluster and/or parallelized
-run_slurm <- TRUE # change to TRUE if running on Sherlock/slurm
 run_parallel <- TRUE
 
 # For debugging and viewing outputs
@@ -49,16 +48,12 @@ if (debug_small) {
   n_samp <- 10
   n_cohort <- 500000
 } else {
-  n_samp <- 10000
-  n_cohort <- 500000
+  n_samp <- 1000
+  n_cohort <- 10000
 }
 
 # Set number of cores to use
-if(run_slurm) {
-  # use the environment variable SLURM_NTASKS_PER_NODE to set
-  # the number of cores to use
-  registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
-} else if(run_parallel) {
+if(run_parallel) {
   registerDoParallel(cores=min(detectCores(logical = TRUE), 6) - 2)  
 }
 
@@ -91,14 +86,11 @@ param_map$prior_max <- prior_multiplier_max * param_map$param_val
 n_param <- nrow(param_map)
 
 # Load calibration targets for vectors of ages
-true_prevalence_a <- read.csv(file = paste0(data_inpath, 'prevalence_lesion_a.csv'))
-true_prevalence_b <- read.csv(file = paste0(data_inpath, 'prevalence_lesion_b.csv'))
+true_prevalence <- read.csv(file = paste0(data_inpath, 'prevalence_lesion.csv'))
 true_incidence_cancer <- read.csv(file = paste0(data_inpath, 'incidence_cancer.csv'))
 
 # Get vector of ages for prevalence
-v_ages_prevalence <- list()
-v_ages_prevalence[['a']] <- get_age_range(true_prevalence_a)
-v_ages_prevalence[['b']] <- get_age_range(true_prevalence_b)
+v_ages_prevalence <- get_age_range(true_prevalence)
 
 # Get vector of ages for incidence
 v_ages_incidence <- get_age_range(true_incidence_cancer)
