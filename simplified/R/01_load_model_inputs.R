@@ -16,7 +16,7 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
     seed        = 123,                # Random seed
     n_cohort    = 100000,             # Cohort size
     conf_level  = 0.95,               # Confidence level
-    v_states    = c(0, 1, 2, 3, "D"), # Health states
+    v_states    = c(0, 1, 2, "D"), # Health states
     v_cancer    = c("i", "ii"),       # Cancer stages in order
     v_D         = c("o", "c"),        # Death states
     v_strats    = c("None", "Screen") # CEA strategies
@@ -32,9 +32,6 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
     assertthat::validate_that(length(l_params_all$v_cancer) == length(unique(surv_data$stage)), 
                             msg = 'Number of cancer states in survival file not consistent with number of states expected in v_cancer')
   }
-  
-  # Strategy parameters (sensitivity, treatment effect) @@@
-  # Screening @@@
   
   #### Create useful variables ####
   # Maximum age
@@ -94,35 +91,31 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
                              src = "known",
                              description = "Background mortality for females")
     
-    # Precancerous lesions
+    # Time to cancer onset
     time_0_1 = list(distr = "weibull", 
                     params = list(shape = 1, scale = 1), 
                     src = "unknown",
-                    description = "Time from birth to precancerous lesion state")
-    time_1_2 = list(distr = "exp", 
-                    params = list(rate = 1), 
-                    src = "unknown",
-                    description = "Time from precancerous lesion state to cancer onset")
+                    description = "Time from birth to cancer onset")
       
     # Cancer preclinical stage progression
-    time_2i_2ii <- list(distr = "exp", 
+    time_1i_1ii <- list(distr = "exp", 
                         params = list(rate = 1), 
                         src = "unknown",
                         description = "Time from early to late stage cancer")
     
     # Cancer symptomatic detection by stage
-    time_2i_3 <- list(distr = "exp", 
+    time_1i_2 <- list(distr = "exp", 
                       params = list(rate = 1), 
                       src = "unknown",
                       description = "Time from early stage cancer onset to symptomatic detection")
-    time_2ii_3 <- list(distr = "exp", 
+    time_1ii_2 <- list(distr = "exp", 
                        params = list(rate = 1), 
                        src = "unknown",
                        description = "Time from late stage cancer onset to symptomatic detection")
     
     # Survival after cancer diagnosis
-    time_3i_Dc <- l_distr_surv[[1]]
-    time_3ii_Dc <- l_distr_surv[[2]]
+    time_2i_Dc <- l_distr_surv[[1]]
+    time_2ii_Dc <- l_distr_surv[[2]]
     
   })
   

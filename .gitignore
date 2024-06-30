@@ -56,3 +56,4 @@ examples/
 output/model*.*
 sherlock/output/
 output/imabc/debug/
+simplified/output/imabc/debug/

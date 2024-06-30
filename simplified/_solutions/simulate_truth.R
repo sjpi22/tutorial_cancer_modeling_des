@@ -48,8 +48,9 @@ if(debug) {
 seed <- 1 # Random seed for generating data
 
 # Outcome reporting
-v_age_prevalence <- c(seq(30, 80, 10), 100) # Age for lesion prevalence
-v_age_cancer_incidence <- v_age_prevalence # Age for cancer incidence 
+v_ages_prevalence <- c(seq(30, 80, 10), 100) # Age for lesion prevalence
+v_ages <- list(prevalence = v_ages_prevalence,
+               incidence = v_ages_prevalence) # Age for cancer incidence 
 v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 
 
@@ -59,16 +60,16 @@ v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 l_params_all <- load_default_params(file.surv = NULL)
 
 # Add true survival distribution of exponential from diagnosis
-l_params_all$time_3i_Dc$distr <- "exp"
-l_params_all$time_3i_Dc$params <- list(rate = 0.1)
-l_params_all$time_3ii_Dc$distr <- "exp"
-l_params_all$time_3ii_Dc$params <- list(rate = 0.3)
+l_params_all$time_2i_Dc$distr <- "exp"
+l_params_all$time_2i_Dc$params <- list(rate = 0.1)
+l_params_all$time_2ii_Dc$distr <- "exp"
+l_params_all$time_2ii_Dc$params <- list(rate = 0.3)
 
 # Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
 param_map <- make_param_map(l_params_all)
 
 # Set "true" parameters
-v_param_update <- c(0.42, 0.25, 0.5, 0.06, 2, 75)
+v_param_update <- c(0.42, 0.25, 0.5, 3, 300)
 
 # Update params
 l_params_all <- update_param_from_map(l_params_all, v_param_update, param_map)
@@ -79,6 +80,14 @@ l_params_all <- update_param_list(l_params_all,
 
 # Update parameter map
 param_map$param_val <- v_param_update
+
+# Establish priors
+prior_map <- param_map %>%
+  mutate(shift = runif(nrow(param_map))) %>%
+  mutate(prior_distr = "unif",
+         prior_min = param_val * (0.7 + (shift - 0.5) * 0.6),
+         prior_max = param_val * (1.3 + (shift - 0.5) * 0.6)) %>%
+  dplyr::select(-c("param_val", "shift"))
 
 ################################################################################
 # Generate population data 
@@ -96,18 +105,17 @@ results_noscreening <- results[['None']]
 # Get prevalence, incidence, and stage outputs
 l_outputs <- calc_calib_targets(l_params_all, 
                                 results_noscreening, 
-                                v_age_prevalence, 
-                                v_age_cancer_incidence,
+                                v_ages,
                                 n_screen_sample)
 
 #### Relative survival by stage and years from diagnosis ####
 
 # Filter to individuals diagnosed with cancer in lifetime
-m_cohort_cancer_dx <- results_noscreening[time_0_3 <= time_0_D] 
+m_cohort_cancer_dx <- results_noscreening[time_0_2 <= time_0_D] 
 
 # Create survival object for death due to cancer
 cancer_surv_obj <- with(m_cohort_cancer_dx, {
-  Surv(time_3_D, fl_death_cancer)
+  Surv(time_2_D, fl_death_cancer)
 })
 
 # Get Kaplan-Meier fit
@@ -125,16 +133,19 @@ output_surv <- with(summary(cancer_surv_fit, times = 0:10),
 #### Save outputs to data folder ####
 if(!debug) {
   # Lesion prevalence
-  write.csv(l_outputs$prevalence, paste0(data_outpath, "prevalence_lesion.csv"), row.names = FALSE)
+  write.csv(l_outputs$prevalence, paste0(data_outpath, "prevalence_asymptomatic_cancer.csv"), row.names = FALSE)
   
   # Cancer incidence
-  write.csv(l_outputs$incidence, paste0(data_outpath, "incidence_cancer.csv"), row.names = FALSE)
+  write.csv(l_outputs$incidence, paste0(data_outpath, "incidence_symptomatic_cancer.csv"), row.names = FALSE)
   
   # Stage distribution
   write.csv(l_outputs$stage_distr, paste0(data_outpath, "stage_distr.csv"), row.names = FALSE)
   
   # Survival
   write.csv(output_surv, paste0(data_outpath, "relative_survival_cancer.csv"), row.names = FALSE)
+  
+  # Save priors
+  save(prior_map, file = paste0(data_outpath, "priors.RData"))
   
   # Save true parameters in current folder
   save(param_map, file = paste0(true_param_outpath, "true_param_map.RData"))

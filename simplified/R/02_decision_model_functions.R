@@ -27,7 +27,7 @@ run_model <- function(l_params_all, verbose = FALSE) {
   simulate_baseline_data(m_cohort_base, l_params_all, verbose = verbose)
   
   # Generate precancerous lesions
-  simulate_lesion_data(m_cohort_base, l_params_all, verbose = verbose)
+  simulate_cancer_onset(m_cohort_base, l_params_all, verbose = verbose)
   
   # Consolidate lesion-level data to patient-level data for cancer onset and progression
   simulate_cancer_progression(m_cohort_base, l_params_all, verbose = verbose)
@@ -86,19 +86,12 @@ simulate_baseline_data <- function(m_times, l_params_all, verbose = FALSE) {
 
 
 # Generate precancerous lesions - updates by reference in-place, so does not return anything
-simulate_lesion_data <- function(m_times, l_params_all, verbose = FALSE) {
+simulate_cancer_onset <- function(m_times, l_params_all, verbose = FALSE) {
   if(verbose) print('Simulating lesion data')
   with(as.list(l_params_all), {
     
-    # Simulate time to lesion onset
+    # Simulate time to cancer onset
     m_times[, time_0_1 := query_distr("r", .N, time_0_1$distr, time_0_1$params)]
-    
-    # Simulate time from lesion onset to cancer onset
-    m_times[, time_1_2 := query_distr("r", .N, time_1_2$distr, time_1_2$params)]
-    
-    # Calculate time from birth to cancer onset
-    m_times[, time_0_2 := time_0_1 + time_1_2]
-    
   })
 }
 
@@ -107,31 +100,31 @@ simulate_cancer_progression <- function(m_times, l_params_all, verbose = FALSE) 
   if(verbose) print('Simulating cancer progression')
   with(l_params_all, {
     # Time from first to second stage
-    m_times[, time_2i_2ii := query_distr("r", .N, time_2i_2ii$distr, time_2i_2ii$params)]
+    m_times[, time_1i_1ii := query_distr("r", .N, time_1i_1ii$distr, time_1i_1ii$params)]
     
     # Time to symptomatic detection in first stage
-    m_times[, time_2i_3 := query_distr("r", .N, time_2i_3$distr, time_2i_3$params)]
+    m_times[, time_1i_2 := query_distr("r", .N, time_1i_2$distr, time_1i_2$params)]
     
     # Time to symptomatic detection in second stage
-    m_times[, time_2ii_3 := query_distr("r", .N, time_2ii_3$distr, time_2ii_3$params)]
+    m_times[, time_1ii_2 := query_distr("r", .N, time_1ii_2$distr, time_1ii_2$params)]
     
     # Stage at cancer diagnosis - earliest stage at which time to detection is less than time to next stage
-    m_times[, stage_dx := fifelse(time_2i_3 < time_2i_2ii, 1, 2)]
-    m_times[, time_2_3 := fifelse(time_2i_3 < time_2i_2ii, time_2i_3, time_2i_2ii + time_2ii_3)]
+    m_times[, stage_dx := fifelse(time_1i_2 < time_1i_1ii, 1, 2)]
+    m_times[, time_1_2 := fifelse(time_1i_2 < time_1i_1ii, time_1i_2, time_1i_1ii + time_1ii_2)]
     
     # Time to cancer diagnosis
-    m_times[, time_0_3 := time_0_2 + time_2_3]
+    m_times[, time_0_2 := time_0_1 + time_1_2]
     
     # Cancer mortality after diagnosis
     for (stg in 1:length(v_cancer)) {
-      var <- paste0("time_3", v_cancer[stg], "_Dc")
-      m_times[stage_dx == stg, time_3_Dc := query_distr("r", .N, get(var)$distr, get(var)$params)]
+      var <- paste0("time_2", v_cancer[stg], "_Dc")
+      m_times[stage_dx == stg, time_2_Dc := query_distr("r", .N, get(var)$distr, get(var)$params)]
     }
   }
   )
   
   # Calculate death from cancer
-  m_times[, time_0_Dc := time_0_3 + time_3_Dc]
+  m_times[, time_0_Dc := time_0_2 + time_2_Dc]
 }
 
 
@@ -144,9 +137,6 @@ calc_mortality_outcomes <- function(m_times, verbose = FALSE) {
   m_times[, time_0_D := pmin(time_0_Do, time_0_Dc, na.rm = TRUE)]
   m_times[, fl_death_cancer := (time_0_Do > pmin(time_0_Dc, Inf, na.rm = TRUE))]
   
-  # Calculate screening censor date
-  m_times[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
-  
   # Calculate survival from cancer diagnosis
-  m_times[time_0_3 <= time_0_D, time_3_D := time_0_D - time_0_3]
+  m_times[time_0_2 <= time_0_D, time_2_D := time_0_D - time_0_2]
 }

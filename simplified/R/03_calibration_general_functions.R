@@ -18,7 +18,7 @@ recursive_read_csv <- function(l_files) {
 
 # Run model and generate calibration target outputs
 calc_calib_targets <- function(l_params_all, m_patients, 
-                               v_ages_prevalence, v_ages_incidence,
+                               v_ages,
                                n_screen_sample = NULL,
                                verbose = FALSE) {
   
@@ -37,21 +37,22 @@ calc_calib_targets <- function(l_params_all, m_patients,
   }
   
   # Create censor variable for precancerous lesion prevalence screening
-  m_screen_sample[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
+  m_screen_sample[, time_screen_censor := pmin(time_0_D, time_0_2, na.rm = TRUE)]
   
   # Calculate precancerous lesion prevalence with default model
-  prevalence <- calc_prevalence(m_screen_sample, "time_0_1", "time_0_2", "time_screen_censor", v_ages_prevalence,
+  prevalence <- calc_prevalence(m_screen_sample, "time_0_1", "time_0_2", "time_screen_censor", 
+                                v_ages[['prevalence']],
                                 conf_level = l_params_all$conf_level) %>%
     dplyr::select(-c("person_years_cases", "person_years_total"))
   
   # Calculate cancer age-specific incidence
   if(verbose) print('Calculating age-specific incidence')
-  incidence <- calc_incidence(m_patients, "time_0_3", "time_0_D", v_ages_incidence) %>%
+  incidence <- calc_incidence(m_patients, "time_0_2", "time_0_D", v_ages[['incidence']]) %>%
     dplyr::select(-c("total_atrisk", "age_diff"))
   
   # Calculate cancer stage distribution
   if(verbose) print('Calculating stage distribution')
-  stage_distr <- calc_stage_distr(l_params_all, m_patients, "stage_dx", "time_0_3", "time_0_D")
+  stage_distr <- calc_stage_distr(l_params_all, m_patients, "stage_dx", "time_0_2", "time_0_D")
   
   # Return outputs
   return(list(prevalence = prevalence,
@@ -156,8 +157,7 @@ reshape_calib_targets <- function(l_calib_targets, output_se = FALSE,
 
 # Wrapper for running calibration and outputting vector of outputs
 params_to_calib_targets <- function(l_params_all, v_params_update, param_map, 
-                                    v_ages_prevalence, v_ages_incidence, 
-                                    reshape_output = TRUE,
+                                    v_ages, reshape_output = TRUE,
                                     output_se = FALSE, output_map = FALSE, 
                                     conf_level = 0.95,
                                     verbose = FALSE) {
@@ -171,8 +171,7 @@ params_to_calib_targets <- function(l_params_all, v_params_update, param_map,
   # Get calibration targets and reshape to vector
   l_calib_targets <- calc_calib_targets(l_params_update, 
                                         results_noscreening,
-                                        v_ages_prevalence, 
-                                        v_ages_incidence,
+                                        v_ages,
                                         verbose = verbose)
   if (reshape_output) {
     v_calib_targets <- reshape_calib_targets(l_calib_targets, output_se = output_se,
@@ -182,4 +181,89 @@ params_to_calib_targets <- function(l_params_all, v_params_update, param_map,
     return(l_calib_targets)
   }
   
+}
+
+calc_and_plot_calib_targets <- function(l_params_all, l_m_cohort, l_true_targets, 
+                                        return_combined_plot = TRUE,
+                                        titles = list(prevalence = 'Prevalence',
+                                                      incidence = 'Incidence',
+                                                      stage_distr = 'Stage distribution'),
+                                        return_data = TRUE) {
+  # Initialize data
+  v_ages <- list()
+  l_plot_df <- list()
+  for (target in names(l_true_targets)) {
+    # Get vector of ages
+    if (target %in% c('prevalence', 'incidence'))
+      v_ages[[target]] <- get_age_range(l_true_targets[[target]])
+    
+    # Initialize plotting dataframe
+    l_plot_df[[target]] <- l_true_targets[[target]] %>%
+      mutate(label = 'True')
+  }
+                
+  # Loop over cohort datasets
+  l_calib_outputs_full <- list()
+  for (cohort in names(l_m_cohort)) {
+    # Calculate calibration targets with default model
+    l_calib_outputs <- calc_calib_targets(l_params_all, l_m_cohort[[cohort]], v_ages)
+    l_calib_outputs_full[[cohort]] <- l_calib_outputs
+    
+    # Append target outputs for plotting
+    for (target in names(l_true_targets)) {
+      l_plot_df[[target]] <- rbind(l_plot_df[[target]],
+                                   l_calib_outputs[[target]] %>%
+                                     mutate(label = cohort))
+    }
+  }
+  
+  # Plot true and comparison targets
+  l_plots <- list()
+  for (target in names(l_true_targets)) {
+    if (target %in% c('prevalence', 'incidence')) {
+      # Add median age
+      l_plot_df[[target]] <- l_plot_df[[target]] %>%
+        mutate(median_age = (age_end + age_start) / 2) %>%
+        mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)))
+      
+      if (target %in% c('incidence')) {
+        # Add confidence intervals
+        l_plot_df[[target]] <- l_plot_df[[target]] %>%
+          mutate(ci_lb = incidence - 1.96 * se,
+                 ci_ub = incidence + 1.96 * se)
+        
+        # Plot characteristics
+        ylab <- paste('Incidence per', l_plot_df[[target]]$unit[1])
+      } else {
+        # Plot characteristics
+        ylab = 'Prevalence'
+      }
+      
+      # Create plot
+      l_plots[[target]] <- ggplot(l_plot_df[[target]], aes(x = median_age, 
+                                                           y = !!as.name(target),
+                                                           color = label)) + 
+        geom_point() + 
+        geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+        labs(title = titles[[target]],
+             x = 'Age',
+             y = ylab)
+    } else if (target %in% 'stage_distr') {
+      # Create plot
+      l_plots[[target]] <- ggplot(l_plot_df[[target]], aes(x = factor(stage_dx), 
+                                                           y = pct,
+                                                           color = label)) + 
+        geom_point() + 
+        geom_errorbar(aes(x=stage_dx, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+        labs(title = titles[[target]],
+             x = 'Stage',
+             y = 'Percentage')
+    } else print(paste('Warning: target', target, 'not found'))
+  }
+  
+  
+  if(return_data) {
+    if (length(l_calib_outputs_full) == 1) l_calib_outputs_full <- l_calib_outputs_full[[1]]
+    return(list(l_plots = l_plots, l_calib_outputs = l_calib_outputs_full))
+  } else return(l_plots)
 }
