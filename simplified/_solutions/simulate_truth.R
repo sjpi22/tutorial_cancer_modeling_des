@@ -41,7 +41,7 @@ if(debug) {
   n_screen_sample <- 100
 } else {
   n_cohort <- 100000 # Number to simulate in cohort
-  n_screen_sample <- 2000
+  n_screen_sample <- 10000
 }
 
 # Randomization 

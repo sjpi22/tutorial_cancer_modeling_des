@@ -183,8 +183,8 @@ params_to_calib_targets <- function(l_params_all, v_params_update, param_map,
   
 }
 
-calc_and_plot_calib_targets <- function(l_params_all, l_m_cohort, l_true_targets, 
-                                        return_combined_plot = TRUE,
+calc_and_plot_calib_targets <- function(l_params_all, l_true_targets, 
+                                        v_target_outputs,
                                         titles = list(prevalence = 'Prevalence',
                                                       incidence = 'Incidence',
                                                       stage_distr = 'Stage distribution'),
@@ -192,6 +192,7 @@ calc_and_plot_calib_targets <- function(l_params_all, l_m_cohort, l_true_targets
   # Initialize data
   v_ages <- list()
   l_plot_df <- list()
+  v_lengths <- c()
   for (target in names(l_true_targets)) {
     # Get vector of ages
     if (target %in% c('prevalence', 'incidence'))
@@ -200,22 +201,17 @@ calc_and_plot_calib_targets <- function(l_params_all, l_m_cohort, l_true_targets
     # Initialize plotting dataframe
     l_plot_df[[target]] <- l_true_targets[[target]] %>%
       mutate(label = 'True')
+    
+    # Get number of targets
+    v_lengths[target] <- nrow(l_true_targets[[target]])
   }
                 
-  # Loop over cohort datasets
-  l_calib_outputs_full <- list()
-  for (cohort in names(l_m_cohort)) {
-    # Calculate calibration targets with default model
-    l_calib_outputs <- calc_calib_targets(l_params_all, l_m_cohort[[cohort]], v_ages)
-    l_calib_outputs_full[[cohort]] <- l_calib_outputs
-    
-    # Append target outputs for plotting
-    for (target in names(l_true_targets)) {
-      l_plot_df[[target]] <- rbind(l_plot_df[[target]],
-                                   l_calib_outputs[[target]] %>%
-                                     mutate(label = cohort))
-    }
-  }
+  # Summarize target model outputs
+  model_UB_95 = apply(v_target_outputs, 2, quantile, probs = c(1),  na.rm = TRUE)
+  model_LB_95 = apply(v_target_outputs, 2, quantile, probs = c(0),  na.rm = TRUE)
+  out_summary = data.frame(target = rep(names(l_true_targets), v_lengths[names(l_true_targets)]),
+                           model_LB_95, 
+                           model_UB_95)
   
   # Plot true and comparison targets
   l_plots <- list()
@@ -224,7 +220,8 @@ calc_and_plot_calib_targets <- function(l_params_all, l_m_cohort, l_true_targets
       # Add median age
       l_plot_df[[target]] <- l_plot_df[[target]] %>%
         mutate(median_age = (age_end + age_start) / 2) %>%
-        mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)))
+        mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age))) %>%
+        cbind(out_summary[out_summary$target == target,])
       
       if (target %in% c('incidence')) {
         # Add confidence intervals
@@ -233,7 +230,122 @@ calc_and_plot_calib_targets <- function(l_params_all, l_m_cohort, l_true_targets
                  ci_ub = incidence + 1.96 * se)
         
         # Plot characteristics
-        ylab <- paste('Incidence per', l_plot_df[[target]]$unit[1])
+        ylab <- paste('Incidence per', format(as.numeric(l_plot_df[[target]]$unit[1]), big.mark=","))
+      } else {
+        # Plot characteristics
+        ylab = 'Prevalence'
+      }
+      
+      # Create plot
+      l_plots[[target]] <- ggplot(l_plot_df[[target]], aes(x = median_age, 
+                                                           y = !!as.name(target))) + 
+        geom_point() + 
+        geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+        geom_ribbon(aes(ymin = model_LB_95,
+                        ymax = model_UB_95),
+                    fill = "black",
+                    alpha = 0.3) +
+        {if (target %in% c('incidence')) scale_y_continuous(breaks = seq(0, max(ci_ub), by = 100))} +
+        labs(title = titles[[target]],
+             x = 'Age',
+             y = ylab) +
+        theme_bw()
+    } else if (target %in% 'stage_distr') {
+      # Get model target outputs
+      stage_data <- v_target_outputs[, out_summary$target == 'stage_distr']
+      stage_plot_df <- data.frame()
+      for (i in 1:ncol(stage_data)) {
+        temp_stage_plot_df <- data.frame(
+          stage_dx = i,
+          vals = stage_data[, i]
+        )
+        
+        stage_plot_df <- rbind(stage_plot_df, temp_stage_plot_df)
+      }
+      
+      # Create plot
+      l_plots[[target]] <- ggplot(l_plot_df[[target]], aes(x = factor(stage_dx), 
+                                                           y = pct)) + 
+        geom_point() + 
+        geom_errorbar(aes(x=stage_dx, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+        geom_violin(data = stage_plot_df, aes(x = factor(stage_dx), y = vals), fill = 'black', alpha = 0.3) +
+        scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
+        labs(title = titles[[target]],
+             x = 'Stage',
+             y = 'Percentage')+
+        theme_bw()
+    } else print(paste('Warning: target', target, 'not found'))
+  }
+  
+  
+  if(return_data) {
+    if (length(l_calib_outputs_full) == 1) l_calib_outputs_full <- l_calib_outputs_full[[1]]
+    return(list(l_plots = l_plots, l_calib_outputs = l_calib_outputs_full))
+  } else return(l_plots)
+}
+
+# Mode from https://stackoverflow.com/questions/2547402/how-to-find-the-statistical-mode
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+# Plot calibration targets
+plot_calib_targets <- function(l_targets, 
+                               titles = list(prevalence = 'Prevalence',
+                                             incidence = 'Incidence',
+                                             stage_distr = 'Stage distribution')) {
+  # Initialize data
+  v_ages <- list()
+  l_plot_df <- list()
+  v_lengths <- c()
+  first_df <- TRUE
+  for (label in names(l_targets)) {
+    for (target in names(l_targets[[label]])) {
+      if (first_df) {
+        # Get vector of ages
+        if (target %in% c('prevalence', 'incidence'))
+          v_ages[[target]] <- get_age_range(l_targets[[label]][[target]])
+        
+        # Initialize plotting dataframe
+        l_plot_df[[target]] <- l_targets[[label]][[target]] %>%
+          mutate(label = label)
+        
+        # Get number of targets
+        v_lengths[target] <- nrow(l_targets[[label]][[target]])
+        
+        first_df <- FALSE
+      } else {
+        # Add to plotting dataframe
+        l_plot_df[[target]] <- rbind(l_plot_df[[target]],
+                                     l_targets[[label]][[target]] %>%
+                                       mutate(label = label))
+      }
+      
+    }
+  }
+  
+  # Plot true and comparison targets
+  l_plots <- list()
+  for (target in names(l_plot_df)) {
+    if (target %in% c('prevalence', 'incidence')) {
+      # Add median age
+      l_plot_df[[target]] <- l_plot_df[[target]] %>%
+        mutate(median_age = (age_end + age_start) / 2) 
+      
+      # Find difference in entries and add offset
+      offset_scale <- Mode(diff(l_plot_df[[target]]$median_age))
+      dodge <- position_dodge(width = offset_scale / (length(names(l_targets)) - 1))
+      
+      if (target %in% c('incidence')) {
+        # Add confidence intervals
+        l_plot_df[[target]] <- l_plot_df[[target]] %>%
+          mutate(ci_lb = incidence - 1.96 * se,
+                 ci_ub = incidence + 1.96 * se)
+        
+        # Plot characteristics
+        
+        ylab <- paste('Incidence per', format(as.numeric(l_plot_df[[target]]$unit[1]), big.mark=","))
       } else {
         # Plot characteristics
         ylab = 'Prevalence'
@@ -243,27 +355,32 @@ calc_and_plot_calib_targets <- function(l_params_all, l_m_cohort, l_true_targets
       l_plots[[target]] <- ggplot(l_plot_df[[target]], aes(x = median_age, 
                                                            y = !!as.name(target),
                                                            color = label)) + 
-        geom_point() + 
-        geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+        geom_point(position = dodge) + 
+        geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5, position = dodge) + 
+        {if (target %in% c('incidence')) scale_y_continuous(breaks = seq(0, max(l_plot_df[[target]]$ci_ub), by = 100))} +
         labs(title = titles[[target]],
              x = 'Age',
-             y = ylab)
+             y = ylab) +
+        theme_bw()
     } else if (target %in% 'stage_distr') {
+      # Find difference in entries and add offset
+      offset_scale <- 1
+      dodge <- position_dodge(width = offset_scale * 0.8)
+      
       # Create plot
       l_plots[[target]] <- ggplot(l_plot_df[[target]], aes(x = factor(stage_dx), 
                                                            y = pct,
                                                            color = label)) + 
-        geom_point() + 
-        geom_errorbar(aes(x=stage_dx, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+        geom_point(position = dodge) + 
+        geom_errorbar(aes(x=stage_dx, ymin=ci_lb, ymax=ci_ub), alpha = 0.5, position = dodge) + 
+        coord_cartesian(ylim = c(0, 1)) +
+        scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
         labs(title = titles[[target]],
              x = 'Stage',
-             y = 'Percentage')
+             y = 'Percentage')+
+        theme_bw()
     } else print(paste('Warning: target', target, 'not found'))
   }
   
-  
-  if(return_data) {
-    if (length(l_calib_outputs_full) == 1) l_calib_outputs_full <- l_calib_outputs_full[[1]]
-    return(list(l_plots = l_plots, l_calib_outputs = l_calib_outputs_full))
-  } else return(l_plots)
+  return(l_plots)
 }

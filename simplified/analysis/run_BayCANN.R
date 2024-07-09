@@ -25,6 +25,7 @@ library(reshape2)
 library(tidyverse)
 library(ggplot2)
 library(doParallel)
+library(patchwork)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
@@ -44,8 +45,8 @@ scale_type <- 1  ## 1: for scale from -1 to 1; 2: for standardization ; 3: for s
 seed <- 123
 train_split <- 0.8
 sample_file <- "data/calibration_sample.RData"
-targets_files <- list(prevalence = "data/prevalence_lesion.csv",
-  incidence = "data/incidence_cancer.csv",
+targets_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
+  incidence = "data/incidence_symptomatic_cancer.csv",
   stage_distr = "data/stage_distr.csv")
 
 path_keras_model <- paste0("output/model_keras_BayCANN.h5")    ##File path for the compiled model
@@ -238,18 +239,16 @@ ann_valid_transpose <- ann_valid %>%
   pivot_wider(id_cols = c(sim, name), names_from = type, values_from = value)
 
 ##Partition of validation data for Graph (4 parts)
-n_partition <-4
+n_partition <-2
 n_part_bach <-floor(n_outputs/n_partition)
 
 ann_valid_transpose <- arrange(ann_valid_transpose,desc(name))
 
 ann_valid_transpose1 <- ann_valid_transpose[(1):(n_part_bach*n_test),]
 ann_valid_transpose2 <- ann_valid_transpose[(n_part_bach*n_test+1):(2*n_part_bach*n_test),]
-ann_valid_transpose3 <- ann_valid_transpose[(2*n_part_bach*n_test+1):(3*n_part_bach*n_test),]
-ann_valid_transpose4 <- ann_valid_transpose[(3*n_part_bach*n_test+1):dim(ann_valid_transpose)[1],]
 
 #part 1
-ggplot(data = ann_valid_transpose1, aes(x = model, y = pred)) +
+ann_plot1 <- ggplot(data = ann_valid_transpose1, aes(x = model, y = pred)) +
   geom_point(alpha = 0.5, color = "tomato") +
   facet_wrap(~name, scales="free",  ncol = 7) +
   xlab("Model outputs (scaled)") +
@@ -258,7 +257,7 @@ ggplot(data = ann_valid_transpose1, aes(x = model, y = pred)) +
   theme_bw()
 
 #part 2
-ggplot(data = ann_valid_transpose2, aes(x = model, y = pred)) +
+ann_plot2 <- ggplot(data = ann_valid_transpose2, aes(x = model, y = pred)) +
   geom_point(alpha = 0.5, color = "tomato") +
   facet_wrap(~name, scales="free", ncol = 7) +
   xlab("Model outputs (scaled)") +
@@ -266,23 +265,15 @@ ggplot(data = ann_valid_transpose2, aes(x = model, y = pred)) +
   #coord_equal() +
   theme_bw()
 
-#part 3
-ggplot(data = ann_valid_transpose3, aes(x = model, y = pred)) +
-  geom_point(alpha = 0.5, color = "tomato") +
-  facet_wrap(~name, scales="free", ncol = 7) +
-  xlab("Model outputs (scaled)") +
-  ylab("ANN predictions (scaled)") +
-  #coord_equal() +
-  theme_bw()
+ann_plot_full <- (ann_plot1 + ann_plot2) +
+  plot_layout(
+    ncol = 1,
+    guides = "collect"
+  )
 
-#part 4
-ggplot(data = ann_valid_transpose4, aes(x = model, y = pred)) +
-  geom_point(alpha = 0.5, color = "tomato") +
-  facet_wrap(~name, scales="free", ncol = 7) +
-  xlab("Model outputs (scaled)") +
-  ylab("ANN predictions (scaled)") +
-  #coord_equal() +
-  theme_bw()
+ggsave(filename = paste0("output/fig_validation_BayCANN.png"),
+       ann_plot_full,
+       width = 10, height = 7)
 
 #### STEP 4 in paper: Bayesian calibration ####
 
@@ -366,8 +357,7 @@ ggsave(filename = paste0("output/fig_posterior_distribution_chains_BayCANN.png")
 
 stan_dens(m,pars=param_names, inc_warmup = FALSE, separate_chains=FALSE)
 
-stan_ac(m,pars=param_names[1:15], inc_warmup = FALSE, separate_chains=TRUE)
-stan_ac(m,pars=param_names[16:30], inc_warmup = FALSE, separate_chains=TRUE)
+stan_ac(m,pars=param_names, inc_warmup = FALSE, separate_chains=TRUE)
 
 stan_rhat(m,pars=param_names)          # Rhat statistic 
 stan_par(m,par=param_names[1])         # Mean metrop. acceptances, sample step size

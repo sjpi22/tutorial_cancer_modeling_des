@@ -28,12 +28,12 @@ distr.sources <- list.files("R",
 sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
-debug <- TRUE
+debug <- FALSE
 run_parallel <- TRUE
 
 ###### 2.1 file paths 
-targets_files <- list(prevalence = "data/prevalence_lesion.csv",
-  incidence = "data/incidence_cancer.csv",
+targets_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
+  incidence = "data/incidence_symptomatic_cancer.csv",
   stage_distr = "data/stage_distr.csv")
 
 ###### 2.1 model parameters 
@@ -53,7 +53,7 @@ set.seed(l_params_all$seed)
 
 # Set number of cores to use
 if(run_parallel) {
-  registerDoParallel(cores=min(detectCores(logical = TRUE), 6) - 2)  
+  registerDoParallel(cores=detectCores(logical = TRUE) - 2)  
   outpath <- 'output/imabc'
   
   # Create directory if it does not exist
@@ -69,21 +69,7 @@ if (debug) {
 }
 
 # Load parameter mapping
-param_map <- make_param_map(l_params_all)
-
-# If debug, use narrow range around true values
-if (debug) {
-  # Resave param map
-  model_param_map <- param_map
-  
-  # Load true parameters
-  true_param_path <- '_solutions/true_param_map.RData'
-  load(true_param_path)
-  model_param_map$prior_min <- param_map$param_val * 0.7
-  model_param_map$prior_max <- param_map$param_val * 1.5
-  
-  param_map <- model_param_map
-}
+load('data/priors.RData')
 
 # Load targets
 l_true_targets <- recursive_read_csv(targets_files)
@@ -91,22 +77,21 @@ l_true_targets <- recursive_read_csv(targets_files)
 # Reshape true targets and get mapping
 l_true_reshaped <- reshape_calib_targets(l_true_targets, output_se = TRUE, output_map = TRUE)
 
-# Get vector of ages for prevalence
+# Get vector of ages for prevalence and incidence
 v_ages_prevalence <- get_age_range(l_true_targets$prevalence)
-
-# Get vector of ages for incidence
 v_ages_incidence <- get_age_range(l_true_targets$incidence)
+v_ages <- list(prevalence = v_ages_prevalence,
+               incidence = v_ages_incidence)
 
 
 #### 4. IMABC inputs  ===========================================
 
-
 # Define Model Parameters/Priors
 param_df <- data.frame(
-  name_var = param_map$var_id,
-  dist_var = "unif",
-  min = param_map$prior_min,
-  max = param_map$prior_max
+  name_var = prior_map$var_id,
+  dist_var = prior_map$prior_distr,
+  min = prior_map$prior_min,
+  max = prior_map$prior_max
 )
 
 priors <- as.priors(
@@ -141,8 +126,8 @@ targets <- as.targets(target_df)
 
 # Define Target Function
 fn <- function(v_params_update) {
-  v_targets <- params_to_calib_targets(l_params_all, v_params_update, param_map, 
-                                       v_ages_prevalence, v_ages_incidence)
+  v_targets <- params_to_calib_targets(l_params_all, v_params_update, prior_map, 
+                                       v_ages)
   return(v_targets)
 }
 
@@ -151,6 +136,7 @@ target_fun <- define_target_function(
 )
 
 # Calibrate model - see here for documentation: https://github.com/c-rutter/imabc/tree/a58a3b7c8db18948ff87fb6be55c6175399f41a2
+start_time <- Sys.time()
 calibration_results <- imabc(
   priors = priors,
   targets = targets,
@@ -160,20 +146,22 @@ calibration_results <- imabc(
   N_start = 1000,
   N_centers = 1,
   Center_n = 100,
-  output_directory = outpath,
+  # output_directory = outpath,
   N_post = 1000,
   verbose = TRUE,
-  max_iter = 1000,
-  validate_run = TRUE
+  max_iter = 1000
+  # validate_run = TRUE
 )
+end_time <- Sys.time()
+print(end_time - start_time) # 29.41799 mins
+
+# If output_directory is included, Getting error: Error in length(dots) == 2 && class(dots[[1]]) != "list" : 
+# 'length = 2' in coercion to 'logical(1)'
 
 if(debug) {
   print('Saving debug output')
-  save(calibration_results, file = paste0(outpath, 'IMABC_calibration_debug.RData'))
+  save(calibration_results, file = paste0(outpath, '/IMABC_calibration_debug.RData'))
 } else {
   print('Saving output')
-  save(calibration_results, file = paste0(outpath, 'IMABC_calibration.RData'))
+  save(calibration_results, file = paste0(outpath, '/IMABC_calibration.RData'))
 }
-
-# Getting error: Error in imabc(priors = priors, targets = targets, target_fun = target_fun,  : 
-# No valid parameters to work from.

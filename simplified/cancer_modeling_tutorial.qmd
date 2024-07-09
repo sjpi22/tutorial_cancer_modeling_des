@@ -92,7 +92,7 @@ plot_mort <- ggplot(df_mort, aes(yrs, prob, color = sex)) +
 # Survival after diagnosis
 df_surv <- data.frame()
 for (stg in l_params_all$v_cancer) {
-  var <- paste0("time_3", stg, "_Dc")
+  var <- paste0("time_2", stg, "_Dc")
   n_surv_ages <- length(l_params_all[[var]]$params$xs)
   temp_df_surv <- data.frame(stage = toupper(stg),
                              yrs = l_params_all[[var]]$params$xs,
@@ -122,19 +122,55 @@ plot_surv <- ggplot(df_surv, aes(yrs, prob, color = stage)) +
   theme(legend.position = 'bottom')
 ```
 
-Exercise: Add precursor lesion information to the model
+\[Exercise\] Researchers recently discovered that the disease can be differentiated into early versus late stage and that survival patterns differ by stage. Modify the decision model functions to add this information.
 
-Run default model
+Load priors and run default model
 
 ```{r}
-results <- run_model(l_params_all)
-results_noscreening <- results[['None']]
+# Load priors
+param_map <- make_param_map(l_params_all)
+prior_path <- 'data/priors.RData'
+load(prior_path)
+
+# Update parameters
+l_params_min <- update_param_from_map(l_params_all, prior_map$prior_min, param_map)
+
+results_min <- run_model(l_params_min)
+results_noscreening_min <- results_min[['None']]
+
+# Update parameters
+l_params_max <- update_param_from_map(l_params_all, prior_map$prior_max, param_map)
+
+results_max <- run_model(l_params_max)
+results_noscreening_max <- results_max[['None']]
 ```
 
 Visualize outputs
 
 ```{r}
-param_map <- make_param_map(l_params_all)
+# Weibull distribution
+df <- data.frame()
+for(a in 2^seq(-1, 4)){
+  for(b in 2^seq(-1, 6)){
+    x = seq(0, 10, 0.2)
+    y = 1 - pweibull(x, shape=a, scale=b)
+    df = rbind(df, 
+               data.frame(a = paste("Shape =", a),
+                          b = factor(b),
+                          x = x, 
+                          y = y))
+  }
+}
+df$a <- factor(df$a, levels = paste("Shape =", 2^seq(-1, 4)))
+
+ggplot(df, aes(x, y, color = b)) + 
+  geom_line() + 
+  facet_wrap(vars(a)) +
+  coord_cartesian(ylim=c(0, 1)) +
+  labs(color = "Scale") +
+  xlab("Years") +
+  ylab("Proportion without event") +
+  ggtitle("Weibull distributions by shape and scale")
 
 ```
 
@@ -146,87 +182,51 @@ Visualize calibration targets and default model
 
 ```{r}
 # Load calibration targets
-true_prevalence <- read.csv(file = 'data/prevalence_lesion.csv')
-true_incidence_cancer <- read.csv(file = 'data/incidence_cancer.csv')
+true_prevalence <- read.csv(file = 'data/prevalence_asymptomatic_cancer.csv')
+true_incidence <- read.csv(file = 'data/incidence_symptomatic_cancer.csv')
 true_stage_distr <- read.csv(file = 'data/stage_distr.csv')
+l_calib_targets <- list(prevalence = true_prevalence,
+                        incidence = true_incidence,
+                        stage_distr = true_stage_distr)
+
+# Summarize LHS calibration targets
+load('data/calibration_sample.RData')
+
+# Plot outputs
+plot_priors <- calc_and_plot_calib_targets(l_params_all, 
+                                           l_calib_targets,
+                                           out_calib_targets, 
+                                           return_data = FALSE)
 
 
-# Create censor variable for screening
-results_noscreening[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
+(plot_priors$prevalence + plot_priors$incidence + plot_priors$stage_distr) + 
+  plot_layout(
+    ncol = 3,
+    guides = "collect"
+  ) + plot_annotation(title = 'Calibration targets') &
+  theme(legend.position = 'bottom')
 
-# Get vector of ages
-v_ages_prevalence <- get_age_range(true_prevalence)
-
-v_ages_incidence <- get_age_range(true_incidence_cancer)
-
-# Calculate calibration targets with default model
-l_calib_outputs <- calc_calib_targets(l_params_all, results_noscreening, v_ages_prevalence, v_ages_incidence)
-  
-# Plot true and default prevalence
-default_prevalence <- l_calib_outputs$prevalence
-full_prevalence_df <- rbind(true_prevalence %>%
-                              mutate(label = 'True'), 
-                            default_prevalence %>%
-                              mutate(label = 'Default')) %>%
-  mutate(median_age = (age_end + age_start) / 2) %>%
-  mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)))
-
-ggplot(full_prevalence_df, aes(x = median_age, 
-                               y = prevalence,
-                               color = label)) + 
-  geom_point() + 
-  geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
-  labs(title = 'Precancerous lesion prevalence',
-       x = 'Age',
-       y = 'Prevalence')
+# @@@ can remove age 80+ from screening prevalence
 ```
+
+The black dots are the true targets with 95% confidence intervals. The gray shaded areas are the regions covered by the 95% quantile range of the Latin hypercube sample of parameters generated for BayCANN.
+
+How would you describe the fit of the uncalibrated priors to the calibration targets?
 
 ```{r}
-# Plot true and default incidence
-default_incidence <- l_calib_outputs$incidence
-full_incidence_df <- rbind(true_incidence_cancer %>%
-                              mutate(label = 'True'), 
-                            default_incidence %>%
-                              mutate(label = 'Default')) %>%
-  mutate(median_age = (age_end + age_start) / 2) %>%
-  mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)),
-         ci_lb = incidence - 1.96 * se,
-         ci_ub = incidence + 1.96 * se)
-  
-ggplot(full_incidence_df, aes(x = median_age, 
-                               y = incidence,
-                               color = label)) + 
-  geom_point() + 
-  geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
-  labs(title = 'Cancer incidence',
-       x = 'Age',
-       y = 'Incidence per 100,000')
+
 ```
+
+## IMABC
 
 ```{r}
-# Stage distribution
-default_stage_distr <- l_calib_outputs$stage_distr
-full_stage_distr_df <- rbind(true_stage_distr %>%
-                              mutate(label = 'True'), 
-                            default_stage_distr %>%
-                              mutate(label = 'Default'))
-  
-ggplot(full_stage_distr_df, aes(x = stage_dx, 
-                               y = pct,
-                               color = label)) + 
-  geom_point() + 
-  geom_errorbar(aes(x=stage_dx, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
-  labs(title = 'Cancer stage distribution',
-       x = 'Stage',
-       y = 'Percentage')
-```
 
-How would you describe the fit of the default parameters to the calibration targets?
+```
 
 ### BayCANN: Bayesian Calibration with Artificial Neural Network
 
 ```{r}
-
+# Generate BayCANN sample
 ```
 
 Visualize results and compare to before calibration

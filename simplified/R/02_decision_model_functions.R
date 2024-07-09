@@ -26,10 +26,10 @@ run_model <- function(l_params_all, verbose = FALSE) {
   # Generate baseline characteristics
   simulate_baseline_data(m_cohort_base, l_params_all, verbose = verbose)
   
-  # Generate precancerous lesions
+  # Generate cancer onset
   simulate_cancer_onset(m_cohort_base, l_params_all, verbose = verbose)
   
-  # Consolidate lesion-level data to patient-level data for cancer onset and progression
+  # Cancer progression
   simulate_cancer_progression(m_cohort_base, l_params_all, verbose = verbose)
   
   # Compile overall mortality outcomes from background and cancer data
@@ -37,18 +37,6 @@ run_model <- function(l_params_all, verbose = FALSE) {
   
   # Add to results
   l_results[[l_params_all$v_strats[1]]] <- m_cohort_base
-  
-  ##############################################################################
-  #### Regenerate disease process under other intervention scenarios
-  ##############################################################################
-  if(length(l_params_all$v_strats) > 1) {
-    for (str in l_params_all$v_strats[-1]) {
-      
-      # Add to results
-      l_results[[str]] <- list(m_cohort = m_cohort_base, 
-                               m_lesions = m_lesions)
-    }
-  }
   
   return(l_results)
 }
