@@ -46,6 +46,9 @@ l_params_all <- update_param_list(l_params_all,
                                   list(n_cohort = 100000,
                                        v_strats = l_params_all$v_strats[1]))
 
+# Note: use larger cohort size for cancer incidence - 100000 is low, try 500000
+# Note: order of targets matters
+
 #### 3. Pre-processing actions  ===========================================
 
 # Set random seed
@@ -143,11 +146,11 @@ calibration_results <- imabc(
   target_fun = target_fun,
   seed = l_params_all$seed,
   # N_start = 1000 * length(priors),
-  N_start = 1000,
+  N_start = 1000 * length(priors),
   N_centers = 1,
   Center_n = 100,
   # output_directory = outpath,
-  N_post = 1000,
+  N_post = 2000,
   verbose = TRUE,
   max_iter = 1000
   # validate_run = TRUE

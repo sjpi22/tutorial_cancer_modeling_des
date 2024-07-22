@@ -256,7 +256,7 @@ make_param_map <- function(l_params_all, src = 'unknown') {
           df <- data.frame(var_name = x,
                            var_distr = var$distr,
                            param_name = 'probs',
-                           param_index = par$xs,
+                           param_index = seq(length(par$probs)),
                            param_val = par$probs)
           
           # Remove last row (whose value is 1 - sum of other values)

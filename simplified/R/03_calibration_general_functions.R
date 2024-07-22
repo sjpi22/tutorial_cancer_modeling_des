@@ -294,7 +294,8 @@ Mode <- function(x) {
 plot_calib_targets <- function(l_targets, 
                                titles = list(prevalence = 'Prevalence',
                                              incidence = 'Incidence',
-                                             stage_distr = 'Stage distribution')) {
+                                             stage_distr = 'Stage distribution'),
+                               colorlab = 'Label') {
   # Initialize data
   v_ages <- list()
   l_plot_df <- list()
@@ -360,7 +361,8 @@ plot_calib_targets <- function(l_targets,
         {if (target %in% c('incidence')) scale_y_continuous(breaks = seq(0, max(l_plot_df[[target]]$ci_ub), by = 100))} +
         labs(title = titles[[target]],
              x = 'Age',
-             y = ylab) +
+             y = ylab,
+             color = colorlab) +
         theme_bw()
     } else if (target %in% 'stage_distr') {
       # Find difference in entries and add offset
@@ -377,7 +379,8 @@ plot_calib_targets <- function(l_targets,
         scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
         labs(title = titles[[target]],
              x = 'Stage',
-             y = 'Percentage')+
+             y = 'Percentage',
+             color = colorlab)+
         theme_bw()
     } else print(paste('Warning: target', target, 'not found'))
   }

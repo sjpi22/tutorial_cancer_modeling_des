@@ -280,9 +280,9 @@ rempirical <- function(n, xs = NULL, probs, discrete = FALSE,
     return_indices <- TRUE
     xs <- seq(length(probs))
   } else if(is.unsorted(xs)) {
-    indices <- base::order(xs)
-    xs <- xs[indices]
-    probs <- probs[indices]
+    index_order <- base::order(xs)
+    xs <- xs[index_order]
+    probs <- probs[index_order]
   }
   
   # Sample n values of xs weighted by probability distribution with replacement

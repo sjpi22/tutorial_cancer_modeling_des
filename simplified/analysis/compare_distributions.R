@@ -42,9 +42,14 @@ param_map_exp <- make_param_map(l_params_exp)
 # Update
 # Mean equals 1/rate
 # Variance equals 1/rate
-v_update_exp <- c(1/5, 1/3, 1/6, 2, 75)
+weibull_shape <- c(2.5, 2, 3)
+weibull_scale <- gamma(1 + 1/weibull_shape) / (gamma(1 + 2/weibull_shape) - (gamma(1 + 1/weibull_shape))^2)
+weibull_mean <- weibull_scale * gamma(1 + 1/weibull_shape)
+exp_rate <- 1/weibull_mean
+  
+v_update_exp <- c(exp_rate, 2, 75)
 l_params_exp <- update_param_from_map(l_params_exp, v_update_exp, param_map_exp)
-l_params_exp$n_cohort <- 500000
+l_params_exp$n_cohort <- 100000
 
 #### Initialize population and disease natural history ####
 results_exp <- run_model(l_params_exp)
@@ -97,16 +102,14 @@ l_outputs_gamma <- calc_calib_targets(l_params_gamma,
 # variance = scale^2 * (gamma(1+2/shape) + gamma(1+1/shape)^2)
 l_params_weibull <- copy(l_params_gamma)
 
-weibull_shape <- 3
-
 l_params_weibull$time_1ii_2$distr <- "weibull"
-l_params_weibull$time_1ii_2$params <- list(shape=weibull_shape, scale=1/v_update_exp[1]/gamma(1 + 1/weibull_shape))
+l_params_weibull$time_1ii_2$params <- list(shape=weibull_shape[1], scale=weibull_scale[1])
 
 l_params_weibull$time_1i_2$distr <- "weibull"
-l_params_weibull$time_1i_2$params <- list(shape=weibull_shape, scale=1/v_update_exp[2]/gamma(1 + 1/weibull_shape))
+l_params_weibull$time_1i_2$params <- list(shape=weibull_shape[2], scale=weibull_scale[2])
 
 l_params_weibull$time_1i_1ii$distr <- "weibull"
-l_params_weibull$time_1i_1ii$params <- list(shape=weibull_shape, scale=1/v_update_exp[3]/gamma(1 + 1/weibull_shape))
+l_params_weibull$time_1i_1ii$params <- list(shape=weibull_shape[3], scale=weibull_scale[3])
 
 # Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
 param_map_weibull <- make_param_map(l_params_weibull)
@@ -121,11 +124,40 @@ l_outputs_weibull <- calc_calib_targets(l_params_weibull,
                                       v_ages)
 
 ################################################################################
+# Version 4: After onset, all binary distributions
+################################################################################
+
+# Change distribution - mean = 1/exp_rate and variance = 
+l_params_bin <- copy(l_params_exp)
+
+l_params_bin$time_1ii_2$distr <- "empirical"
+l_params_bin$time_1ii_2$params <- list(xs = c(0, 2*weibull_mean[1]), probs = c(0.5, 0.5), continuity_correction = NULL)
+
+l_params_bin$time_1i_2$distr <- "empirical"
+l_params_bin$time_1i_2$params <- list(xs = c(0, 2*weibull_mean[2]), probs = c(0.5, 0.5), continuity_correction = NULL)
+
+l_params_bin$time_1i_1ii$distr <- "empirical"
+l_params_bin$time_1i_1ii$params <- list(xs = c(0,2*weibull_mean[3]), probs = c(0.5, 0.5), continuity_correction = NULL)
+
+# Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
+param_map_bin <- make_param_map(l_params_bin)
+
+#### Initialize population and disease natural history ####
+results_bin <- run_model(l_params_bin)
+results_noscreening_bin <- results_bin[['None']]
+
+# Get prevalence, incidence, and stage outputs
+l_outputs_bin <- calc_calib_targets(l_params_bin, 
+                                        results_noscreening_bin, 
+                                        v_ages)
+
+################################################################################
 # Plot differences
 ################################################################################
 l_targets <- list(Exponential = l_outputs_exp,
                   Gamma = l_outputs_gamma,
                   Weibull = l_outputs_weibull)
+                  # Binary = l_outputs_bin)
 plot_targets <- plot_calib_targets(l_targets)
 
 (plot_targets$prevalence + plot_targets$incidence + plot_targets$stage_distr) + 
@@ -138,7 +170,8 @@ plot_targets <- plot_calib_targets(l_targets)
 # Get means and sample standard deviations of all time distributions
 mean_vals <- list()
 sd_vals <- list()
-for (distr in c("exp", "gamma", "weibull")) {
+for (distr in c("exp", "gamma", "weibull", "bin")) {
+# for (distr in c("exp",  "bin")) {
   time_vars <- get(paste0("results_noscreening_", distr)) %>% 
     dplyr::select(starts_with("time_"))
   
@@ -166,4 +199,36 @@ distr_means <- cbind(distr_means,
 distr_means <- as.data.frame(distr_means) %>%
   mutate(sd_ratio = mean_range / max_sd)
 View(distr_means)
+
+
+# Plot means and variances
+mean_weibull <- function(shape, scale) {
+  return(shape * gamma(1 + 1/scale))
+}
+
+var_weibull <- function(shape, scale) {
+  return(shape^2 * (gamma(1 + 2/scale) - (gamma(1 + 1/scale))^2))
+}
+
+shape_seq <- seq(10)
+scale_seq <- seq(1, 5, 0.1)
+
+weibull_df <- data.frame(
+  shape = rep(shape_seq, length(scale_seq)),
+  scale = rep(scale_seq, length(shape_seq)),
+  quantity = "mean"
+) %>%
+  mutate(val = mean_weibull(shape, scale))
+
+weibull_df <- rbind(weibull_df,
+                    data.frame(
+                      shape = rep(shape_seq, length(scale_seq)),
+                      scale = rep(scale_seq, length(shape_seq)),
+                      quantity = "sd"
+                    ) %>%
+                      mutate(val = sqrt(var_weibull(shape, scale)))
+                    )
+
+ggplot(weibull_df, aes(scale, val, color = factor(shape), linetype = quantity)) +
+  geom_line()
 
