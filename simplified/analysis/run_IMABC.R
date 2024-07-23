@@ -44,7 +44,7 @@ l_params_all <- load_default_params()
 
 # Update defaults
 l_params_all <- update_param_list(l_params_all,
-                                  list(n_cohort = 100000,
+                                  list(n_cohort = 500000,
                                        v_strats = l_params_all$v_strats[1]))
 
 # Note: use larger cohort size for cancer incidence - 100000 is low, try 500000
