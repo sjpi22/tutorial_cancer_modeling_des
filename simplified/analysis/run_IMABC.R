@@ -30,6 +30,7 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 debug <- FALSE
 run_parallel <- TRUE
+run_slurm <- TRUE
 
 ###### 2.1 file paths 
 targets_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
@@ -55,13 +56,17 @@ l_params_all <- update_param_list(l_params_all,
 set.seed(l_params_all$seed)
 
 # Set number of cores to use
-if(run_parallel) {
+if(run_slurm) {
+  # use the environment variable SLURM_NTASKS_PER_NODE to set
+  # the number of cores to use
+  registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
+} else if(run_parallel) {
   registerDoParallel(cores=detectCores(logical = TRUE) - 2)  
-  outpath <- 'output/imabc'
-  
-  # Create directory if it does not exist
-  dir.create(file.path(outpath))
 }
+
+# Create directory if it does not exist
+outpath <- 'output/imabc'
+dir.create(file.path(outpath))
 
 # File path for debug
 if (debug) {
