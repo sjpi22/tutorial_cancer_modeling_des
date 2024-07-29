@@ -183,12 +183,11 @@ params_to_calib_targets <- function(l_params_all, v_params_update, param_map,
   
 }
 
-calc_and_plot_calib_targets <- function(l_params_all, l_true_targets, 
-                                        v_target_outputs,
+calc_and_plot_calib_targets <- function(l_true_targets, 
+                                        m_target_outputs,
                                         titles = list(prevalence = 'Prevalence',
                                                       incidence = 'Incidence',
-                                                      stage_distr = 'Stage distribution'),
-                                        return_data = TRUE) {
+                                                      stage_distr = 'Stage distribution')) {
   # Initialize data
   v_ages <- list()
   l_plot_df <- list()
@@ -207,8 +206,8 @@ calc_and_plot_calib_targets <- function(l_params_all, l_true_targets,
   }
                 
   # Summarize target model outputs
-  model_UB_95 = apply(v_target_outputs, 2, quantile, probs = c(1),  na.rm = TRUE)
-  model_LB_95 = apply(v_target_outputs, 2, quantile, probs = c(0),  na.rm = TRUE)
+  model_UB_95 = apply(m_target_outputs, 2, quantile, probs = c(1),  na.rm = TRUE)
+  model_LB_95 = apply(m_target_outputs, 2, quantile, probs = c(0),  na.rm = TRUE)
   out_summary = data.frame(target = rep(names(l_true_targets), v_lengths[names(l_true_targets)]),
                            model_LB_95, 
                            model_UB_95)
@@ -245,14 +244,14 @@ calc_and_plot_calib_targets <- function(l_params_all, l_true_targets,
                         ymax = model_UB_95),
                     fill = "black",
                     alpha = 0.3) +
-        {if (target %in% c('incidence')) scale_y_continuous(breaks = seq(0, max(ci_ub), by = 100))} +
+        {if (target %in% c('incidence')) scale_y_continuous(breaks = seq(0, max(l_plot_df[[target]]$ci_ub), by = 100))} +
         labs(title = titles[[target]],
              x = 'Age',
              y = ylab) +
         theme_bw()
     } else if (target %in% 'stage_distr') {
       # Get model target outputs
-      stage_data <- v_target_outputs[, out_summary$target == 'stage_distr']
+      stage_data <- m_target_outputs[, out_summary$target == 'stage_distr']
       stage_plot_df <- data.frame()
       for (i in 1:ncol(stage_data)) {
         temp_stage_plot_df <- data.frame(
@@ -277,11 +276,7 @@ calc_and_plot_calib_targets <- function(l_params_all, l_true_targets,
     } else print(paste('Warning: target', target, 'not found'))
   }
   
-  
-  if(return_data) {
-    if (length(l_calib_outputs_full) == 1) l_calib_outputs_full <- l_calib_outputs_full[[1]]
-    return(list(l_plots = l_plots, l_calib_outputs = l_calib_outputs_full))
-  } else return(l_plots)
+  return(l_plots)
 }
 
 # Mode from https://stackoverflow.com/questions/2547402/how-to-find-the-statistical-mode
@@ -336,7 +331,8 @@ plot_calib_targets <- function(l_targets,
       
       # Find difference in entries and add offset
       offset_scale <- Mode(diff(l_plot_df[[target]]$median_age))
-      dodge <- position_dodge(width = offset_scale / (length(names(l_targets)) - 1))
+      # dodge <- position_dodge(width = offset_scale / (length(names(l_targets)) - 1))
+      dodge <- position_dodge(width = offset_scale * 0.9)
       
       if (target %in% c('incidence')) {
         # Add confidence intervals
@@ -356,7 +352,7 @@ plot_calib_targets <- function(l_targets,
       l_plots[[target]] <- ggplot(l_plot_df[[target]], aes(x = median_age, 
                                                            y = !!as.name(target),
                                                            color = label)) + 
-        geom_point(position = dodge) + 
+        geom_point(position = dodge, alpha = 0.7) + 
         geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5, position = dodge) + 
         {if (target %in% c('incidence')) scale_y_continuous(breaks = seq(0, max(l_plot_df[[target]]$ci_ub), by = 100))} +
         labs(title = titles[[target]],
@@ -367,13 +363,13 @@ plot_calib_targets <- function(l_targets,
     } else if (target %in% 'stage_distr') {
       # Find difference in entries and add offset
       offset_scale <- 1
-      dodge <- position_dodge(width = offset_scale * 0.8)
+      dodge <- position_dodge(width = offset_scale * 0.9)
       
       # Create plot
       l_plots[[target]] <- ggplot(l_plot_df[[target]], aes(x = factor(stage_dx), 
                                                            y = pct,
                                                            color = label)) + 
-        geom_point(position = dodge) + 
+        geom_point(position = dodge, alpha = 0.7) + 
         geom_errorbar(aes(x=stage_dx, ymin=ci_lb, ymax=ci_ub), alpha = 0.5, position = dodge) + 
         coord_cartesian(ylim = c(0, 1)) +
         scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +

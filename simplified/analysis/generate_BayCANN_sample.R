@@ -177,5 +177,5 @@ assertthat::validate_that(sum(sapply(out_calib_targets, function(x) any(is.nan(x
 
 if(!debug_small & !debug_large) {
   print('Saving output')
-  save(m_param_samp, out_calib_targets, file = paste0(data_outpath, 'calibration_sample.RData'))
+  save(m_param_samp, out_calib_targets, file = paste0(data_outpath, 'BayCANN_sample.RData'))
 }

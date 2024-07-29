@@ -44,7 +44,7 @@ sapply(distr.sources, source, .GlobalEnv)
 scale_type <- 1  ## 1: for scale from -1 to 1; 2: for standardization ; 3: for scale from 0 to 1
 seed <- 123
 train_split <- 0.8
-sample_file <- "data/calibration_sample.RData"
+sample_file <- "data/BayCANN_sample.RData"
 targets_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
   incidence = "data/incidence_symptomatic_cancer.csv",
   stage_distr = "data/stage_distr.csv")
