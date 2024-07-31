@@ -35,37 +35,6 @@ calc_prevalence <- function(m_time, start_var, end_var, censor_var, v_ages = NUL
   return(res)
 }
 
-# Calculate precancerous lesion (PCL) prevalence from lesion-level and individual-level data
-calc_pcl_prevalence <- function(l_params_all, m_patients, m_lesions, v_ages) {
-  # Initialize containers for results
-  output_prev <- c()
-  names_output_prev <- c()
-  
-  # Loop over lesion types
-  for (lesiontype in l_params_all$v_lesions) {
-    # Get times for specific lesion type
-    temp_lesion_type <- unique(m_lesions[lesion_type == lesiontype, c("pt_id", "time_0_1")], by = c("pt_id", "time_0_1"))
-    
-    # Rename variable to avoid conflict when merging with original data
-    setnames(temp_lesion_type, "time_0_1", "time_0_1_lesion")
-    
-    # Merge to final data
-    temp_m_cohort <- merge(m_patients, temp_lesion_type, by = "pt_id", all.x = TRUE)
-    temp_prev <- calc_prevalence(temp_m_cohort, "time_0_1_lesion", "time_0_2", "time_screen_censor", v_ages[[lesiontype]]) %>%
-      dplyr::select(-c("person_years_cases", "person_years_total"))
-    
-    # Save outputs
-    output_prev <- c(output_prev, list(temp_prev))
-    names_output_prev <- c(names_output_prev, lesiontype)
-  }
-  
-  # Save results
-  names(output_prev) <- names_output_prev
-  
-  # Return prevalence output
-  return(output_prev)
-}
-
 # Calculate annual incidence
 calc_incidence <- function(m_time, time_var, censor_var, v_ages,
                            strat_var = NULL,
@@ -145,7 +114,7 @@ calc_incidence <- function(m_time, time_var, censor_var, v_ages,
 }
 
 # Calculate stage distribution from patient-level data
-calc_stage_distr <- function(m_time, grouping_var, event_var, censor_var, groups_expected = c(1,2,3,4), conf_level = 0.95) {
+calc_stage_distr <- function(l_params_all, m_time, grouping_var, event_var, censor_var, conf_level = 0.95) {
   # Count patients diagnosed at each stage
   distr <- m_time %>%
     filter(get(event_var) <= get(censor_var)) %>%
@@ -153,6 +122,7 @@ calc_stage_distr <- function(m_time, grouping_var, event_var, censor_var, groups
     summarize(count = n(), .groups = 'drop') 
   
   # Create dataframe of expected stages
+  groups_expected <- 1:length(l_params_all$v_cancer)
   df_groups_expected <- setNames(data.frame(groups_expected), grouping_var)
   
   # If any stages not represented, convert to 0
@@ -176,16 +146,6 @@ calc_stage_distr <- function(m_time, grouping_var, event_var, censor_var, groups
   return(distr)
 }
 
-# Get prevalence age range for input into calc_prevalence from list of prevalence dataframes
-get_age_range_from_list <- function(l_df_inputs) {
-  l_v_ages <- list()
-  for (lesiontype in names(l_df_inputs)) {
-    df_inputs <- l_df_inputs[[lesiontype]]
-    l_v_ages[[lesiontype]] <- get_age_range(df_inputs)
-  }
-  
-  return(l_v_ages)
-}
 
 # Get prevalence age range for input into calc_prevalence from prevalence dataframe
 get_age_range <- function(df_inputs) {

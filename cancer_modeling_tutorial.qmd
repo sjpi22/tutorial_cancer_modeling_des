@@ -1,34 +1,21 @@
 ---
-title: "Cancer Modeling Tutorial"
+title: "Cancer microsimulation modeling tutorial: Discrete event simulation, calibration, evaluation of alternative strategies, and validation"
 format: html
 editor: visual
 bibliography: references.bib
 ---
 
-# Discrete event simulation tutorial: Application to cancer modeling
+::: panel-tabset
+## Model schema
 
-## Introduction
+![Cancer natural history model schema](figures/model_schema.png){alt="Cancer natural history model schema"}
 
-### Modeling for cancer screening policy
+## Setup
 
-\[Motivation\] \[Inputs, outputs\] \[Methods\] \[Past examples\]
+### Load packages
 
-### Discrete event simulation
+```{r, message=FALSE, warning=FALSE}
 
--   Idea: sample time to various states for individual patient trajectories
--   \[Pros and cons\]
-
-### Calibration
-
--   \[How to quantify uncertainty\] \[Why from Bayesian perspective\]
-
-## Default discrete event simulation model
-
-\[Picture of model schema\]
-
-Setup
-
-```{r}
 # Run this once
 # install.packages("devtools")
 # devtools::install_github("carolyner/imabc")
@@ -47,6 +34,8 @@ library(patchwork)
 library(survival)
 library(imabc)
 library(keras)
+library(doBy)
+library(GGally)
 
 # Load functions
 distr.sources <- list.files("R", 
@@ -55,7 +44,7 @@ distr.sources <- list.files("R",
 sapply(distr.sources, source, .GlobalEnv)
 ```
 
-Load default parameters
+### Load default parameters
 
 ```{r}
 # Load default parameters
@@ -67,7 +56,9 @@ l_params_all <- update_param_list(l_params_all,
                                        v_strats = l_params_all$v_strats[1]))
 ```
 
-Visualize data inputs: Background mortality and survival from diagnosis
+### Visualize data inputs
+
+Background mortality and survival from diagnosis
 
 ```{r}
 # Background mortality
@@ -92,7 +83,7 @@ plot_mort <- ggplot(df_mort, aes(yrs, prob, color = sex)) +
 # Survival after diagnosis
 df_surv <- data.frame()
 for (stg in l_params_all$v_cancer) {
-  var <- paste0("time_3", stg, "_Dc")
+  var <- paste0("time_2", stg, "_Dc")
   n_surv_ages <- length(l_params_all[[var]]$params$xs)
   temp_df_surv <- data.frame(stage = toupper(stg),
                              yrs = l_params_all[[var]]$params$xs,
@@ -118,129 +109,321 @@ plot_surv <- ggplot(df_surv, aes(yrs, prob, color = stage)) +
     guides = "collect",
     axes = "collect",
     axis_titles = "collect"
-  ) &
+  ) + plot_annotation(title = 'Known data inputs') &
   theme(legend.position = 'bottom')
-```
-
-Run default model \[Exercise to look at, fix, and understand decision modeling functions\]
-
-```{r}
-results <- run_model(l_params_all)
-results_noscreening <- results[['None']]
-```
-
-Visualize outputs
-
-```{r}
-
-
 ```
 
 ## Calibration
 
-Why calibrate? How?
+::: panel-tabset
+### Setup
 
-Visualize calibration targets and default model
+#### Load priors
+
+```{r}
+# Load priors
+param_map <- make_param_map(l_params_all)
+prior_path <- 'data/priors.RData'
+load(prior_path)
+```
+
+#### Visualize calibration targets and prior outputs
+
+The black dots are the true targets with 95% confidence intervals. The gray shaded areas are the regions covered by the entire range of the Latin hypercube sample of parameters generated for BayCANN.
 
 ```{r}
 # Load calibration targets
-true_prevalence_a <- read.csv(file = 'data/prevalence_lesion_a.csv')
-true_prevalence_b <- read.csv(file = 'data/prevalence_lesion_b.csv')
-true_incidence_cancer <- read.csv(file = 'data/incidence_cancer.csv')
+true_prevalence <- read.csv(file = 'data/prevalence_asymptomatic_cancer.csv')
+true_incidence <- read.csv(file = 'data/incidence_symptomatic_cancer.csv')
 true_stage_distr <- read.csv(file = 'data/stage_distr.csv')
+l_true_targets <- list(prevalence = true_prevalence,
+                        incidence = true_incidence,
+                        stage_distr = true_stage_distr)
 
-# Load calibration parameter sample
-load('data/calibration_sample.RData')
+# Summarize calibration outputs generated from LHS sample of priors
+load('data/BayCANN_sample.RData')
 
-# Create censor variable for screening
-results_noscreening$m_cohort[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
+plot_priors <- calc_and_plot_calib_targets(l_true_targets, 
+                                           out_calib_targets,
+                                           titles = list(prevalence = 'Prevalence',
+                                                         incidence = 'Incidence',
+                                                         stage_distr = 'Stage distribution'))
 
-# Get vector of ages
-v_ages_prevalence <- list()
-v_ages_prevalence[['a']] <- get_age_range(true_prevalence_a)
-v_ages_prevalence[['b']] <- get_age_range(true_prevalence_b)
+(plot_priors$prevalence + plot_priors$incidence + plot_priors$stage_distr) + 
+  plot_layout(
+    ncol = 3,
+    guides = "collect"
+  ) + plot_annotation(title = 'Calibration targets') &
+  theme(legend.position = 'bottom')
 
-v_ages_incidence <- get_age_range(true_incidence_cancer)
-
-# Calculate calibration targets with default model
-l_calib_outputs <- calc_calib_targets(l_params_all, results_noscreening$m_cohort, results_noscreening$m_lesions, v_ages_prevalence, v_ages_incidence)
-  
-# Plot true and default prevalence
-default_prevalence <- l_calib_outputs$prevalence
-full_prevalence_df <- rbind(true_prevalence_a %>%
-                              mutate(lesion = 'a',
-                                     label = 'True'), 
-                            true_prevalence_b %>%
-                              mutate(lesion = 'b', 
-                                     label = 'True'),
-                            default_prevalence$a %>%
-                              mutate(lesion = 'a',
-                                     label = 'Default'), 
-                            default_prevalence$b %>%
-                              mutate(lesion = 'b',
-                                     label = 'Default')) %>%
-  mutate(median_age = (age_end + age_start) / 2) %>%
-  mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)))
-
-ggplot(full_prevalence_df, aes(x = median_age, 
-                               y = prevalence,
-                               color = lesion,
-                               linetype = label)) + 
-  geom_point() + 
-  geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
-  labs(title = 'Precancerous lesion prevalence',
-       x = 'Age',
-       y = 'Prevalence')
+# @@@ can remove age 80+ from screening prevalence
 ```
+
+### IMABC
+
+Incremental mixture approximate Bayesian calibration [@Rutter2019]
+
+@@@ TO DO: Update target plots, make numbers more consistent
+@@@ TODO: Check BayCANN: check if STAN priors are actually uniform
+@@ journal ideas
+
+#### Run algorithm
+
+\[External step\] 
+1. Run analysis/run_IMABC.R
+
+#### Load IMABC outputs
 
 ```{r}
-# Plot true and default incidence
-default_incidence <- l_calib_outputs$incidence
-full_incidence_df <- rbind(true_incidence_cancer %>%
-                              mutate(label = 'True'), 
-                            default_incidence %>%
-                              mutate(label = 'Default')) %>%
-  mutate(median_age = (age_end + age_start) / 2) %>%
-  mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)),
-         ci_lb = incidence - 1.96 * se,
-         ci_ub = incidence + 1.96 * se)
-  
-ggplot(full_incidence_df, aes(x = median_age, 
-                               y = incidence,
-                               color = label)) + 
-  geom_point() + 
-  geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
-  labs(title = 'Cancer incidence',
-       x = 'Age',
-       y = 'Incidence')
+# File paths 
+path_imabc <- "output/imabc/IMABC_calibration.RData"
+
+# Set random seed
+set.seed(l_params_all$seed)
+
+# Reshape true targets and get mapping
+l_true_reshaped <- reshape_calib_targets(l_true_targets, output_se = TRUE, output_map = TRUE)
+
+# Load IMABC results
+load(path_imabc)
+
+# Load true parameters (unknown in real life!)
+load("_solutions/true_param_map.RData") # Output: param_map
+
+# Load priors
+load("data/priors.RData")
+
+# Sample with replacement
+n_imabc_sample <- nrow(calibration_results$good_parm_draws) * 10
+indices_imabc_sample <- sample(1:nrow(calibration_results$good_parm_draws), 
+                               n_imabc_sample, 
+                               replace = TRUE, 
+                               prob = calibration_results$good_parm_draws$sample_wt)
 ```
+
+#### Plot parameters
+
+IMABC distribution in gray, true parameters in red, uniform range of priors in blue
 
 ```{r}
-# Stage distribution
-default_stage_distr <- l_calib_outputs$stage_distr
-full_stage_distr_df <- rbind(true_stage_distr %>%
-                              mutate(label = 'True'), 
-                            default_stage_distr %>%
-                              mutate(label = 'Default'))
-  
-ggplot(full_stage_distr_df, aes(x = stage_dx, 
-                               y = pct,
-                               color = label)) + 
-  geom_point() + 
-  geom_errorbar(aes(x=stage_dx, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
-  labs(title = 'Cancer stage distribution',
-       x = 'Stage',
-       y = 'Percentage')
+# IMABC posterior parameters
+imabc_params_unweighted <- calibration_results$good_parm_draws %>%
+  dplyr::select(all_of(prior_map$var_id))
+
+imabc_params <- imabc_params_unweighted[indices_imabc_sample, ]
+
+imabc_params_long <- imabc_params %>%
+  pivot_longer(everything())
+
+# Plot IMABC parameters against true parameters and priors
+plot_params_imabc <- ggplot(imabc_params_long, aes(value)) + 
+  geom_histogram() + 
+  geom_vline(data = param_map %>%
+               rename(name = var_id), aes(xintercept=param_val), color = 'red') +
+  geom_vline(data = prior_map %>%
+               rename(name = var_id), aes(xintercept=prior_min), color = 'blue') +
+  geom_vline(data = prior_map %>%
+               rename(name = var_id), aes(xintercept=prior_max), color = 'blue') +
+  facet_wrap(~name, scales = "free") +
+  ggtitle('IMABC')
+
+plot_params_imabc
 ```
 
-How would you describe the fit of the default parameters to the calibration targets?
-
-### BayCANN: Bayesian Calibration with Artificial Neural Network
+#### Plot calibration targets
 
 ```{r}
+# Get posterior mean of outputs
+imabc_targets_unweighted <- calibration_results$good_sim_target %>%
+  dplyr::select(-c("iter", "draw", "step"))
+
+imabc_targets <- imabc_targets_unweighted[indices_imabc_sample, ]
+
+# Summarize targets
+# Note: weight for 50th and 95th with resampling
+collapse_mean  <- summaryBy( . ~ index , FUN=c(weighted.mean), w = calibration_results$good_parm_draws$sample_wt, data=imabc_targets_unweighted, keep.names=TRUE)
+collapse_UB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.975, data=imabc_targets, keep.names=TRUE)
+collapse_LB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.025, data=imabc_targets, keep.names=TRUE)
+collapse_UB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.75, data=imabc_targets, keep.names=TRUE)
+collapse_LB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.25, data=imabc_targets, keep.names=TRUE)
+
+out_summary <-  data.frame(l_true_reshaped$target_map,
+                           true_val = l_true_reshaped$v_targets,
+                           true_se = l_true_reshaped$v_se,
+                           model_mean = unname(t(collapse_mean)),
+                           model_UB_95 = unname(t(collapse_UB_95)),
+                           model_LB_95 = unname(t(collapse_LB_95)),
+                           model_UB_50 = unname(t(collapse_UB_50)),
+                           model_LB_50 = unname(t(collapse_LB_50))) %>%
+  mutate(categorical = (target_groups %in% c('Stage at diagnosis', 'Prevalence of lesion type b')))
+
+# Plot 
+plot_targets_imabc <- ggplot(data = out_summary, 
+               aes(x    = target_index, 
+                   y    = true_val, 
+                   ymin = true_val - true_se, 
+                   ymax = true_val + true_se))+ 
+  geom_errorbar(width=.4, size=0.9, color="red") +
+  theme(legend.position="none") +
+  geom_errorbar(data = out_summary[out_summary$categorical==1,],
+                aes(x    = target_index-0.07,
+                    y    = model_mean,
+                    ymin = model_LB_95,
+                    ymax = model_UB_95),width=.4, size=0.7, color="black", alpha = 0.7, position = "dodge2") +
+  geom_ribbon(data = out_summary[out_summary$categorical==0,],
+              aes(x    = target_index,
+                  y    = true_val,
+                  ymin = model_LB_95,
+                  ymax = model_UB_95),
+              fill = "black",
+              alpha = 0.3) +
+  geom_ribbon(data = out_summary[out_summary$categorical==0,],
+              aes(x    = target_index,
+                  y    = true_val,
+                  ymin = model_LB_50,
+                  ymax = model_UB_50),
+              fill = "black",
+              alpha = 0.5) +
+  facet_wrap(~ target_groups,scales="free", ncol = 3) +
+  theme(
+    strip.background = element_blank(),
+    strip.text.x = element_blank(), legend.position="none") +
+  scale_fill_manual(values = c("grey10", "grey30"))+
+  scale_y_continuous(breaks = number_ticks(5))+
+  theme_bw(base_size = 23) +
+  theme(plot.title = element_text(size = 22, face = "bold"),
+        axis.text.x = element_text(size = 12, angle = 90),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 18),
+        panel.grid.major = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA),
+        strip.background = element_blank(),
+        strip.text = element_text(hjust = 0)) +
+  labs(title = "IMABC calibration", 
+       x     = "", y     = "")
+
+plot_targets_imabc
+```
+
+### BayCANN
+
+Bayesian Calibration with Artificial Neural Network [@Jalal2021]
+
+#### Run algorithm
+
+\[External step\]
+
+1.  Run analysis/generate_BayCANN_sample.R to generate training and testing sample of parameters and outputs for ANN
+2.  Run analysis/run_BayCANN.R to train ANN and generate parameter posteriors with STAN
+3.  Run analysis/get_BayCANN_outputs.R to get calibration outputs
+
+#### Load BayCANN outputs
+
+```{r}
+# File paths
+path_baycann_post <- "output/calibrated_posteriors_BayCANN.csv"
+path_baycann_target <- "output/calibration_targets_BayCANN.csv"
+
+# Load BayCANN calibration outputs
+baycann_posteriors <- read_csv(path_baycann_post) %>%
+  dplyr::select(-lp)
+baycann_targets <- read_csv(path_baycann_target)
+
+# Rename posterior columns and create long df
+names(baycann_posteriors) <- prior_map$var_id
+
+baycann_posteriors_long <- baycann_posteriors %>%
+  pivot_longer(everything())
+
 
 ```
 
-Visualize results and compare to before calibration
+#### Plot parameters
 
-[@Rutter2019]
+```{r}
+# Plot BayCANN parameters against true parameters and priors
+plot_params_baycann <- ggplot(baycann_posteriors_long, aes(value)) + 
+  geom_histogram() + 
+  geom_vline(data = param_map %>%
+               rename(name = var_id), aes(xintercept=param_val), color = 'red') +
+  geom_vline(data = prior_map %>%
+               rename(name = var_id), aes(xintercept=prior_min), color = 'blue') +
+  geom_vline(data = prior_map %>%
+               rename(name = var_id), aes(xintercept=prior_max), color = 'blue') +
+  facet_wrap(~name, scales = "free") +
+  ggtitle('BayCANN')
+
+plot_params_baycann
+```
+
+#### Plot calibration targets
+
+```{r}
+# Summarize targets
+collapse_mean_bc  <- summaryBy( . ~ index , FUN=c(mean), data=baycann_targets,keep.names=TRUE)
+collapse_UB_95_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.975, data=baycann_targets, keep.names=TRUE)
+collapse_LB_95_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.025, data=baycann_targets, keep.names=TRUE)
+collapse_UB_50_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.75, data=baycann_targets, keep.names=TRUE)
+collapse_LB_50_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.25, data=baycann_targets, keep.names=TRUE)
+
+out_summary_bc <-  data.frame(l_true_reshaped$target_map,
+                           true_val = l_true_reshaped$v_targets,
+                           true_se = l_true_reshaped$v_se,
+                           model_mean = unname(t(collapse_mean_bc)),
+                           model_UB_95 = unname(t(collapse_UB_95_bc)),
+                           model_LB_95 = unname(t(collapse_LB_95_bc)),
+                           model_UB_50 = unname(t(collapse_UB_50_bc)),
+                           model_LB_50 = unname(t(collapse_LB_50_bc))) %>%
+  mutate(categorical = (target_groups %in% c('Stage at diagnosis', 'Prevalence of lesion type b')))
+
+# Plot 
+plot_targets_baycann <- ggplot(data = out_summary_bc, 
+                aes(x    = target_index, 
+                    y    = true_val, 
+                    ymin = true_val - true_se, 
+                    ymax = true_val + true_se))+ 
+  geom_errorbar(width=.4, size=0.9, color="red") +
+  theme(legend.position="none") +
+  geom_errorbar(data = out_summary_bc[out_summary_bc$categorical==1,],
+                aes(x    = target_index-0.07,
+                    y    = model_mean,
+                    ymin = model_LB_95,
+                    ymax = model_UB_95),width=.4, size=0.7, color="black", alpha = 0.7, position = "dodge2") +
+  geom_ribbon(data = out_summary_bc[out_summary_bc$categorical==0,],
+              aes(x    = target_index,
+                  y    = true_val,
+                  ymin = model_LB_95,
+                  ymax = model_UB_95),
+              fill = "black",
+              alpha = 0.3) +
+  geom_ribbon(data = out_summary_bc[out_summary_bc$categorical==0,],
+              aes(x    = target_index,
+                  y    = true_val,
+                  ymin = model_LB_50,
+                  ymax = model_UB_50),
+              fill = "black",
+              alpha = 0.5) +
+  facet_wrap(~ target_groups,scales="free", ncol = 3) +
+  theme(
+    strip.background = element_blank(),
+    strip.text.x = element_blank(), legend.position="none") +
+  scale_fill_manual(values = c("grey10", "grey30"))+
+  scale_y_continuous(breaks = number_ticks(5))+
+  theme_bw(base_size = 23) +
+  theme(plot.title = element_text(size = 22, face = "bold"),
+        axis.text.x = element_text(size = 12, angle = 90),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 18),
+        panel.grid.major = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA),
+        strip.background = element_blank(),
+        strip.text = element_text(hjust = 0)) +
+  labs(title = "BayCANN calibration", 
+       x     = "", y     = "")
+
+plot_targets_baycann
+```
+:::
+:::
+
+## 

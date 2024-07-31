@@ -29,37 +29,28 @@ data_inpath <- data_outpath <- 'data/'
 
 ###### 2.2 modifiable parameters
 # Control variables for running on cluster and/or parallelized
-run_slurm <- FALSE # change to TRUE if running on Sherlock/slurm
 run_parallel <- TRUE
 
 # For debugging and viewing outputs
-debug_small <- TRUE
+debug_small <- FALSE
 debug_large <- FALSE
 print_increment = 0.05
-
-# Multiplier
-prior_multiplier_min <- 1/3
-prior_multiplier_max <- 3
 
 # Number of samples
 if (debug_small) {
   n_samp <- 10
   n_cohort = 1000
 } else if (debug_large) {
-  n_samp <- 10
-  n_cohort <- 500000
+  n_samp <- 100
+  n_cohort <- 100000
 } else {
-  n_samp <- 10000
-  n_cohort <- 500000
+  n_samp <- 2000
+  n_cohort <- 100000
 }
 
 # Set number of cores to use
-if(run_slurm) {
-  # use the environment variable SLURM_NTASKS_PER_NODE to set
-  # the number of cores to use
-  registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
-} else if(run_parallel) {
-  registerDoParallel(cores=min(detectCores(logical = TRUE), 6) - 2)  
+if(run_parallel) {
+  registerDoParallel(cores=detectCores(logical = TRUE) - 2)  
 }
 
 
@@ -79,29 +70,21 @@ l_params_all <- update_param_list(l_params_all,
 # Set seed
 set.seed(l_params_all$seed)
 
-# Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
-param_map <- make_param_map(l_params_all)
-
 # Set prior distributions (set uniform for everything)
-param_map$prior_distr <- "unif"
-param_map$prior_min <- prior_multiplier_min * param_map$param_val
-param_map$prior_max <- prior_multiplier_max * param_map$param_val
+load(paste0(data_inpath, 'priors.RData'))
 
 # Get number of params to calibrate
-n_param <- nrow(param_map)
+n_param <- nrow(prior_map)
 
 # Load calibration targets for vectors of ages
-true_prevalence_a <- read.csv(file = paste0(data_inpath, 'prevalence_lesion_a.csv'))
-true_prevalence_b <- read.csv(file = paste0(data_inpath, 'prevalence_lesion_b.csv'))
-true_incidence_cancer <- read.csv(file = paste0(data_inpath, 'incidence_cancer.csv'))
+true_prevalence <- read.csv(file = paste0(data_inpath, 'prevalence_asymptomatic_cancer.csv'))
+true_incidence_cancer <- read.csv(file = paste0(data_inpath, 'incidence_symptomatic_cancer.csv'))
 
-# Get vector of ages for prevalence
-v_ages_prevalence <- list()
-v_ages_prevalence[['a']] <- get_age_range(true_prevalence_a)
-v_ages_prevalence[['b']] <- get_age_range(true_prevalence_b)
-
-# Get vector of ages for incidence
+# Get vector of ages for prevalence and incidence
+v_ages_prevalence <- get_age_range(true_prevalence)
 v_ages_incidence <- get_age_range(true_incidence_cancer)
+v_ages <- list(prevalence = v_ages_prevalence,
+               incidence = v_ages_incidence)
 
 #### 4. Generate random set of inputs  ===========================================
 
@@ -112,10 +95,10 @@ m_lhs_unit <- randomLHS(n_samp, n_param)
 m_param_samp <- matrix(nrow = n_samp, ncol = n_param)
 for (i in 1:n_param) {
   m_param_samp[, i] <- qunif(m_lhs_unit[, i],
-                             min = param_map$prior_min[i],
-                             max = param_map$prior_max[i])
+                             min = prior_map$prior_min[i],
+                             max = prior_map$prior_max[i])
 }
-colnames(m_param_samp) <- param_map$var_id
+colnames(m_param_samp) <- prior_map$var_id
 
 
 #### 5. Generate corresponding outputs  ===========================================
@@ -135,9 +118,8 @@ if(run_parallel) {
                                    v_params_update <- m_param_samp[i,]
                                    v_calib_targets <- params_to_calib_targets(l_params_all, 
                                                                               v_params_update, 
-                                                                              param_map,
-                                                                              v_ages_prevalence, 
-                                                                              v_ages_incidence,
+                                                                              prior_map,
+                                                                              v_ages,
                                                                               verbose = verbose)
                                    # Call item to save
                                    t(v_calib_targets)
@@ -174,8 +156,8 @@ if(run_parallel) {
     
     # Get row of parameters and calculate targets
     v_params_update <- m_param_samp[i,]
-    v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, param_map,
-                                               v_ages_prevalence, v_ages_incidence,
+    v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, prior_map,
+                                               v_ages,
                                                verbose = verbose)
     
     # Append target vector to dataframe
@@ -195,5 +177,5 @@ assertthat::validate_that(sum(sapply(out_calib_targets, function(x) any(is.nan(x
 
 if(!debug_small & !debug_large) {
   print('Saving output')
-  save(param_map, m_param_samp, out_calib_targets, file = paste0(data_outpath, 'calibration_sample.RData'))
+  save(m_param_samp, out_calib_targets, file = paste0(data_outpath, 'BayCANN_sample.RData'))
 }
