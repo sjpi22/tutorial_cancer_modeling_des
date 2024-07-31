@@ -58,7 +58,9 @@ load_default_params <- function(file.mort = "data/background_mortality.xlsx",
                                 description = paste("Survival from diagnosis at stage", i))
     }
   } else {
-    # If no survival file uploaded, use true survival distribution of exponential from diagnosis
+    # If no survival file uploaded, use true survival distribution from diagnosis
+    # and manually input parameters after running function in the form
+    # distr = <string> and params = <list of named parameters>
     l_distr_surv <- list()
     for (i in 1:length(l_params_all$v_cancer)) {    
       l_distr_surv[[i]] <- list(distr = NULL,
