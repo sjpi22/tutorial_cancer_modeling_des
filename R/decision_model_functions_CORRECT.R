@@ -43,8 +43,8 @@ simulate_cancer_progression <- function(m_times,
   m_times[, stage_dx := fifelse(time_P1_C1 < time_P1_P2, 1, 2)]
   m_times[, time_P_C := fifelse(time_P1_C1 < time_P1_P2, time_P1_C1, time_P1_P2 + time_P2_C2)]
   
-  # Time to cancer diagnosis
-  m_times[, time_H_C := time_H_P + time_H_P]
+  # Time to cancer diagnosis # @@@ ERROR - time_P_C was switched to time_H_P
+  m_times[, time_H_C := time_H_P + time_P_C]
 }
 
 # Simulate time from cancer diagnosis to death
@@ -82,8 +82,8 @@ calc_mortality_outcomes <- function(m_times) {
   m_times[, time_H_D := pmin(time_H_Do, time_H_Dc, na.rm = TRUE)]
   m_times[, fl_death_cancer := (time_H_Do > pmin(time_H_Dc, Inf, na.rm = TRUE))]
   
-  # Calculate survival from cancer diagnosis among people who die of cancer
-  m_times[time_H_C <= time_H_D, time_C_D := time_H_Dc - time_H_C]
+  # Calculate survival from cancer diagnosis
+  m_times[time_H_C <= time_H_Dc, time_C_D := time_H_Dc - time_H_C]
 }
 
 # Combine parameters and steps to simulate one run of decision model

@@ -136,7 +136,7 @@ Or we can model it with a Weibull distribution, which is defined by a shape and 
 
 ```{r}
 # Sample from Weibull distribution for 500 people
-time_H_P <- rweibull(500, shape = 3, scale = 0.1)
+time_H_P <- rweibull(500, shape = 3, scale = 1.3)
 
 # Calculate survival curve (proportion of people who have not experienced event over time)
 surv_H_P <- data.frame(
@@ -215,7 +215,7 @@ prob_C2_Dc <- relative_survival_cancer$years_from_dx[relative_survival_cancer$st
 
 ### Run natural history model
 
-Let's run through the steps for modeling. The functions below are in 'R/decision_model_functions.R' if you want to take a closer look.
+Let's run through the steps for modeling. The functions below are in 'R/decision_model_functions.R' if you want to take a closer look. Each function generates variables of the form "time_X_Y", denoting the time from state X to state Y. See if you can find and fix the error hiding in one of the following functions: 'simulate_cancer_progression()', 'simulate_cancer_mortality()', 'calc_mortality_outcomes()'.
 
 ```{r}
 # Initialize matrix of patient data
@@ -239,10 +239,10 @@ simulate_cancer_progression(m_cohort_base,
 
 # Simulate time from cancer diagnosis to death
 simulate_cancer_mortality(m_cohort_base,
-                        ages_C1_Dc,
-                        prob_C1_Dc,
-                        ages_C2_Dc,
-                        prob_C2_Dc)
+                          ages_C1_Dc,
+                          prob_C1_Dc,
+                          ages_C2_Dc,
+                          prob_C2_Dc)
 
 # Calculate mortality outcomes
 calc_mortality_outcomes(m_cohort_base)
@@ -362,7 +362,7 @@ We will use LHS to try to guess well-fitting parameter sets. The prevalence and 
 # Set random seed
 set.seed(seed)
 
-# Set number of parameter sets to sample
+# Set number of parameter sets to sample - feel free to change
 n_samp <- 500
 
 # Get number of parameters
