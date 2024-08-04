@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Cancer microsimulation modeling tutorial: Discrete event simulation, calibration, evaluation of alternative strategies, and validation</title>
+<title>Cancer microsimulation modeling tutorial: Discrete event simulation, calibration, evaluation of alternative strategies</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -99,7 +99,7 @@ div.csl-indent {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Cancer microsimulation modeling tutorial: Discrete event simulation, calibration, evaluation of alternative strategies, and validation</h1>
+<h1 class="title">Cancer microsimulation modeling tutorial: Discrete event simulation, calibration, evaluation of alternative strategies</h1>
 </div>
 
 
@@ -117,179 +117,98 @@ div.csl-indent {
 
 
 <div class="tabset-margin-container"></div><div class="panel-tabset">
-<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-2-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-1" role="tab" aria-controls="tabset-2-1" aria-selected="true" href="">Model schema</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-2" role="tab" aria-controls="tabset-2-2" aria-selected="false" href="">Setup</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-3" role="tab" aria-controls="tabset-2-3" aria-selected="false" href="">Calibration</a></li></ul>
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">Introduction and setup</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="">Discrete event simulation</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-3" role="tab" aria-controls="tabset-1-3" aria-selected="false" href="">Calibration</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-4" role="tab" aria-controls="tabset-1-4" aria-selected="false" href="">Evaluation of strategies</a></li></ul>
 <div class="tab-content">
-<div id="tabset-2-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-2-1-tab">
+<div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
+<section id="install-packages" class="level3">
+<h3 class="anchored" data-anchor-id="install-packages">Install packages</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Uncomment and run the below line once</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages("tidyverse", "data.table", "lhs")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="model-schema" class="level3">
+<h3 class="anchored" data-anchor-id="model-schema">Model schema</h3>
+<p>The basic cancer model below shows relevant health states and possible transitions in cancer natural history. More complex model schemas exist, for example, having 4 cancer stages or a precancerous lesion stage between healthy and preclinical (for example, benign polyps can be a precursor to colorectal cancer).</p>
+<p>We will simulate individuals as they transition between events, which can be health states or characteristics of states.</p>
+<p>Some of these transition rates are known, but others have deep (unobserved) parameters that must be estimated through a process called calibration. For example, there is no way to directly estimate the transition rate from healthy to cancer onset. But we have data on the probability of survival after diagnosis, so we can use this data to model the transition from states C1 and C2 to Dc.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="figures/model_schema.png" class="img-fluid figure-img"></p>
 <figcaption>Cancer natural history model schema</figcaption>
 </figure>
 </div>
-</div>
-<div id="tabset-2-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-2-tab">
-<section id="load-packages" class="level3">
-<h3 class="anchored" data-anchor-id="load-packages">Load packages</h3>
+</section>
+<section id="load-packages-and-functions" class="level3">
+<h3 class="anchored" data-anchor-id="load-packages-and-functions">Load packages and functions</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run this once</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages("devtools")</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># devtools::install_github("carolyner/imabc")</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Clear workspace</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(<span class="at">list =</span> <span class="fu">ls</span>())</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Options</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">scipen=</span><span class="dv">999</span>)</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Load packages</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readxl)</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(survival)</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(imabc)</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(keras)</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(doBy)</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(GGally)</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Load functions</span></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>distr.sources <span class="ot">&lt;-</span> <span class="fu">list.files</span>(<span class="st">"R"</span>, </span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>                            <span class="at">pattern=</span><span class="st">"*.R$"</span>, <span class="at">full.names=</span><span class="cn">TRUE</span>, </span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>                            <span class="at">ignore.case=</span><span class="cn">TRUE</span>, <span class="at">recursive =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(distr.sources, source, .GlobalEnv)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>        R/01_load_model_inputs.R R/02_decision_model_functions.R
-value   ?                        ?                              
-visible FALSE                    FALSE                          
-        R/03_calibration_general_functions.R R/03a_baycann_functions.R
-value   ?                                    ?                        
-visible FALSE                                FALSE                    
-        R/utils/distr_empirical.R R/utils/distr_hazard.R
-value   ?                         ?                     
-visible FALSE                     FALSE                 
-        R/utils/epi_functions.R R/utils/query_distr.R
-value   ?                       ?                    
-visible FALSE                   FALSE                </code></pre>
-</div>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Clear workspace</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(<span class="at">list =</span> <span class="fu">ls</span>())</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Options - do not display large numbers in scientific notation</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">scipen=</span><span class="dv">999</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Load packages</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readxl)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lhs)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Load functions</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/decision_model_functions.R"</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/epi_functions.R"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
-<section id="load-default-parameters" class="level3">
-<h3 class="anchored" data-anchor-id="load-default-parameters">Load default parameters</h3>
+<section id="load-input-data" class="level3">
+<h3 class="anchored" data-anchor-id="load-input-data">Load input data</h3>
+<p>The following two datasets will be used for sampling time to event distributions.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load default parameters</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>l_params_all <span class="ot">&lt;-</span> <span class="fu">load_default_params</span>()</span>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load background mortality data for time to death from other causes</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>background_mortality <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">'data/background_mortality.csv'</span>)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Make cohort small for testing</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>l_params_all <span class="ot">&lt;-</span> <span class="fu">update_param_list</span>(l_params_all,</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>                                  <span class="fu">list</span>(<span class="at">n_cohort =</span> <span class="dv">10000</span>,</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>                                       <span class="at">v_strats =</span> l_params_all<span class="sc">$</span>v_strats[<span class="dv">1</span>]))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Load survival from cancer diagnosis</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>relative_survival_cancer <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">'data/relative_survival_cancer.csv'</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate probability of dying in each year interval after diagnosis</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>relative_survival_cancer <span class="ot">&lt;-</span> relative_survival_cancer <span class="sc">%&gt;%</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct_died =</span> <span class="dv">1</span> <span class="sc">-</span> surv) <span class="sc">%&gt;%</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(stage) <span class="sc">%&gt;%</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">probs =</span> <span class="fu">c</span>(<span class="fu">diff</span>(pct_died), <span class="dv">1</span> <span class="sc">-</span> <span class="fu">max</span>(pct_died)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-</section>
-<section id="visualize-data-inputs" class="level3">
-<h3 class="anchored" data-anchor-id="visualize-data-inputs">Visualize data inputs</h3>
-<p>Background mortality and survival from diagnosis</p>
+<p>Background mortality rates will be used to sample the time from birth to death from other causes. This data often comes from life tables compiled by demographers.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Background mortality</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>n_mort_ages <span class="ot">&lt;-</span> <span class="fu">length</span>(l_params_all<span class="sc">$</span>time_0_Do_female<span class="sc">$</span>params<span class="sc">$</span>xs)</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>df_mort <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">sex =</span> <span class="fu">c</span>(<span class="fu">rep</span>(<span class="st">"Female"</span>, n_mort_ages),</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                              <span class="fu">rep</span>(<span class="st">"Male"</span>, n_mort_ages)),</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>                      <span class="at">yrs =</span> <span class="fu">c</span>(l_params_all<span class="sc">$</span>time_0_Do_female<span class="sc">$</span>params<span class="sc">$</span>xs,</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>                              l_params_all<span class="sc">$</span>time_0_Do_male<span class="sc">$</span>params<span class="sc">$</span>xs),</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>                      <span class="at">prob =</span> <span class="fu">c</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fu">cumsum</span>(l_params_all<span class="sc">$</span>time_0_Do_female<span class="sc">$</span>params<span class="sc">$</span>probs[<span class="sc">-</span>n_mort_ages])),</span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>                               <span class="dv">1</span> <span class="sc">-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fu">cumsum</span>(l_params_all<span class="sc">$</span>time_0_Do_male<span class="sc">$</span>params<span class="sc">$</span>probs[<span class="sc">-</span>n_mort_ages])))</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>plot_mort <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df_mort, <span class="fu">aes</span>(yrs, prob, <span class="at">color =</span> sex)) <span class="sc">+</span> </span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Background mortality"</span>,</span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Years from birth"</span>,</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">"Proportion alive"</span>,</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">"Sex"</span>)</span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Survival after diagnosis</span></span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>df_surv <span class="ot">&lt;-</span> <span class="fu">data.frame</span>()</span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (stg <span class="cf">in</span> l_params_all<span class="sc">$</span>v_cancer) {</span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  var <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"time_2"</span>, stg, <span class="st">"_Dc"</span>)</span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  n_surv_ages <span class="ot">&lt;-</span> <span class="fu">length</span>(l_params_all[[var]]<span class="sc">$</span>params<span class="sc">$</span>xs)</span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  temp_df_surv <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">stage =</span> <span class="fu">toupper</span>(stg),</span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>                             <span class="at">yrs =</span> l_params_all[[var]]<span class="sc">$</span>params<span class="sc">$</span>xs,</span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>                             <span class="at">prob =</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fu">cumsum</span>(l_params_all[[var]]<span class="sc">$</span>params<span class="sc">$</span>probs[<span class="sc">-</span>n_surv_ages])))</span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>  df_surv <span class="ot">&lt;-</span> <span class="fu">rbind</span>(df_surv, temp_df_surv)</span>
-<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>plot_surv <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df_surv, <span class="fu">aes</span>(yrs, prob, <span class="at">color =</span> stage)) <span class="sc">+</span> </span>
-<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
-<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
-<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
-<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Survival after diagnosis"</span>,</span>
-<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Years from diagnosis"</span>,</span>
-<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">"Proportion alive"</span>,</span>
-<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">"Stage at diagnosis"</span>)</span>
-<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot together</span></span>
-<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>(plot_mort <span class="sc">+</span> plot_surv) <span class="sc">+</span> </span>
-<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_layout</span>(</span>
-<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">ncol =</span> <span class="dv">2</span>,</span>
-<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">guides =</span> <span class="st">"collect"</span>,</span>
-<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">axes =</span> <span class="st">"collect"</span>,</span>
-<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis_titles =</span> <span class="st">"collect"</span></span>
-<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">plot_annotation</span>(<span class="at">title =</span> <span class="st">'Known data inputs'</span>) <span class="sc">&amp;</span></span>
-<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">'bottom'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>plot_mort <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(background_mortality, <span class="fu">aes</span>(age, pct_alive)) <span class="sc">+</span> </span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Background mortality"</span>,</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Years from birth"</span>,</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">"Proportion alive"</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>plot_mort</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-</section>
-</div>
-<div id="tabset-2-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-3-tab">
-<div class="tabset-margin-container"></div><div class="panel-tabset">
-<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">Setup</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="">IMABC</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-3" role="tab" aria-controls="tabset-1-3" aria-selected="false" href="">BayCANN</a></li></ul>
-<div class="tab-content">
-<div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
-<section id="load-priors" class="level4">
-<h4 class="anchored" data-anchor-id="load-priors">Load priors</h4>
+<p>Data on probability of survival as a function of time from diagnosis can come from cancer registry data or other sources that link cancer diagnoses and death records.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load priors</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>param_map <span class="ot">&lt;-</span> <span class="fu">make_param_map</span>(l_params_all)</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>prior_path <span class="ot">&lt;-</span> <span class="st">'data/priors.RData'</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(prior_path)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</section>
-<section id="visualize-calibration-targets-and-prior-outputs" class="level4">
-<h4 class="anchored" data-anchor-id="visualize-calibration-targets-and-prior-outputs">Visualize calibration targets and prior outputs</h4>
-<p>The black dots are the true targets with 95% confidence intervals. The gray shaded areas are the regions covered by the entire range of the Latin hypercube sample of parameters generated for BayCANN.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load calibration targets</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>true_prevalence <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="at">file =</span> <span class="st">'data/prevalence_asymptomatic_cancer.csv'</span>)</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>true_incidence <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="at">file =</span> <span class="st">'data/incidence_symptomatic_cancer.csv'</span>)</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>true_stage_distr <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="at">file =</span> <span class="st">'data/stage_distr.csv'</span>)</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>l_true_targets <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">prevalence =</span> true_prevalence,</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>                        <span class="at">incidence =</span> true_incidence,</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>                        <span class="at">stage_distr =</span> true_stage_distr)</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Summarize calibration outputs generated from LHS sample of priors</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">'data/BayCANN_sample.RData'</span>)</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>plot_priors <span class="ot">&lt;-</span> <span class="fu">calc_and_plot_calib_targets</span>(l_true_targets, </span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>                                           out_calib_targets,</span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">titles =</span> <span class="fu">list</span>(<span class="at">prevalence =</span> <span class="st">'Prevalence'</span>,</span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>                                                         <span class="at">incidence =</span> <span class="st">'Incidence'</span>,</span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>                                                         <span class="at">stage_distr =</span> <span class="st">'Stage distribution'</span>))</span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>(plot_priors<span class="sc">$</span>prevalence <span class="sc">+</span> plot_priors<span class="sc">$</span>incidence <span class="sc">+</span> plot_priors<span class="sc">$</span>stage_distr) <span class="sc">+</span> </span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_layout</span>(</span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">ncol =</span> <span class="dv">3</span>,</span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">guides =</span> <span class="st">"collect"</span></span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">plot_annotation</span>(<span class="at">title =</span> <span class="st">'Calibration targets'</span>) <span class="sc">&amp;</span></span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">'bottom'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Survival after diagnosis</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>plot_surv <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(relative_survival_cancer, <span class="fu">aes</span>(years_from_dx, surv, <span class="at">color =</span> <span class="fu">ifelse</span>(stage <span class="sc">==</span> <span class="dv">1</span>, <span class="st">"Early"</span>, <span class="st">"Late"</span>))) <span class="sc">+</span> </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Survival after diagnosis"</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">"Years from diagnosis"</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">"Proportion alive"</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">"Stage at diagnosis"</span>)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>plot_surv</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -297,76 +216,66 @@ visible FALSE                   FALSE                </code></pre>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># @@@ can remove age 80+ from screening prevalence</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </div>
 <div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
-<p>Incremental mixture approximate Bayesian calibration <span class="citation" data-cites="Rutter2019">(<a href="#ref-Rutter2019" role="doc-biblioref">Rutter et al. 2019</a>)</span></p>
-<section id="to-do-update-target-plots" class="level1">
-<h1>@ TO DO: Update target plots</h1>
-<section id="run-algorithm" class="level4">
-<h4 class="anchored" data-anchor-id="run-algorithm">Run algorithm</h4>
-<p>[External step] 1. Run analysis/run_IMABC.R</p>
-</section>
-<section id="load-imabc-outputs" class="level4">
-<h4 class="anchored" data-anchor-id="load-imabc-outputs">Load IMABC outputs</h4>
+<p>Now that we have introduced the model structure and loaded the data inputs, we will build a discrete-event simulation model, which will sample times between events from probability distributions.</p>
+<p>For example, we can sample the time from the healthy state to the preclinical cancer state using an exponential distribution, which indicates a constant rate of transition. What are your thoughts on this?</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># File paths </span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>path_imabc <span class="ot">&lt;-</span> <span class="st">"output/imabc/IMABC_calibration.RData"</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Set random seed</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(l_params_all<span class="sc">$</span>seed)</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Reshape true targets and get mapping</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>l_true_reshaped <span class="ot">&lt;-</span> <span class="fu">reshape_calib_targets</span>(l_true_targets, <span class="at">output_se =</span> <span class="cn">TRUE</span>, <span class="at">output_map =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Load IMABC results</span></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(path_imabc)</span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Load true parameters (unknown in real life!)</span></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"_solutions/true_param_map.RData"</span>) <span class="co"># Output: param_map</span></span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Load priors</span></span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/priors.RData"</span>)</span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample with replacement</span></span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>n_imabc_sample <span class="ot">&lt;-</span> <span class="fu">nrow</span>(calibration_results<span class="sc">$</span>good_parm_draws) <span class="sc">*</span> <span class="dv">10</span></span>
-<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>indices_imabc_sample <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(calibration_results<span class="sc">$</span>good_parm_draws), </span>
-<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>                               n_imabc_sample, </span>
-<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>                               <span class="at">replace =</span> <span class="cn">TRUE</span>, </span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>                               <span class="at">prob =</span> calibration_results<span class="sc">$</span>good_parm_draws<span class="sc">$</span>sample_wt)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample from exponential distribution with rate 1 for 500 people</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>time_H_P <span class="ot">&lt;-</span> <span class="fu">rexp</span>(<span class="dv">500</span>, <span class="at">rate =</span> <span class="dv">1</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate survival curve (proportion of people who have not experienced event over time)</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>surv_H_P <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">time =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fu">sort</span>(time_H_P)),</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">prob =</span> <span class="fu">c</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">500</span>)<span class="sc">/</span><span class="dv">500</span>),</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="st">'Simulated'</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: this should equal 1 - the cumulative distribution function (CDF) of the exponential distribution. Let's check:</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>x_times <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fu">round</span>(<span class="fu">max</span>(time_H_P)), <span class="fl">0.1</span>) <span class="co"># Get the range of simulated times</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>cdf_H_P <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">time =</span> x_times,</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">prob =</span> <span class="fu">pexp</span>(x_times, <span class="at">rate =</span> <span class="dv">1</span>, <span class="at">lower.tail =</span> <span class="cn">FALSE</span>), <span class="co"># Get 1 minus the exponential CDF at those times</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="st">'True CDF'</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="fu">rbind</span>(surv_H_P, cdf_H_P), <span class="fu">aes</span>(<span class="at">x =</span> time, <span class="at">y =</span> prob, <span class="at">color =</span> label)) <span class="sc">+</span> </span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Time from birth'</span>,</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">'Proportion healthy'</span>,</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">'Data source'</span>) <span class="sc">+</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
 </div>
-</section>
-<section id="plot-parameters" class="level4">
-<h4 class="anchored" data-anchor-id="plot-parameters">Plot parameters</h4>
-<p>IMABC distribution in gray, true parameters in red, uniform range of priors in blue</p>
+</div>
+</div>
+<p>Or we can model it with a Weibull distribution, which is defined by a shape and scale parameter. A shape greater than 1 indicates that the hazard (instantaneous risk) of the event or transition increases over time. A shape equal to 1 makes the distribution exponential. A shape less than 1 means that the event rate decreases over time. Read more about the Weibull distribution <a href="https://en.wikipedia.org/wiki/Weibull_distribution">here</a>.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># IMABC posterior parameters</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>imabc_params_unweighted <span class="ot">&lt;-</span> calibration_results<span class="sc">$</span>good_parm_draws <span class="sc">%&gt;%</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="fu">all_of</span>(prior_map<span class="sc">$</span>var_id))</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>imabc_params <span class="ot">&lt;-</span> imabc_params_unweighted[indices_imabc_sample, ]</span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>imabc_params_long <span class="ot">&lt;-</span> imabc_params <span class="sc">%&gt;%</span></span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="fu">everything</span>())</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot IMABC parameters against true parameters and priors</span></span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>plot_params_imabc <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(imabc_params_long, <span class="fu">aes</span>(value)) <span class="sc">+</span> </span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>() <span class="sc">+</span> </span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">data =</span> param_map <span class="sc">%&gt;%</span></span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>               <span class="fu">rename</span>(<span class="at">name =</span> var_id), <span class="fu">aes</span>(<span class="at">xintercept=</span>param_val), <span class="at">color =</span> <span class="st">'red'</span>) <span class="sc">+</span></span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">data =</span> prior_map <span class="sc">%&gt;%</span></span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>               <span class="fu">rename</span>(<span class="at">name =</span> var_id), <span class="fu">aes</span>(<span class="at">xintercept=</span>prior_min), <span class="at">color =</span> <span class="st">'blue'</span>) <span class="sc">+</span></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">data =</span> prior_map <span class="sc">%&gt;%</span></span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>               <span class="fu">rename</span>(<span class="at">name =</span> var_id), <span class="fu">aes</span>(<span class="at">xintercept=</span>prior_max), <span class="at">color =</span> <span class="st">'blue'</span>) <span class="sc">+</span></span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>name, <span class="at">scales =</span> <span class="st">"free"</span>) <span class="sc">+</span></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">'IMABC'</span>)</span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>plot_params_imabc</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
-</div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample from Weibull distribution for 500 people</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>time_H_P <span class="ot">&lt;-</span> <span class="fu">rweibull</span>(<span class="dv">500</span>, <span class="at">shape =</span> <span class="dv">3</span>, <span class="at">scale =</span> <span class="fl">0.1</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate survival curve (proportion of people who have not experienced event over time)</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>surv_H_P <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">time =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fu">sort</span>(time_H_P)),</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">prob =</span> <span class="fu">c</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">500</span>)<span class="sc">/</span><span class="dv">500</span>),</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="st">'Simulated'</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(surv_H_P, <span class="fu">aes</span>(<span class="at">x =</span> time, <span class="at">y =</span> prob)) <span class="sc">+</span> </span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Time from birth'</span>,</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">'Proportion healthy'</span>,</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">'Data source'</span>) <span class="sc">+</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -375,245 +284,537 @@ visible FALSE                   FALSE                </code></pre>
 </div>
 </div>
 </div>
-</section>
-<section id="plot-calibration-targets" class="level4">
-<h4 class="anchored" data-anchor-id="plot-calibration-targets">Plot calibration targets</h4>
+<section id="set-parameters" class="level3">
+<h3 class="anchored" data-anchor-id="set-parameters">Set parameters</h3>
+<p>Now let’s decide on some general model parameters and figure out how we will model the different time-to-event variables.</p>
+<ul>
+<li><p>Time from birth to death from other causes (time_H_Do): Empirical probability distribution from background mortality data, with a uniform random number correction to get non-integer values</p></li>
+<li><p>Time from birth to early-stage preclinical cancer (time_H_P1): Weibull distribution with <strong>unknown</strong> shape and scale</p></li>
+<li><p>Time from early-stage preclinical cancer to late-stage preclinical cancer (time_P1_P2): Exponential distribution with <strong>unknown</strong> rate</p></li>
+<li><p>Time from early-stage preclinical cancer to early-stage clinical cancer (time_P1_C1): Exponential distribution with <strong>unknown</strong> rate</p></li>
+<li><p>Time from late-stage preclinical cancer to late-stage clinical cancer (time_P2_C2): Exponential distribution with <strong>unknown</strong> rate</p></li>
+<li><p>Time from early-stage clinical cancer to death from cancer: Empirical probability distribution from early-stage survival from diagnosis data, with a uniform random number correction to get non-integer values. Assume cured if the maximum number of years in the data gets sampled.</p></li>
+<li><p>Time from late-stage clinical cancer to death from cancer: Empirical probability distribution from early-stage survival from diagnosis data, with a uniform random number correction to get non-integer values. Assume cured if the maximum number of years in the data gets sampled.</p></li>
+</ul>
+<p>What do we do about the unknown parameters? Without any guidance, we might have to guess them, but luckily, we have a range of possible values for the unknown parameters from a prior study.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get posterior mean of outputs</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>imabc_targets_unweighted <span class="ot">&lt;-</span> calibration_results<span class="sc">$</span>good_sim_target <span class="sc">%&gt;%</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span><span class="fu">c</span>(<span class="st">"iter"</span>, <span class="st">"draw"</span>, <span class="st">"step"</span>))</span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>imabc_targets <span class="ot">&lt;-</span> imabc_targets_unweighted[indices_imabc_sample, ]</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Summarize targets</span></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: weight for 50th and 95th with resampling</span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>collapse_mean  <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span><span class="fu">c</span>(weighted.mean), <span class="at">w =</span> calibration_results<span class="sc">$</span>good_parm_draws<span class="sc">$</span>sample_wt, <span class="at">data=</span>imabc_targets_unweighted, <span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>collapse_UB_95 <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span>quantile, <span class="at">probs =</span> <span class="fl">0.975</span>, <span class="at">data=</span>imabc_targets, <span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>collapse_LB_95 <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span>quantile, <span class="at">probs =</span> <span class="fl">0.025</span>, <span class="at">data=</span>imabc_targets, <span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>collapse_UB_50 <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span>quantile, <span class="at">probs =</span> <span class="fl">0.75</span>, <span class="at">data=</span>imabc_targets, <span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>collapse_LB_50 <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span>quantile, <span class="at">probs =</span> <span class="fl">0.25</span>, <span class="at">data=</span>imabc_targets, <span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>out_summary <span class="ot">&lt;-</span>  <span class="fu">data.frame</span>(l_true_reshaped<span class="sc">$</span>target_map,</span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>                           <span class="at">true_val =</span> l_true_reshaped<span class="sc">$</span>v_targets,</span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>                           <span class="at">true_se =</span> l_true_reshaped<span class="sc">$</span>v_se,</span>
-<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_mean =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_mean)),</span>
-<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_UB_95 =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_UB_95)),</span>
-<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_LB_95 =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_LB_95)),</span>
-<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_UB_50 =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_UB_50)),</span>
-<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_LB_50 =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_LB_50))) <span class="sc">%&gt;%</span></span>
-<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">categorical =</span> (target_groups <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">'Stage at diagnosis'</span>, <span class="st">'Prevalence of lesion type b'</span>)))</span>
-<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot </span></span>
-<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>plot_targets_imabc <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(<span class="at">data =</span> out_summary, </span>
-<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>               <span class="fu">aes</span>(<span class="at">x    =</span> target_index, </span>
-<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>                   <span class="at">y    =</span> true_val, </span>
-<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>                   <span class="at">ymin =</span> true_val <span class="sc">-</span> true_se, </span>
-<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>                   <span class="at">ymax =</span> true_val <span class="sc">+</span> true_se))<span class="sc">+</span> </span>
-<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="at">width=</span>.<span class="dv">4</span>, <span class="at">size=</span><span class="fl">0.9</span>, <span class="at">color=</span><span class="st">"red"</span>) <span class="sc">+</span></span>
-<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position=</span><span class="st">"none"</span>) <span class="sc">+</span></span>
-<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="at">data =</span> out_summary[out_summary<span class="sc">$</span>categorical<span class="sc">==</span><span class="dv">1</span>,],</span>
-<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>                <span class="fu">aes</span>(<span class="at">x    =</span> target_index<span class="fl">-0.07</span>,</span>
-<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>                    <span class="at">y    =</span> model_mean,</span>
-<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a>                    <span class="at">ymin =</span> model_LB_95,</span>
-<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a>                    <span class="at">ymax =</span> model_UB_95),<span class="at">width=</span>.<span class="dv">4</span>, <span class="at">size=</span><span class="fl">0.7</span>, <span class="at">color=</span><span class="st">"black"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>, <span class="at">position =</span> <span class="st">"dodge2"</span>) <span class="sc">+</span></span>
-<span id="cb11-38"><a href="#cb11-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="at">data =</span> out_summary[out_summary<span class="sc">$</span>categorical<span class="sc">==</span><span class="dv">0</span>,],</span>
-<span id="cb11-39"><a href="#cb11-39" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x    =</span> target_index,</span>
-<span id="cb11-40"><a href="#cb11-40" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y    =</span> true_val,</span>
-<span id="cb11-41"><a href="#cb11-41" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ymin =</span> model_LB_95,</span>
-<span id="cb11-42"><a href="#cb11-42" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ymax =</span> model_UB_95),</span>
-<span id="cb11-43"><a href="#cb11-43" aria-hidden="true" tabindex="-1"></a>              <span class="at">fill =</span> <span class="st">"black"</span>,</span>
-<span id="cb11-44"><a href="#cb11-44" aria-hidden="true" tabindex="-1"></a>              <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb11-45"><a href="#cb11-45" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="at">data =</span> out_summary[out_summary<span class="sc">$</span>categorical<span class="sc">==</span><span class="dv">0</span>,],</span>
-<span id="cb11-46"><a href="#cb11-46" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x    =</span> target_index,</span>
-<span id="cb11-47"><a href="#cb11-47" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y    =</span> true_val,</span>
-<span id="cb11-48"><a href="#cb11-48" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ymin =</span> model_LB_50,</span>
-<span id="cb11-49"><a href="#cb11-49" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ymax =</span> model_UB_50),</span>
-<span id="cb11-50"><a href="#cb11-50" aria-hidden="true" tabindex="-1"></a>              <span class="at">fill =</span> <span class="st">"black"</span>,</span>
-<span id="cb11-51"><a href="#cb11-51" aria-hidden="true" tabindex="-1"></a>              <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
-<span id="cb11-52"><a href="#cb11-52" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> target_groups,<span class="at">scales=</span><span class="st">"free"</span>, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb11-53"><a href="#cb11-53" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
-<span id="cb11-54"><a href="#cb11-54" aria-hidden="true" tabindex="-1"></a>    <span class="at">strip.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb11-55"><a href="#cb11-55" aria-hidden="true" tabindex="-1"></a>    <span class="at">strip.text.x =</span> <span class="fu">element_blank</span>(), <span class="at">legend.position=</span><span class="st">"none"</span>) <span class="sc">+</span></span>
-<span id="cb11-56"><a href="#cb11-56" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"grey10"</span>, <span class="st">"grey30"</span>))<span class="sc">+</span></span>
-<span id="cb11-57"><a href="#cb11-57" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">breaks =</span> <span class="fu">number_ticks</span>(<span class="dv">5</span>))<span class="sc">+</span></span>
-<span id="cb11-58"><a href="#cb11-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">23</span>) <span class="sc">+</span></span>
-<span id="cb11-59"><a href="#cb11-59" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">22</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
-<span id="cb11-60"><a href="#cb11-60" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>, <span class="at">angle =</span> <span class="dv">90</span>),</span>
-<span id="cb11-61"><a href="#cb11-61" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.text.y =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>),</span>
-<span id="cb11-62"><a href="#cb11-62" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">18</span>),</span>
-<span id="cb11-63"><a href="#cb11-63" aria-hidden="true" tabindex="-1"></a>        <span class="at">panel.grid.major =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb11-64"><a href="#cb11-64" aria-hidden="true" tabindex="-1"></a>        <span class="at">panel.border =</span> <span class="fu">element_rect</span>(<span class="at">colour =</span> <span class="st">"black"</span>, <span class="at">fill =</span> <span class="cn">NA</span>),</span>
-<span id="cb11-65"><a href="#cb11-65" aria-hidden="true" tabindex="-1"></a>        <span class="at">strip.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb11-66"><a href="#cb11-66" aria-hidden="true" tabindex="-1"></a>        <span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="dv">0</span>)) <span class="sc">+</span></span>
-<span id="cb11-67"><a href="#cb11-67" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"IMABC calibration"</span>, </span>
-<span id="cb11-68"><a href="#cb11-68" aria-hidden="true" tabindex="-1"></a>       <span class="at">x     =</span> <span class="st">""</span>, <span class="at">y     =</span> <span class="st">""</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
-ℹ Please use `linewidth` instead.</code></pre>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load deep parameter prior distributions as 'prior_map'</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"data/priors.RData"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>plot_targets_imabc</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Now, we can set some model parameters, taking the average value of each of the prior distributions.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load modeling parameters</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>n_cohort    <span class="ot">&lt;-</span> <span class="dv">100000</span>             <span class="co"># Number of people to simulate</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>seed        <span class="ot">&lt;-</span> <span class="dv">123</span>                <span class="co"># Random seed</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>conf_level  <span class="ot">&lt;-</span> <span class="fl">0.95</span>               <span class="co"># Confidence level for confidence intervals</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>incidence_rate_unit   <span class="ot">&lt;-</span> <span class="dv">100000</span>   <span class="co"># Unit for incidence rate (rate per rate_unit)</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Parameters for time from birth to death from other causes</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>ages_H_Do <span class="ot">&lt;-</span> background_mortality<span class="sc">$</span>age</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>prob_H_Do <span class="ot">&lt;-</span> background_mortality<span class="sc">$</span>p_death</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Parameters for time from birth to cancer onset (Weibull distribution)</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>shape_H_P <span class="ot">&lt;-</span> <span class="fu">mean</span>(prior_map<span class="sc">$</span>prior_min[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'shape_H_P'</span>],</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>                  prior_map<span class="sc">$</span>prior_max[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'shape_H_P'</span>])</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>scale_H_P <span class="ot">&lt;-</span> <span class="fu">mean</span>(prior_map<span class="sc">$</span>prior_min[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'scale_H_P'</span>],</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>                  prior_map<span class="sc">$</span>prior_max[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'scale_H_P'</span>])</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Parameters for time from cancer onset to next stage or diagnosis (exponential distribution)</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>rate_P1_P2 <span class="ot">&lt;-</span> <span class="fu">mean</span>(prior_map<span class="sc">$</span>prior_min[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'rate_P1_P2'</span>],</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>                   prior_map<span class="sc">$</span>prior_max[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'rate_P1_P2'</span>])</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>rate_P1_C1 <span class="ot">&lt;-</span> <span class="fu">mean</span>(prior_map<span class="sc">$</span>prior_min[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'rate_P1_C1'</span>],</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>                   prior_map<span class="sc">$</span>prior_max[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'rate_P1_C1'</span>])</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>rate_P2_C2 <span class="ot">&lt;-</span> <span class="fu">mean</span>(prior_map<span class="sc">$</span>prior_min[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'rate_P2_C2'</span>],</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>                   prior_map<span class="sc">$</span>prior_max[prior_map<span class="sc">$</span>var_name <span class="sc">==</span> <span class="st">'rate_P2_C2'</span>])</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Parameters for time from cancer diagnosis to death</span></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>ages_C1_Dc <span class="ot">&lt;-</span> relative_survival_cancer<span class="sc">$</span>years_from_dx[relative_survival_cancer<span class="sc">$</span>stage <span class="sc">==</span> <span class="dv">1</span>]</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>prob_C1_Dc <span class="ot">&lt;-</span> relative_survival_cancer<span class="sc">$</span>surv[relative_survival_cancer<span class="sc">$</span>stage <span class="sc">==</span> <span class="dv">1</span>]</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>ages_C2_Dc <span class="ot">&lt;-</span> relative_survival_cancer<span class="sc">$</span>years_from_dx[relative_survival_cancer<span class="sc">$</span>stage <span class="sc">==</span> <span class="dv">2</span>]</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>prob_C2_Dc <span class="ot">&lt;-</span> relative_survival_cancer<span class="sc">$</span>years_from_dx[relative_survival_cancer<span class="sc">$</span>stage <span class="sc">==</span> <span class="dv">2</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="run-natural-history-model" class="level3">
+<h3 class="anchored" data-anchor-id="run-natural-history-model">Run natural history model</h3>
+<p>Let’s run through the steps for modeling. The functions below are in ‘R/decision_model_functions.R’ if you want to take a closer look.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize matrix of patient data</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>m_cohort_base <span class="ot">&lt;-</span> <span class="fu">initialize_cohort</span>(n_cohort)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate baseline characteristics</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="fu">simulate_baseline_data</span>(m_cohort_base,</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>                       ages_H_Do,</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>                       prob_H_Do)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate time to cancer onset</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="fu">simulate_cancer_onset</span>(m_cohort_base, </span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>                      shape_H_P, </span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>                      scale_H_P)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate cancer stage progression and diagnosis</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="fu">simulate_cancer_progression</span>(m_cohort_base,</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>                            rate_P1_P2,</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>                            rate_P1_C1,</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>                            rate_P2_C2)</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate time from cancer diagnosis to death</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a><span class="fu">simulate_cancer_mortality</span>(m_cohort_base,</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>                        ages_C1_Dc,</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>                        prob_C1_Dc,</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>                        ages_C2_Dc,</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>                        prob_C2_Dc)</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate mortality outcomes</span></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="fu">calc_mortality_outcomes</span>(m_cohort_base)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>This process is compiled in the function ‘run_no_screening_model’ in ‘R/decision_model_functions.R’</p>
+</section>
+<section id="validation" class="level3">
+<h3 class="anchored" data-anchor-id="validation">Validation</h3>
+<p>How do we know if our parameters make sense? We can validate our model by checking if it produces outputs that are consistent with real-world data. Let’s load two datasets from population studies: age-specific preclinical cancer prevalence from screening studies and age-specific incidence of cancer without screening.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load incidence of symptom-detected cancer</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>true_incidence <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">'data/incidence_cancer.csv'</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Load prevalence of preclinical cancer</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>true_prevalence <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">'data/prevalence_preclinical_cancer.csv'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now let’s calculate some summary statistics from the simulated data using functions from “R/epi_functions.R” and see how well they match up to the real-world data.</p>
+<p>First, let’s look at preclinical cancer prevalence.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get prevalence age categories</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>v_ages_prevalence <span class="ot">&lt;-</span> <span class="fu">c</span>(true_prevalence<span class="sc">$</span>age_start[<span class="dv">1</span>], true_prevalence<span class="sc">$</span>age_end)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Create censor variable for preclinical cancer prevalence screening, since people with diagnosed cancer and dead people will not be screened</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>m_cohort_base[, time_screen_censor <span class="sc">:</span><span class="er">=</span> <span class="fu">pmin</span>(time_H_D, time_H_C, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)]</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate preclinical cancer prevalence with default model</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>sim_prevalence <span class="ot">&lt;-</span> <span class="fu">calc_prevalence</span>(<span class="at">m_time =</span> m_cohort_base, </span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">start_var =</span> <span class="st">"time_H_P"</span>, </span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">end_var =</span> <span class="st">"time_H_C"</span>, </span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">censor_var =</span> <span class="st">"time_screen_censor"</span>, </span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">v_ages =</span> v_ages_prevalence,</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">conf_level =</span> conf_level) <span class="sc">%&gt;%</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span><span class="fu">c</span>(<span class="st">"person_years_cases"</span>, <span class="st">"person_years_total"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">label =</span> <span class="st">'Simulated'</span>)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Make dataframe for plotting</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>df_prevalence <span class="ot">&lt;-</span> <span class="fu">rbind</span>(true_prevalence <span class="sc">%&gt;%</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>                         <span class="fu">mutate</span>(<span class="at">label =</span> <span class="st">'True'</span>),</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>                       sim_prevalence) <span class="sc">%&gt;%</span></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">age_median =</span> (age_start <span class="sc">+</span> age_end)<span class="sc">/</span><span class="dv">2</span>)</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_prevalence, <span class="fu">aes</span>(<span class="at">x =</span> age_median, </span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>                          <span class="at">y =</span> prevalence,</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>                          <span class="at">color =</span> label)) <span class="sc">+</span> </span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">x=</span>age_median, <span class="at">ymin=</span>ci_lb, <span class="at">ymax=</span>ci_ub), <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span> </span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Age'</span>,</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">'Prevalence'</span>,</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">'Data source'</span>) <span class="sc">+</span></span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Now let’s look at cancer incidence.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get incidence age categories</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>v_ages_incidence <span class="ot">&lt;-</span> <span class="fu">c</span>(true_incidence<span class="sc">$</span>age_start[<span class="dv">1</span>], true_incidence<span class="sc">$</span>age_end)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate cancer age-specific incidence</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>sim_incidence <span class="ot">&lt;-</span> <span class="fu">calc_incidence</span>(<span class="at">m_time =</span> m_cohort_base, </span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>                                <span class="at">time_var =</span> <span class="st">"time_H_C"</span>, </span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>                                <span class="at">censor_var =</span> <span class="st">"time_H_D"</span>, </span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>                                <span class="at">v_ages =</span> v_ages_incidence,</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>                                <span class="at">rate_unit =</span> incidence_rate_unit) <span class="sc">%&gt;%</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span><span class="fu">c</span>(<span class="st">"total_atrisk"</span>, <span class="st">"age_diff"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">label =</span> <span class="st">'Simulated'</span>)</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Make dataframe for plotting</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>df_incidence <span class="ot">&lt;-</span> <span class="fu">rbind</span>(true_incidence <span class="sc">%&gt;%</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>                        <span class="fu">mutate</span>(<span class="at">label =</span> <span class="st">'True'</span>),</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>                      sim_incidence) <span class="sc">%&gt;%</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">age_median =</span> (age_start <span class="sc">+</span> age_end)<span class="sc">/</span><span class="dv">2</span>,</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>         <span class="at">ci_lb =</span> incidence <span class="sc">-</span> <span class="fu">qnorm</span>(conf_level <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> conf_level)<span class="sc">/</span><span class="dv">2</span>) <span class="sc">*</span> se,</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>         <span class="at">ci_ub =</span> incidence <span class="sc">+</span> <span class="fu">qnorm</span>(conf_level <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> conf_level)<span class="sc">/</span><span class="dv">2</span>) <span class="sc">*</span> se)</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_incidence, <span class="fu">aes</span>(<span class="at">x =</span> age_median, </span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>                         <span class="at">y =</span> incidence,</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>                         <span class="at">color =</span> label)) <span class="sc">+</span> </span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">x=</span>age_median, <span class="at">ymin=</span>ci_lb, <span class="at">ymax=</span>ci_ub), <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span> </span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Age'</span>,</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">paste</span>(<span class="st">'Incidence rate per'</span>, incidence_rate_unit),</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">'Data source'</span>) <span class="sc">+</span></span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
 </section>
-</section>
 </div>
 <div id="tabset-1-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-3-tab">
-<p>Bayesian Calibration with Artificial Neural Network <span class="citation" data-cites="Jalal2021">(<a href="#ref-Jalal2021" role="doc-biblioref">Jalal, Trikalinos, and Alarid-Escudero 2021</a>)</span></p>
-<section id="run-algorithm-1" class="level4">
-<h4 class="anchored" data-anchor-id="run-algorithm-1">Run algorithm</h4>
-<p>[External step]</p>
-<ol type="1">
-<li>Run analysis/generate_BayCANN_sample.R to generate training and testing sample of parameters and outputs for ANN</li>
-<li>Run analysis/run_BayCANN.R to train ANN and generate parameter posteriors with STAN</li>
-<li>Run analysis/get_BayCANN_outputs.R to get calibration outputs</li>
-</ol>
+<section id="introduction" class="level3">
+<h3 class="anchored" data-anchor-id="introduction">Introduction</h3>
+<p>Calibration is the process of identifying parameter sets that are consistent with real-world evidence in terms of goodness-of-fit to calibration targets. Calibration methods include</p>
+<ul>
+<li><p>Empirical</p>
+<ul>
+<li><p>Latin Hypercube Sampling (LHS)</p></li>
+<li><p>Maximizing the log-likelihood with Nelder-Mead optimization</p></li>
+</ul></li>
+<li><p>Bayesian</p>
+<ul>
+<li><p>Incremental mixture approximate Bayesian calibration (IMABC) <span class="citation" data-cites="Rutter2019">(<a href="#ref-Rutter2019" role="doc-biblioref">Rutter et al. 2019</a>)</span></p></li>
+<li><p>Bayesian Calibration with Artificial Neural Network (BayCANN) <span class="citation" data-cites="Jalal2021">(<a href="#ref-Jalal2021" role="doc-biblioref">Jalal, Trikalinos, and Alarid-Escudero 2021</a>)</span></p></li>
+</ul></li>
+</ul>
+<p>We will use LHS to try to guess well-fitting parameter sets. The prevalence and incidence data sets will serve as our calibration targets.</p>
 </section>
-<section id="load-baycann-outputs" class="level4">
-<h4 class="anchored" data-anchor-id="load-baycann-outputs">Load BayCANN outputs</h4>
+<section id="sample-parameter-sets-from-prior-distribution" class="level3">
+<h3 class="anchored" data-anchor-id="sample-parameter-sets-from-prior-distribution">Sample parameter sets from prior distribution</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># File paths</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>path_baycann_post <span class="ot">&lt;-</span> <span class="st">"output/calibrated_posteriors_BayCANN.csv"</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>path_baycann_target <span class="ot">&lt;-</span> <span class="st">"output/calibration_targets_BayCANN.csv"</span></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Load BayCANN calibration outputs</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>baycann_posteriors <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(path_baycann_post) <span class="sc">%&gt;%</span></span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span>lp)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Rows: 6000 Columns: 6
-── Column specification ────────────────────────────────────────────────────────
-Delimiter: ","
-dbl (6): 1.1, 1.2, 1.3, 1.4, 1.5, lp
-
-ℹ Use `spec()` to retrieve the full column specification for this data.
-ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set random seed</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(seed)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Set number of parameter sets to sample</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>n_samp <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Get number of parameters</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>n_param <span class="ot">&lt;-</span> <span class="fu">nrow</span>(prior_map)</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample unit Latin Hypercube</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>m_lhs_unit <span class="ot">&lt;-</span> <span class="fu">randomLHS</span>(n_samp, n_param)</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Rescale to min/max of each parameter</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>m_param_samp <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="at">nrow =</span> n_samp, <span class="at">ncol =</span> n_param)</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n_param) {</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>  m_param_samp[, i] <span class="ot">&lt;-</span> <span class="fu">qunif</span>(m_lhs_unit[, i],</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>                             <span class="at">min =</span> prior_map<span class="sc">$</span>prior_min[i],</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>                             <span class="at">max =</span> prior_map<span class="sc">$</span>prior_max[i])</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(m_param_samp) <span class="ot">&lt;-</span> prior_map<span class="sc">$</span>var_id</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>baycann_targets <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(path_baycann_target)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Rows: 6000 Columns: 14
-── Column specification ────────────────────────────────────────────────────────
-Delimiter: ","
-dbl (14): prev_30_40, prev_40_50, prev_50_60, prev_60_70, prev_70_80, prev_8...
-
-ℹ Use `spec()` to retrieve the full column specification for this data.
-ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+</section>
+<section id="calculate-calibration-targets" class="level3">
+<h3 class="anchored" data-anchor-id="calculate-calibration-targets">Calculate calibration targets</h3>
+<p>Now, we will re-run the model for every parameter set and save the calibration outputs as vectors.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize matrix to store results</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>m_calib_outputs <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="at">nrow =</span> n_samp, <span class="at">ncol =</span> <span class="fu">length</span>(true_prevalence<span class="sc">$</span>prevalence) <span class="sc">+</span> <span class="fu">length</span>(true_incidence<span class="sc">$</span>incidence))</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop over all parameter set samples</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>start_time <span class="ot">&lt;-</span> <span class="fu">Sys.time</span>()</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(m_param_samp)) {</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Run model with updated parameters</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>  m_calib_times <span class="ot">&lt;-</span> <span class="fu">run_no_screening_model</span>(<span class="at">n_cohort =</span> n_cohort,</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">ages_H_Do =</span> ages_H_Do,</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">prob_H_Do =</span> prob_H_Do, </span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">shape_H_P =</span> m_param_samp[i, <span class="dv">1</span>], </span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">scale_H_P =</span> m_param_samp[i, <span class="dv">2</span>],</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">rate_P1_P2 =</span> m_param_samp[i, <span class="dv">3</span>],</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">rate_P1_C1 =</span> m_param_samp[i, <span class="dv">4</span>],</span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">rate_P2_C2 =</span> m_param_samp[i, <span class="dv">5</span>],</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">ages_C1_Dc =</span> ages_C1_Dc,</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">prob_C1_Dc =</span> prob_C1_Dc,</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">ages_C2_Dc =</span> ages_C2_Dc,</span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">prob_C2_Dc =</span> prob_C2_Dc,</span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>                                          <span class="at">seed =</span> seed) </span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Create censor variable for preclinical cancer prevalence screening, since people with diagnosed cancer and dead people will not be screened</span></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>  m_calib_times[, time_screen_censor <span class="sc">:</span><span class="er">=</span> <span class="fu">pmin</span>(time_H_D, time_H_C, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)]</span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Calculate preclinical cancer prevalence</span></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>  calib_prevalence <span class="ot">&lt;-</span> <span class="fu">calc_prevalence</span>(<span class="at">m_time =</span> m_calib_times, </span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">start_var =</span> <span class="st">"time_H_P"</span>, </span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">end_var =</span> <span class="st">"time_H_C"</span>, </span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">censor_var =</span> <span class="st">"time_screen_censor"</span>, </span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">v_ages =</span> v_ages_prevalence,</span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">conf_level =</span> conf_level)</span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Calculate cancer age-specific incidence</span></span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>  calib_incidence <span class="ot">&lt;-</span> <span class="fu">calc_incidence</span>(<span class="at">m_time =</span> m_calib_times, </span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">time_var =</span> <span class="st">"time_H_C"</span>, </span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">censor_var =</span> <span class="st">"time_H_D"</span>, </span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">v_ages =</span> v_ages_incidence,</span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">rate_unit =</span> incidence_rate_unit)</span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Save vector of results</span></span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>  m_calib_outputs[i, ] <span class="ot">&lt;-</span> <span class="fu">c</span>(calib_prevalence<span class="sc">$</span>prevalence, calib_incidence<span class="sc">$</span>incidence)</span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a>end_time <span class="ot">&lt;-</span> <span class="fu">Sys.time</span>()</span>
+<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(end_time <span class="sc">-</span> start_time)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Time difference of 43.99036 secs</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Rename posterior columns and create long df</span></span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(baycann_posteriors) <span class="ot">&lt;-</span> prior_map<span class="sc">$</span>var_id</span>
+</div>
+</section>
+<section id="find-best-fitting-parameters" class="level3">
+<h3 class="anchored" data-anchor-id="find-best-fitting-parameters">Find best-fitting parameters</h3>
+<p>We will calculate the goodness-of-fit between the simulated and true calibration targets using the log-likelihood and save the 100 parameter sets with the highest goodness-of-fit.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate binomial log likelihood for prevalence</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>m_prevalence <span class="ot">&lt;-</span> m_calib_outputs[, <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(true_prevalence)]</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>m_ll_prevalence <span class="ot">&lt;-</span> <span class="fu">apply</span>(m_prevalence, <span class="dv">1</span>,</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>                         <span class="cf">function</span>(v_prev) <span class="fu">dbinom</span>(<span class="at">x =</span> <span class="fu">round</span>(v_prev <span class="sc">*</span> true_prevalence<span class="sc">$</span>n_total), </span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>                                                 <span class="at">size =</span> <span class="fu">round</span>(true_prevalence<span class="sc">$</span>n_total), </span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>                                                 <span class="at">prob =</span> true_prevalence<span class="sc">$</span>prevalence,</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>                                                 <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate poisson log likelihood for incidence</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>m_incidence <span class="ot">&lt;-</span> m_calib_outputs[, (<span class="fu">nrow</span>(true_prevalence) <span class="sc">+</span> <span class="dv">1</span>)<span class="sc">:</span><span class="fu">ncol</span>(m_calib_outputs)]</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>m_ll_incidence <span class="ot">&lt;-</span> <span class="fu">apply</span>(m_incidence, <span class="dv">1</span>,</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">function</span>(v_inc) <span class="fu">dpois</span>(<span class="at">x =</span> <span class="fu">round</span>(v_inc <span class="sc">/</span> incidence_rate_unit <span class="sc">*</span> true_incidence<span class="sc">$</span>n_population), </span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>                                              <span class="at">lambda =</span> true_incidence<span class="sc">$</span>incidence <span class="sc">/</span> incidence_rate_unit <span class="sc">*</span> true_incidence<span class="sc">$</span>n_population, </span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>                                              <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine two log-likelihood matrices</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>m_ll <span class="ot">&lt;-</span> <span class="fu">rbind</span>(m_ll_prevalence, m_ll_incidence)</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Sum log-likelihood for each parameter set</span></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>v_sum_ll <span class="ot">&lt;-</span> <span class="fu">colSums</span>(m_ll)</span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Rank log-likelihood from highest to lowest</span></span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>v_rank_ll <span class="ot">&lt;-</span> <span class="fu">order</span>(v_sum_ll, <span class="at">decreasing =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Get top parameter sets</span></span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>top_k <span class="ot">&lt;-</span> <span class="dv">10</span></span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a>m_param_best <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(m_param_samp[v_rank_ll[<span class="dv">1</span><span class="sc">:</span>top_k], ])</span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a>m_prevalence_best <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(m_prevalence[v_rank_ll[<span class="dv">1</span><span class="sc">:</span>top_k], ])</span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a>m_incidence_best <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(m_incidence[v_rank_ll[<span class="dv">1</span><span class="sc">:</span>top_k], ])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert wide to long dataframe</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(m_prevalence_best) <span class="ot">&lt;-</span> (true_prevalence<span class="sc">$</span>age_start <span class="sc">+</span> true_prevalence<span class="sc">$</span>age_end)<span class="sc">/</span><span class="dv">2</span></span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>baycann_posteriors_long <span class="ot">&lt;-</span> baycann_posteriors <span class="sc">%&gt;%</span></span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="fu">everything</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>m_prevalence_best_long <span class="ot">&lt;-</span> m_prevalence_best <span class="sc">%&gt;%</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">rank =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">n</span>()) <span class="sc">%&gt;%</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="sc">-</span>rank,</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="st">"age_median"</span>,</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">"prevalence"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">age_median =</span> <span class="fu">as.integer</span>(age_median))</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(true_prevalence <span class="sc">%&gt;%</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>         <span class="fu">mutate</span>(<span class="at">age_median =</span> (age_start <span class="sc">+</span> age_end)<span class="sc">/</span><span class="dv">2</span>), <span class="fu">aes</span>(<span class="at">x =</span> age_median, </span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>                          <span class="at">y =</span> prevalence)) <span class="sc">+</span> </span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">x=</span>age_median, <span class="at">ymin=</span>ci_lb, <span class="at">ymax=</span>ci_ub)) <span class="sc">+</span> </span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> m_prevalence_best_long, <span class="fu">aes</span>(<span class="at">x =</span> age_median<span class="sc">+</span><span class="dv">1</span>, <span class="at">y =</span> prevalence, <span class="at">color =</span> rank), <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Age'</span>,</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">'Prevalence'</span>,</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">'Data source'</span>) <span class="sc">+</span></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
 </div>
-</section>
-<section id="plot-parameters-1" class="level4">
-<h4 class="anchored" data-anchor-id="plot-parameters-1">Plot parameters</h4>
+</div>
+</div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot BayCANN parameters against true parameters and priors</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>plot_params_baycann <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(baycann_posteriors_long, <span class="fu">aes</span>(value)) <span class="sc">+</span> </span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>() <span class="sc">+</span> </span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">data =</span> param_map <span class="sc">%&gt;%</span></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>               <span class="fu">rename</span>(<span class="at">name =</span> var_id), <span class="fu">aes</span>(<span class="at">xintercept=</span>param_val), <span class="at">color =</span> <span class="st">'red'</span>) <span class="sc">+</span></span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">data =</span> prior_map <span class="sc">%&gt;%</span></span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>               <span class="fu">rename</span>(<span class="at">name =</span> var_id), <span class="fu">aes</span>(<span class="at">xintercept=</span>prior_min), <span class="at">color =</span> <span class="st">'blue'</span>) <span class="sc">+</span></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">data =</span> prior_map <span class="sc">%&gt;%</span></span>
-<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>               <span class="fu">rename</span>(<span class="at">name =</span> var_id), <span class="fu">aes</span>(<span class="at">xintercept=</span>prior_max), <span class="at">color =</span> <span class="st">'blue'</span>) <span class="sc">+</span></span>
-<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>name, <span class="at">scales =</span> <span class="st">"free"</span>) <span class="sc">+</span></span>
-<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">'BayCANN'</span>)</span>
-<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>plot_params_baycann</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert wide to long dataframe</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(m_incidence_best) <span class="ot">&lt;-</span> (true_incidence<span class="sc">$</span>age_start <span class="sc">+</span> true_incidence<span class="sc">$</span>age_end)<span class="sc">/</span><span class="dv">2</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>m_incidence_best_long <span class="ot">&lt;-</span> m_incidence_best <span class="sc">%&gt;%</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">rank =</span> v_rank_ll[v_rank_ll <span class="sc">&lt;=</span> top_k]) <span class="sc">%&gt;%</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="sc">-</span>rank,</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="st">"age_median"</span>,</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">"incidence"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">age_median =</span> <span class="fu">as.integer</span>(age_median))</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot</span></span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(true_incidence <span class="sc">%&gt;%</span></span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>         <span class="fu">mutate</span>(<span class="at">age_median =</span> (age_start <span class="sc">+</span> age_end)<span class="sc">/</span><span class="dv">2</span>,</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>                <span class="at">ci_lb =</span> incidence <span class="sc">-</span> <span class="fu">qnorm</span>(conf_level <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> conf_level)<span class="sc">/</span><span class="dv">2</span>) <span class="sc">*</span> se,</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>                <span class="at">ci_ub =</span> incidence <span class="sc">+</span> <span class="fu">qnorm</span>(conf_level <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> conf_level)<span class="sc">/</span><span class="dv">2</span>) <span class="sc">*</span> se)</span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>       , <span class="fu">aes</span>(<span class="at">x =</span> age_median, </span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>             <span class="at">y =</span> incidence)) <span class="sc">+</span> </span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">x=</span>age_median, <span class="at">ymin=</span>ci_lb, <span class="at">ymax=</span>ci_ub)) <span class="sc">+</span> </span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> m_incidence_best_long, <span class="fu">aes</span>(<span class="at">x =</span> age_median<span class="sc">+</span><span class="dv">1</span>, <span class="at">y =</span> incidence, <span class="at">color =</span> rank), <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Age'</span>,</span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">paste</span>(<span class="st">'Incidence rate per'</span>, incidence_rate_unit),</span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a>       <span class="at">color =</span> <span class="st">'Data source'</span>) <span class="sc">+</span></span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<section id="plot-parameters" class="level4">
+<h4 class="anchored" data-anchor-id="plot-parameters">Plot parameters</h4>
+<p>A modeler in the real world will never have this information, but suppose an oracle provides you the true parameters. These are located in “the truth/true_param_map.RData”. Let’s look at how well empirical calibration was able to match the true parameters.</p>
+<p>Latin Hypercube Sample distribution in gray, true parameters in red, uniform range of priors in blue</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load true parameters --&gt; 'true_params'</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">'the truth/true_param_map.RData'</span>)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Prepare data for histogram of parameters</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(m_param_best) <span class="ot">&lt;-</span> prior_map<span class="sc">$</span>var_name</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>m_param_best_long <span class="ot">&lt;-</span> m_param_best <span class="sc">%&gt;%</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="fu">everything</span>())</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot IMABC parameters against true parameters and priors</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>plot_params <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(m_param_best_long, <span class="fu">aes</span>(value)) <span class="sc">+</span></span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>() <span class="sc">+</span></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">data =</span> true_params <span class="sc">%&gt;%</span></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>               <span class="fu">rename</span>(<span class="at">name =</span> var_name), <span class="fu">aes</span>(<span class="at">xintercept=</span>var_value), <span class="at">color =</span> <span class="st">'red'</span>) <span class="sc">+</span></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">data =</span> prior_map <span class="sc">%&gt;%</span></span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>               <span class="fu">rename</span>(<span class="at">name =</span> var_name), <span class="fu">aes</span>(<span class="at">xintercept=</span>prior_min), <span class="at">color =</span> <span class="st">'blue'</span>) <span class="sc">+</span></span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">data =</span> prior_map <span class="sc">%&gt;%</span></span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>               <span class="fu">rename</span>(<span class="at">name =</span> var_name), <span class="fu">aes</span>(<span class="at">xintercept=</span>prior_max), <span class="at">color =</span> <span class="st">'blue'</span>) <span class="sc">+</span></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>name, <span class="at">scales =</span> <span class="st">"free"</span>) <span class="sc">+</span></span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">'IMABC'</span>)</span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>plot_params</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
 </div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
 </section>
-<section id="plot-calibration-targets-1" class="level4">
-<h4 class="anchored" data-anchor-id="plot-calibration-targets-1">Plot calibration targets</h4>
+</section>
+</div>
+<div id="tabset-1-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-4-tab">
+<p>With our model calibrated, we can now use it to evaluate the benefits and harms of a screening test that your roommate is developing as part of his PhD research. Maybe he’ll build a startup and get millions of dollars of seed funding (if the results look promising).</p>
+<p>From preliminary studies, the test has a sensitivity of 70% for early stage cancer and 85% for late stage cancer. The specificity of the test is 80%. An invasive confirmatory follow up test is needed to diagnose the disease (assume that this test is perfect - i.e., 100% sensitivity and specificity). Because the follow up test is costly and invasive, it is not currently recommended as a screening test for average-risk adults without any symptoms. However, this invasive test is currently used to diagnose all cases of the cancer.</p>
+<p>Your friend wants to know the tradeoffs of one-time screening at age 50 for anyone who has not been diagnosed with cancer compared to the current status quo of no screening. Specifically, he wants to know 1) the expected difference in life years and 2) the difference in number of invasive diagnostic tests between the two scenarios.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Summarize targets</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>collapse_mean_bc  <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span><span class="fu">c</span>(mean), <span class="at">data=</span>baycann_targets,<span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>collapse_UB_95_bc <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span>quantile, <span class="at">probs =</span> <span class="fl">0.975</span>, <span class="at">data=</span>baycann_targets, <span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>collapse_LB_95_bc <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span>quantile, <span class="at">probs =</span> <span class="fl">0.025</span>, <span class="at">data=</span>baycann_targets, <span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>collapse_UB_50_bc <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span>quantile, <span class="at">probs =</span> <span class="fl">0.75</span>, <span class="at">data=</span>baycann_targets, <span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>collapse_LB_50_bc <span class="ot">&lt;-</span> <span class="fu">summaryBy</span>( . <span class="sc">~</span> index , <span class="at">FUN=</span>quantile, <span class="at">probs =</span> <span class="fl">0.25</span>, <span class="at">data=</span>baycann_targets, <span class="at">keep.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>out_summary_bc <span class="ot">&lt;-</span>  <span class="fu">data.frame</span>(l_true_reshaped<span class="sc">$</span>target_map,</span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>                           <span class="at">true_val =</span> l_true_reshaped<span class="sc">$</span>v_targets,</span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>                           <span class="at">true_se =</span> l_true_reshaped<span class="sc">$</span>v_se,</span>
-<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_mean =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_mean_bc)),</span>
-<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_UB_95 =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_UB_95_bc)),</span>
-<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_LB_95 =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_LB_95_bc)),</span>
-<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_UB_50 =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_UB_50_bc)),</span>
-<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>                           <span class="at">model_LB_50 =</span> <span class="fu">unname</span>(<span class="fu">t</span>(collapse_LB_50_bc))) <span class="sc">%&gt;%</span></span>
-<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">categorical =</span> (target_groups <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">'Stage at diagnosis'</span>, <span class="st">'Prevalence of lesion type b'</span>)))</span>
-<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot </span></span>
-<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>plot_targets_baycann <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(<span class="at">data =</span> out_summary_bc, </span>
-<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>                <span class="fu">aes</span>(<span class="at">x    =</span> target_index, </span>
-<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>                    <span class="at">y    =</span> true_val, </span>
-<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>                    <span class="at">ymin =</span> true_val <span class="sc">-</span> true_se, </span>
-<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>                    <span class="at">ymax =</span> true_val <span class="sc">+</span> true_se))<span class="sc">+</span> </span>
-<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="at">width=</span>.<span class="dv">4</span>, <span class="at">size=</span><span class="fl">0.9</span>, <span class="at">color=</span><span class="st">"red"</span>) <span class="sc">+</span></span>
-<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position=</span><span class="st">"none"</span>) <span class="sc">+</span></span>
-<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="at">data =</span> out_summary_bc[out_summary_bc<span class="sc">$</span>categorical<span class="sc">==</span><span class="dv">1</span>,],</span>
-<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a>                <span class="fu">aes</span>(<span class="at">x    =</span> target_index<span class="fl">-0.07</span>,</span>
-<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a>                    <span class="at">y    =</span> model_mean,</span>
-<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a>                    <span class="at">ymin =</span> model_LB_95,</span>
-<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a>                    <span class="at">ymax =</span> model_UB_95),<span class="at">width=</span>.<span class="dv">4</span>, <span class="at">size=</span><span class="fl">0.7</span>, <span class="at">color=</span><span class="st">"black"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>, <span class="at">position =</span> <span class="st">"dodge2"</span>) <span class="sc">+</span></span>
-<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="at">data =</span> out_summary_bc[out_summary_bc<span class="sc">$</span>categorical<span class="sc">==</span><span class="dv">0</span>,],</span>
-<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x    =</span> target_index,</span>
-<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y    =</span> true_val,</span>
-<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ymin =</span> model_LB_95,</span>
-<span id="cb21-35"><a href="#cb21-35" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ymax =</span> model_UB_95),</span>
-<span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a>              <span class="at">fill =</span> <span class="st">"black"</span>,</span>
-<span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a>              <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb21-38"><a href="#cb21-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_ribbon</span>(<span class="at">data =</span> out_summary_bc[out_summary_bc<span class="sc">$</span>categorical<span class="sc">==</span><span class="dv">0</span>,],</span>
-<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x    =</span> target_index,</span>
-<span id="cb21-40"><a href="#cb21-40" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y    =</span> true_val,</span>
-<span id="cb21-41"><a href="#cb21-41" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ymin =</span> model_LB_50,</span>
-<span id="cb21-42"><a href="#cb21-42" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ymax =</span> model_UB_50),</span>
-<span id="cb21-43"><a href="#cb21-43" aria-hidden="true" tabindex="-1"></a>              <span class="at">fill =</span> <span class="st">"black"</span>,</span>
-<span id="cb21-44"><a href="#cb21-44" aria-hidden="true" tabindex="-1"></a>              <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
-<span id="cb21-45"><a href="#cb21-45" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> target_groups,<span class="at">scales=</span><span class="st">"free"</span>, <span class="at">ncol =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb21-46"><a href="#cb21-46" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
-<span id="cb21-47"><a href="#cb21-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">strip.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb21-48"><a href="#cb21-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">strip.text.x =</span> <span class="fu">element_blank</span>(), <span class="at">legend.position=</span><span class="st">"none"</span>) <span class="sc">+</span></span>
-<span id="cb21-49"><a href="#cb21-49" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"grey10"</span>, <span class="st">"grey30"</span>))<span class="sc">+</span></span>
-<span id="cb21-50"><a href="#cb21-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">breaks =</span> <span class="fu">number_ticks</span>(<span class="dv">5</span>))<span class="sc">+</span></span>
-<span id="cb21-51"><a href="#cb21-51" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">23</span>) <span class="sc">+</span></span>
-<span id="cb21-52"><a href="#cb21-52" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">22</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
-<span id="cb21-53"><a href="#cb21-53" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>, <span class="at">angle =</span> <span class="dv">90</span>),</span>
-<span id="cb21-54"><a href="#cb21-54" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.text.y =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>),</span>
-<span id="cb21-55"><a href="#cb21-55" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">18</span>),</span>
-<span id="cb21-56"><a href="#cb21-56" aria-hidden="true" tabindex="-1"></a>        <span class="at">panel.grid.major =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb21-57"><a href="#cb21-57" aria-hidden="true" tabindex="-1"></a>        <span class="at">panel.border =</span> <span class="fu">element_rect</span>(<span class="at">colour =</span> <span class="st">"black"</span>, <span class="at">fill =</span> <span class="cn">NA</span>),</span>
-<span id="cb21-58"><a href="#cb21-58" aria-hidden="true" tabindex="-1"></a>        <span class="at">strip.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb21-59"><a href="#cb21-59" aria-hidden="true" tabindex="-1"></a>        <span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="dv">0</span>)) <span class="sc">+</span></span>
-<span id="cb21-60"><a href="#cb21-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"BayCANN calibration"</span>, </span>
-<span id="cb21-61"><a href="#cb21-61" aria-hidden="true" tabindex="-1"></a>       <span class="at">x     =</span> <span class="st">""</span>, <span class="at">y     =</span> <span class="st">""</span>)</span>
-<span id="cb21-62"><a href="#cb21-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-63"><a href="#cb21-63" aria-hidden="true" tabindex="-1"></a>plot_targets_baycann</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="cancer_modeling_tutorial_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Take best-fitting parameter set</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>v_param_best <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(m_param_best[<span class="dv">1</span>, ])</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Run model without screening</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>m_no_screening <span class="ot">&lt;-</span> <span class="fu">run_no_screening_model</span>(<span class="at">n_cohort =</span> n_cohort,</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">ages_H_Do =</span> ages_H_Do,</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">prob_H_Do =</span> prob_H_Do, </span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">shape_H_P =</span> v_param_best[<span class="dv">1</span>], </span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">scale_H_P =</span> v_param_best[<span class="dv">2</span>],</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">rate_P1_P2 =</span> v_param_best[<span class="dv">3</span>],</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">rate_P1_C1 =</span> v_param_best[<span class="dv">4</span>],</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">rate_P2_C2 =</span> v_param_best[<span class="dv">5</span>],</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">ages_C1_Dc =</span> ages_C1_Dc,</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">prob_C1_Dc =</span> prob_C1_Dc,</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">ages_C2_Dc =</span> ages_C2_Dc,</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">prob_C2_Dc =</span> prob_C2_Dc,</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">seed =</span> seed) </span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Create censor variable for preclinical cancer prevalence screening, since people with diagnosed cancer and dead people will not be screened</span></span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>m_no_screening[, time_screen_censor <span class="sc">:</span><span class="er">=</span> <span class="fu">pmin</span>(time_H_D, time_H_C, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)]</span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate preclinical cancer prevalence</span></span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>no_screening_prevalence <span class="ot">&lt;-</span> <span class="fu">calc_prevalence</span>(<span class="at">m_time =</span> m_no_screening, </span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">start_var =</span> <span class="st">"time_H_P"</span>, </span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">end_var =</span> <span class="st">"time_H_C"</span>, </span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">censor_var =</span> <span class="st">"time_screen_censor"</span>, </span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">v_ages =</span> v_ages_prevalence,</span>
+<span id="cb22-28"><a href="#cb22-28" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">conf_level =</span> conf_level)</span>
+<span id="cb22-29"><a href="#cb22-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-30"><a href="#cb22-30" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate cancer age-specific incidence</span></span>
+<span id="cb22-31"><a href="#cb22-31" aria-hidden="true" tabindex="-1"></a>no_screening_incidence <span class="ot">&lt;-</span> <span class="fu">calc_incidence</span>(<span class="at">m_time =</span> m_no_screening, </span>
+<span id="cb22-32"><a href="#cb22-32" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">time_var =</span> <span class="st">"time_H_C"</span>, </span>
+<span id="cb22-33"><a href="#cb22-33" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">censor_var =</span> <span class="st">"time_H_D"</span>, </span>
+<span id="cb22-34"><a href="#cb22-34" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">v_ages =</span> v_ages_incidence,</span>
+<span id="cb22-35"><a href="#cb22-35" aria-hidden="true" tabindex="-1"></a>                                         <span class="at">rate_unit =</span> incidence_rate_unit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Screening model: Assume same survival curves for early- and late-stage cancer, but do not allow survival to be worse than no-screening scenario.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set screening parameters</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>screen_age <span class="ot">&lt;-</span> <span class="dv">50</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>screen_sens_early <span class="ot">&lt;-</span> <span class="fl">0.7</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>screen_sens_late <span class="ot">&lt;-</span> <span class="fl">0.85</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>screen_spec <span class="ot">&lt;-</span> <span class="fl">0.8</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Make copy of no screening data</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>m_screening <span class="ot">&lt;-</span> <span class="fu">copy</span>(m_no_screening)</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Flag if eligible for screening - have not died or been diagnosed with cancer before screening age</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>m_screening[, screen_elig <span class="sc">:</span><span class="er">=</span> (time_H_D <span class="sc">&gt;</span> screen_age) <span class="sc">&amp;</span> (<span class="fu">is.na</span>(time_H_C) <span class="sc">|</span> time_H_C <span class="sc">&gt;</span> screen_age)]</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Among screen eligible, flag if patient has cancer</span></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>m_screening[screen_elig <span class="sc">==</span> <span class="cn">TRUE</span>, screen_has_cancer <span class="sc">:</span><span class="er">=</span> (time_H_P <span class="sc">&lt;</span> screen_age)]</span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Among screen eligible patients with cancer, flag stage at screening age</span></span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>m_screening[screen_has_cancer <span class="sc">==</span> <span class="cn">TRUE</span>, screen_stage_dx <span class="sc">:</span><span class="er">=</span> <span class="fu">ifelse</span>(time_H_P <span class="sc">+</span> time_P1_P2 <span class="sc">&lt;</span> screen_age, <span class="dv">2</span>, <span class="dv">1</span>)]</span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample probability of detection among people who have developed early-stage cancer (TP = true positive)</span></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>m_screening[screen_stage_dx <span class="sc">==</span> <span class="dv">1</span>, screen_TP <span class="sc">:</span><span class="er">=</span> <span class="fu">rbinom</span>(.N, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> screen_sens_early)]</span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample probability of detection among people who have developed late-stage cancer (TP = true positive)</span></span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a>m_screening[screen_stage_dx <span class="sc">==</span> <span class="dv">2</span>, screen_TP <span class="sc">:</span><span class="er">=</span> <span class="fu">rbinom</span>(.N, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> screen_sens_late)]</span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a><span class="co"># Update stage and age of detection for people who were screen-detected</span></span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a>m_screening[screen_TP <span class="sc">==</span> <span class="cn">TRUE</span>, stage_dx <span class="sc">:</span><span class="er">=</span> screen_stage_dx]</span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a>m_screening[screen_TP <span class="sc">==</span> <span class="cn">TRUE</span>, time_H_C <span class="sc">:</span><span class="er">=</span> screen_age]</span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-29"><a href="#cb23-29" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample survival among people with screen detected stage 1 cancer</span></span>
+<span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a>m_screening[(screen_TP <span class="sc">==</span> <span class="cn">TRUE</span>) <span class="sc">&amp;</span> (screen_stage_dx <span class="sc">==</span> <span class="dv">1</span>), time_C_Dc_screen <span class="sc">:</span><span class="er">=</span> <span class="fu">sample</span>(<span class="at">x =</span> ages_C1_Dc, </span>
+<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a>                                                                                 <span class="at">size =</span> .N, </span>
+<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a>                                                                                 <span class="at">replace =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb23-33"><a href="#cb23-33" aria-hidden="true" tabindex="-1"></a>                                                                                 <span class="at">prob =</span> prob_C1_Dc) <span class="sc">+</span> <span class="fu">runif</span>(.N)]</span>
+<span id="cb23-34"><a href="#cb23-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Reset to cured if maximum age was sampled</span></span>
+<span id="cb23-36"><a href="#cb23-36" aria-hidden="true" tabindex="-1"></a>m_screening[(screen_TP <span class="sc">==</span> <span class="cn">TRUE</span>) <span class="sc">&amp;</span> (screen_stage_dx <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">&amp;</span> (time_C_Dc_screen <span class="sc">&gt;</span> <span class="fu">max</span>(ages_C1_Dc)), time_C_Dc_screen <span class="sc">:</span><span class="er">=</span> <span class="cn">Inf</span>]</span>
+<span id="cb23-37"><a href="#cb23-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-38"><a href="#cb23-38" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample survival among people with screen detected stage 2 cancer</span></span>
+<span id="cb23-39"><a href="#cb23-39" aria-hidden="true" tabindex="-1"></a>m_screening[(screen_TP <span class="sc">==</span> <span class="cn">TRUE</span>) <span class="sc">&amp;</span> (screen_stage_dx <span class="sc">==</span> <span class="dv">2</span>), time_C_Dc_screen <span class="sc">:</span><span class="er">=</span> <span class="fu">sample</span>(<span class="at">x =</span> ages_C2_Dc, </span>
+<span id="cb23-40"><a href="#cb23-40" aria-hidden="true" tabindex="-1"></a>                                                                                 <span class="at">size =</span> .N, </span>
+<span id="cb23-41"><a href="#cb23-41" aria-hidden="true" tabindex="-1"></a>                                                                                 <span class="at">replace =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb23-42"><a href="#cb23-42" aria-hidden="true" tabindex="-1"></a>                                                                                 <span class="at">prob =</span> prob_C2_Dc) <span class="sc">+</span> <span class="fu">runif</span>(.N)]</span>
+<span id="cb23-43"><a href="#cb23-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-44"><a href="#cb23-44" aria-hidden="true" tabindex="-1"></a><span class="co"># Reset to cured if maximum age was sampled</span></span>
+<span id="cb23-45"><a href="#cb23-45" aria-hidden="true" tabindex="-1"></a>m_screening[(screen_TP <span class="sc">==</span> <span class="cn">TRUE</span>) <span class="sc">&amp;</span> (screen_stage_dx <span class="sc">==</span> <span class="dv">2</span>) <span class="sc">&amp;</span> (time_C_Dc_screen <span class="sc">&gt;</span> <span class="fu">max</span>(ages_C2_Dc)), time_C_Dc_screen <span class="sc">:</span><span class="er">=</span> <span class="cn">Inf</span>]</span>
+<span id="cb23-46"><a href="#cb23-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-47"><a href="#cb23-47" aria-hidden="true" tabindex="-1"></a><span class="co"># Do not allow death in screen-detected scenario to be earlier than death in non-screening scenario</span></span>
+<span id="cb23-48"><a href="#cb23-48" aria-hidden="true" tabindex="-1"></a>m_screening[screen_TP <span class="sc">==</span> <span class="cn">TRUE</span>, time_C_Dc <span class="sc">:</span><span class="er">=</span> <span class="fu">pmax</span>(time_C_Dc, time_C_Dc_screen)]</span>
+<span id="cb23-49"><a href="#cb23-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-50"><a href="#cb23-50" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate time to death from cancer</span></span>
+<span id="cb23-51"><a href="#cb23-51" aria-hidden="true" tabindex="-1"></a>m_screening[, time_H_Dc <span class="sc">:</span><span class="er">=</span> time_H_C <span class="sc">+</span> time_C_Dc]</span>
+<span id="cb23-52"><a href="#cb23-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-53"><a href="#cb23-53" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample probability of false positive among people who do not have cancer (TN = true negative)</span></span>
+<span id="cb23-54"><a href="#cb23-54" aria-hidden="true" tabindex="-1"></a>m_screening[screen_has_cancer <span class="sc">==</span> <span class="cn">FALSE</span>, screen_FP <span class="sc">:</span><span class="er">=</span> <span class="fu">rbinom</span>(.N, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> <span class="dv">1</span> <span class="sc">-</span> screen_spec)]</span>
+<span id="cb23-55"><a href="#cb23-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-56"><a href="#cb23-56" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate mortality outcomes</span></span>
+<span id="cb23-57"><a href="#cb23-57" aria-hidden="true" tabindex="-1"></a><span class="fu">calc_mortality_outcomes</span>(m_screening)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Calculate outcomes</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Total life years gained in screen-eligible population due to screening per 1000 people</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>lyg <span class="ot">&lt;-</span> (<span class="fu">sum</span>(m_screening[screen_elig <span class="sc">==</span> <span class="cn">TRUE</span>, time_H_D]) <span class="sc">-</span> <span class="fu">sum</span>(m_no_screening[m_screening<span class="sc">$</span>screen_elig <span class="sc">==</span> <span class="cn">TRUE</span>, time_H_D])) <span class="sc">/</span> <span class="fu">nrow</span>(m_screening) <span class="sc">*</span> <span class="dv">1000</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">'Life years gained per 1000 with screening:'</span>, <span class="fu">round</span>(lyg, <span class="dv">3</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Life years gained per 1000 with screening: 0.034"</code></pre>
 </div>
-</section>
-</div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of additional invasive follow-up tests per 1000 (true positives + false positives in screening scenario minus diagnosed cancer cases in no-screening scenario)</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>add_tests <span class="ot">&lt;-</span> (<span class="fu">nrow</span>(m_screening[(screen_has_cancer <span class="sc">==</span> <span class="cn">TRUE</span>) <span class="sc">&amp;</span> (screen_TP <span class="sc">==</span> <span class="cn">TRUE</span>),]) <span class="sc">+</span> <span class="fu">nrow</span>(m_screening[(screen_has_cancer <span class="sc">==</span> <span class="cn">FALSE</span>) <span class="sc">&amp;</span> (screen_FP <span class="sc">==</span> <span class="cn">TRUE</span>),]) <span class="sc">-</span> <span class="fu">nrow</span>(m_no_screening[time_H_C <span class="sc">&lt;=</span> time_H_D, ])) <span class="sc">/</span> <span class="fu">nrow</span>(m_screening) <span class="sc">*</span> <span class="dv">1000</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">'Additional follow-up tests per 1000 with screening:'</span>, <span class="fu">round</span>(add_tests, <span class="dv">3</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Additional follow-up tests per 1000 with screening: 173.36"</code></pre>
 </div>
 </div>
 </div>

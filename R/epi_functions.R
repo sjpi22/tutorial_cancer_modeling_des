@@ -114,7 +114,7 @@ calc_incidence <- function(m_time, time_var, censor_var, v_ages,
 }
 
 # Calculate stage distribution from patient-level data
-calc_stage_distr <- function(l_params_all, m_time, grouping_var, event_var, censor_var, conf_level = 0.95) {
+calc_stage_distr <- function(m_time, grouping_var, groups_expected, event_var, censor_var, conf_level = 0.95) {
   # Count patients diagnosed at each stage
   distr <- m_time %>%
     filter(get(event_var) <= get(censor_var)) %>%
@@ -122,7 +122,6 @@ calc_stage_distr <- function(l_params_all, m_time, grouping_var, event_var, cens
     summarize(count = n(), .groups = 'drop') 
   
   # Create dataframe of expected stages
-  groups_expected <- 1:length(l_params_all$v_cancer)
   df_groups_expected <- setNames(data.frame(groups_expected), grouping_var)
   
   # If any stages not represented, convert to 0
