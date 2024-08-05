@@ -102,12 +102,12 @@ load_default_params <- function(
     # Add next distributions depending on whether model includes precancerous lesion state
     if("L" %in% v_states) {
       # Time to precancerous lesion onset
-      time_H_P = list(distr = "weibull", 
+      time_H_L = list(distr = "weibull", 
                       params = list(shape = 1, scale = 1), 
                       src = "unknown")
       
       # Time from precancerous lesion onset to preclinical cancer onset
-      time_P_C = list(distr = "exp", 
+      time_L_P = list(distr = "exp", 
                       params = list(rate = 1), 
                       src = "unknown")
     } else {

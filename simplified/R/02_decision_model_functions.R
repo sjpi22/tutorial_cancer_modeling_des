@@ -86,6 +86,9 @@ simulate_disease_onset <- function(m_times, l_params_all, verbose = FALSE) {
       
       # Simulate time from lesion to cancer onset
       m_times[, time_L_P := query_distr("r", .N, time_L_P$distr, time_L_P$params)]
+      
+      # Calculate time from birth to cancer onset
+      m_times[, time_H_P := time_H_L + time_L_P]
     } else {
       # Simulate time to cancer onset
       m_times[, time_H_P := query_distr("r", .N, time_H_P$distr, time_H_P$params)]
@@ -117,9 +120,9 @@ simulate_cancer_progression <- function(m_times, l_params_all, verbose = FALSE) 
         m_times[is.na(stage_dx), stage_dx := fifelse(get(var_detect) < get(var_progress), v_cancer[i], NA)]
         
         # Add time to detection to running total of time from cancer onset to detection
-        m_times[is.na(stage_dx), time_P_C := fifelse(get(var_detect) < get(var_progress), 
-                                                     time_P_C + get(var_detect), 
-                                                     time_P_C + get(var_progress))]
+        m_times[is.na(stage_dx) | (stage_dx == v_cancer[i]), time_P_C := fifelse(get(var_detect) < get(var_progress), 
+                                                                                 time_P_C + get(var_detect), 
+                                                                                 time_P_C + get(var_progress))]
       } else {
         # If not detected yet, set last stage at cancer diagnosis
         m_times[is.na(stage_dx), stage_dx := v_cancer[i]]
