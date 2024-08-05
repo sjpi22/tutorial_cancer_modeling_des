@@ -75,7 +75,7 @@ results <- run_model(l_params_all)
 results_noscreening <- results[['None']]
 
 ################################################################################
-# Test more than 2 stages
+# Test more than 2 cancer stages
 ################################################################################
 
 # Update cancer stages
@@ -108,4 +108,48 @@ are_equal(results_noscreening[stage_dx == 'a'], results_noscreening[time_Pa_Pb >
 are_equal(results_noscreening[stage_dx == 'b'], results_noscreening[time_Pb_Pc > time_Pb_C])
 are_equal(results_noscreening[stage_dx == 'c'], results_noscreening[time_Pc_Pd > time_Pc_C])
 
-# are_equal(results_noscreening[stage_dx == 'a', time_H_Dc], results_noscreening[(time_H_P])
+are_equal(abs(sum(results_noscreening[stage_dx == 'a', time_H_C] - rowSums(results_noscreening[stage_dx == 'a', c("time_H_P", "time_Pa_C")]))) < 1e-6, TRUE)
+are_equal(abs(sum(results_noscreening[stage_dx == 'a', time_H_Dc] - rowSums(results_noscreening[stage_dx == 'a', c("time_H_P", "time_Pa_C", "time_C_Dc")]))) < 1e-6, TRUE)
+are_equal(abs(sum(results_noscreening[stage_dx == 'b', time_H_C] - rowSums(results_noscreening[stage_dx == 'b', c("time_H_P", "time_Pa_Pb", "time_Pb_C")]))) < 1e-6, TRUE)
+are_equal(abs(sum(results_noscreening[stage_dx == 'b', time_H_Dc] - rowSums(results_noscreening[stage_dx == 'b', c("time_H_P", "time_Pa_Pb", "time_Pb_C", "time_C_Dc")]))) < 1e-6, TRUE)
+are_equal(abs(sum(results_noscreening[stage_dx == 'c', time_H_Dc] - rowSums(results_noscreening[stage_dx == 'c', c("time_H_P", "time_Pa_Pb", "time_Pb_Pc", "time_Pc_C", "time_C_Dc")]))) < 1e-6, TRUE)
+are_equal(abs(sum(results_noscreening[stage_dx == 'd', time_H_Dc] - rowSums(results_noscreening[stage_dx == 'd', c("time_H_P", "time_Pa_Pb", "time_Pb_Pc", "time_Pc_Pd", "time_Pd_C", "time_C_Dc")]))) < 1e-6, TRUE)
+
+are_equal(abs(sum(results_noscreening[, time_H_D] - pmin(results_noscreening[, time_H_Dc], results_noscreening[, time_H_Do], na.rm = TRUE))) < 1e-6, TRUE)
+
+
+################################################################################
+# Test having precancerous lesion stage
+################################################################################
+l_params_all <- load_default_params(v_states = c('H', 'L', 'P', 'C', 'D'),
+                                    file.surv = NULL)
+
+# Add true survival distribution of exponential from diagnosis
+l_params_all$time_C1_Dc$distr <- "exp"
+l_params_all$time_C1_Dc$params <- list(rate = 0.1)
+l_params_all$time_C2_Dc$distr <- "exp"
+l_params_all$time_C2_Dc$params <- list(rate = 0.3)
+
+# Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
+param_map <- make_param_map(l_params_all)
+
+# Set "true" parameters
+v_param_update <- c(0.42, 0.25, 0.5, 0.1, 3, 300)
+
+# Update params
+l_params_all <- update_param_from_map(l_params_all, v_param_update, param_map)
+l_params_all <- update_param_list(l_params_all,
+                                  list(seed = seed,
+                                       n_cohort = n_cohort,
+                                       v_strats = l_params_all$v_strats[1]))
+
+# Update parameter map
+param_map$param_val <- v_param_update
+
+#### Initialize population and disease natural history ####
+results <- run_model(l_params_all)
+results_noscreening <- results[['None']]
+
+# Check sums
+are_equal(results_noscreening[stage_dx == 2], results_noscreening[time_P1_P2 < time_P1_C])
+are_equal(abs(sum(results_noscreening[stage_dx == 2, time_H_Dc] - rowSums(results_noscreening[stage_dx == 2, c("time_H_L", "time_L_P", "time_P1_P2", "time_P2_C", "time_C_Dc")]))) < 1e-6, TRUE)
