@@ -48,9 +48,9 @@ if(debug) {
 seed <- 1 # Random seed for generating data
 
 # Outcome reporting
-v_ages_prevalence <- c(seq(30, 80, 10), 100) # Age for lesion prevalence
+v_ages_prevalence <- seq(30, 80, 10) # Age for lesion prevalence
 v_ages <- list(prevalence = v_ages_prevalence,
-               incidence = v_ages_prevalence) # Age for cancer incidence 
+               incidence = c(v_ages_prevalence, 100)) # Age for cancer incidence 
 v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 
 
@@ -60,10 +60,10 @@ v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 l_params_all <- load_default_params(file.surv = NULL)
 
 # Add true survival distribution of exponential from diagnosis
-l_params_all$time_2i_Dc$distr <- "exp"
-l_params_all$time_2i_Dc$params <- list(rate = 0.1)
-l_params_all$time_2ii_Dc$distr <- "exp"
-l_params_all$time_2ii_Dc$params <- list(rate = 0.3)
+l_params_all$time_C1_Dc$distr <- "exp"
+l_params_all$time_C1_Dc$params <- list(rate = 0.1)
+l_params_all$time_C2_Dc$distr <- "exp"
+l_params_all$time_C2_Dc$params <- list(rate = 0.3)
 
 # Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
 param_map <- make_param_map(l_params_all)
@@ -111,7 +111,7 @@ l_outputs <- calc_calib_targets(l_params_all,
 #### Relative survival by stage and years from diagnosis ####
 
 # Filter to individuals diagnosed with cancer in lifetime
-m_cohort_cancer_dx <- results_noscreening[time_0_2 <= time_0_D] 
+m_cohort_cancer_dx <- results_noscreening[time_H_C < time_H_D] 
 
 # Create survival object for death due to cancer
 cancer_surv_obj <- with(m_cohort_cancer_dx, {
