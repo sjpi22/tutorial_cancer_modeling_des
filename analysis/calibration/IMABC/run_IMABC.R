@@ -28,7 +28,6 @@ distr.sources <- list.files("R",
 sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
-debug <- FALSE
 run_parallel <- TRUE
 run_slurm <- TRUE
 
@@ -68,16 +67,8 @@ if(run_slurm) {
 outpath <- 'output/imabc'
 dir.create(file.path(outpath))
 
-# File path for debug
-if (debug) {
-  outpath <- paste0(outpath, '/debug')
-  
-  # Create directory if it does not exist
-  dir.create(file.path(outpath))
-}
-
 # Load parameter mapping
-load('data/priors.RData')
+prior_map <- readRDS('data/priors.rds')
 
 # Load targets
 l_true_targets <- recursive_read_csv(targets_files)
@@ -150,7 +141,6 @@ calibration_results <- imabc(
   targets = targets,
   target_fun = target_fun,
   seed = l_params_all$seed,
-  # N_start = 1000 * length(priors),
   N_start = 1000 * length(priors),
   N_centers = 1,
   Center_n = 100,
@@ -166,10 +156,5 @@ print(end_time - start_time) # 29.41799 mins
 # If output_directory is included, Getting error: Error in length(dots) == 2 && class(dots[[1]]) != "list" : 
 # 'length = 2' in coercion to 'logical(1)'
 
-if(debug) {
-  print('Saving debug output')
-  save(calibration_results, file = paste0(outpath, '/IMABC_calibration_debug.RData'))
-} else {
-  print('Saving output')
-  save(calibration_results, file = paste0(outpath, '/IMABC_calibration.RData'))
-}
+print('Saving output')
+save(calibration_results, file = file.path(outpath, 'IMABC_calibration.RData'))

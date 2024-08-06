@@ -138,9 +138,9 @@ write.csv(l_outputs$stage_distr, file.path(data_outpath, "stage_distr.csv"), row
 write.csv(output_surv, file.path(data_outpath, "relative_survival_cancer.csv"), row.names = FALSE)
 
 # Save priors
-saveRDS(prior_map, file = file.path(data_outpath, "priors.RData"))
+saveRDS(prior_map, file = file.path(data_outpath, "priors.rds"))
 
 # Save true parameters in current folder
-saveRDS(param_map, file = file.path(true_param_outpath, "true_param_map.RData"))
+saveRDS(param_map, file = file.path(true_param_outpath, "true_param_map.rds"))
 
 

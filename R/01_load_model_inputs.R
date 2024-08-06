@@ -15,8 +15,8 @@ load_default_params <- function(
     v_cancer    = c(1, 2),               # Cancer stages in order
     v_death     = c("o", "c"),           # Death states
     v_strats    = c("None", "Screen"),   # CEA strategies,
-    file.mort   = "data/background_mortality.xlsx",
-    file.surv   = "data/relative_survival_cancer.csv"){
+    file.mort   = "data/background_mortality.xlsx",   # Path to background mortality data
+    file.surv   = "data/relative_survival_cancer.csv" # Path to relative survival data){
   
   #### General setup ####
   # Initialize list to store all parameters

@@ -123,7 +123,7 @@ plot_surv <- ggplot(df_surv, aes(yrs, prob, color = stage)) +
 ```{r}
 # Load priors
 param_map <- make_param_map(l_params_all)
-prior_path <- 'data/priors.RData'
+prior_path <- 'data/priors.rds'
 prior_map <- readRDS(prior_path)
 ```
 
@@ -141,7 +141,10 @@ l_true_targets <- list(prevalence = true_prevalence,
                         stage_distr = true_stage_distr)
 
 # Summarize calibration outputs generated from LHS sample of priors
-load('data/BayCANN_sample.RData')
+# load('data/BayCANN_sample.RData')
+load('alternate_versions/simplified/data/BayCANN_sample.RData')
+out_calib_targets <- data.frame(out_calib_targets) %>%
+  dplyr::select(-prev_80_100)
 
 plot_priors <- calc_and_plot_calib_targets(l_true_targets, 
                                            out_calib_targets,
@@ -155,8 +158,6 @@ plot_priors <- calc_and_plot_calib_targets(l_true_targets,
     guides = "collect"
   ) + plot_annotation(title = 'Calibration targets') &
   theme(legend.position = 'bottom')
-
-# @@@ can remove age 80+ from screening prevalence
 ```
 
 ### IMABC
@@ -173,7 +174,8 @@ Incremental mixture approximate Bayesian calibration [@Rutter2019]
 
 ```{r}
 # File paths 
-path_imabc <- "output/imabc/IMABC_calibration.RData"
+# path_imabc <- "output/IMABC/IMABC_calibration.rds"
+path_imabc <- "alternate_versions/simplified/output/imabc/IMABC_calibration.RData"
 
 # Set random seed
 set.seed(l_params_all$seed)
@@ -185,13 +187,14 @@ l_true_reshaped <- reshape_calib_targets(l_true_targets, output_se = TRUE, outpu
 load(path_imabc)
 
 # Load true parameters (unknown in real life!)
-load("_solutions/true_param_map.RData") # Output: param_map
+true_params <- readRDS("ground_truth/true_param_map.rds") # Output: param_map
 
 # Load priors
-load("data/priors.RData")
+# prior_map <- readRDS("data/priors.rds")
+load("alternate_versions/simplified/data/priors.RData")
 
 # Sample with replacement
-n_imabc_sample <- nrow(calibration_results$good_parm_draws) * 10
+n_imabc_sample <- nrow(calibration_results$good_parm_draws) * 100
 indices_imabc_sample <- sample(1:nrow(calibration_results$good_parm_draws), 
                                n_imabc_sample, 
                                replace = TRUE, 
@@ -205,17 +208,20 @@ IMABC distribution in gray, true parameters in red, uniform range of priors in b
 ```{r}
 # IMABC posterior parameters
 imabc_params_unweighted <- calibration_results$good_parm_draws %>%
-  dplyr::select(all_of(prior_map$var_id))
+  dplyr::select(prior_map$var_id)
 
 imabc_params <- imabc_params_unweighted[indices_imabc_sample, ]
 
 imabc_params_long <- imabc_params %>%
   pivot_longer(everything())
 
+# Correction for new names for param_map
+true_params$var_id <- prior_map$var_id
+
 # Plot IMABC parameters against true parameters and priors
 plot_params_imabc <- ggplot(imabc_params_long, aes(value)) + 
   geom_histogram() + 
-  geom_vline(data = param_map %>%
+  geom_vline(data = true_params %>%
                rename(name = var_id), aes(xintercept=param_val), color = 'red') +
   geom_vline(data = prior_map %>%
                rename(name = var_id), aes(xintercept=prior_min), color = 'blue') +
@@ -230,19 +236,39 @@ plot_params_imabc
 #### Plot calibration targets
 
 ```{r}
-# Get posterior mean of outputs
-imabc_targets_unweighted <- calibration_results$good_sim_target %>%
-  dplyr::select(-c("iter", "draw", "step"))
 
-imabc_targets <- imabc_targets_unweighted[indices_imabc_sample, ]
+# Get vector of ages for prevalence and incidence
+v_ages_prevalence <- get_age_range(l_true_targets$prevalence)
+v_ages_incidence <- get_age_range(l_true_targets$incidence)
+v_ages <- list(prevalence = v_ages_prevalence,
+               incidence = v_ages_incidence)
+
+# Rerun model with posterior parameter sample
+l_params_all <- update_param_list(l_params_all,
+                                  list(n_cohort = 100000))
+
+# Just for simplified/ case
+true_params <- readRDS("ground_truth/true_param_map.rds") # Output: param_map
+prior_map$var_name <- true_params$var_name
+names(imabc_params) <- true_params$var_id
+
+imabc_calib_targets <- data.frame()
+for (i in 1:min(nrow(imabc_params), 1000)) {
+  
+  v_params_update <- as.numeric(imabc_params[i,])
+  v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, prior_map,
+                                             v_ages)
+  
+  imabc_calib_targets <- rbind(imabc_calib_targets, t(v_calib_targets))
+}
 
 # Summarize targets
 # Note: weight for 50th and 95th with resampling
-collapse_mean  <- summaryBy( . ~ index , FUN=c(weighted.mean), w = calibration_results$good_parm_draws$sample_wt, data=imabc_targets_unweighted, keep.names=TRUE)
-collapse_UB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.975, data=imabc_targets, keep.names=TRUE)
-collapse_LB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.025, data=imabc_targets, keep.names=TRUE)
-collapse_UB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.75, data=imabc_targets, keep.names=TRUE)
-collapse_LB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.25, data=imabc_targets, keep.names=TRUE)
+collapse_mean  <- summaryBy( . ~ index , FUN=c(mean), data=imabc_calib_targets, keep.names=TRUE)
+collapse_UB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.975, data=imabc_calib_targets, keep.names=TRUE)
+collapse_LB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.025, data=imabc_calib_targets, keep.names=TRUE)
+collapse_UB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.75, data=imabc_calib_targets, keep.names=TRUE)
+collapse_LB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.25, data=imabc_calib_targets, keep.names=TRUE)
 
 out_summary <-  data.frame(l_true_reshaped$target_map,
                            true_val = l_true_reshaped$v_targets,
