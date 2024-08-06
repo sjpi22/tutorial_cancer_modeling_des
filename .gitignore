@@ -50,3 +50,10 @@ rsconnect/
 
 # Mac files
 **/.DS_Store
+
+# Custom
+examples/
+output/model*.*
+sherlock/output/
+output/imabc/debug/
+simplified/output/imabc/debug/

@@ -1,0 +1,246 @@
+---
+title: "Cancer Modeling Tutorial"
+format: html
+editor: visual
+bibliography: references.bib
+---
+
+# Discrete event simulation tutorial: Application to cancer modeling
+
+## Introduction
+
+### Modeling for cancer screening policy
+
+\[Motivation\] \[Inputs, outputs\] \[Methods\] \[Past examples\]
+
+### Discrete event simulation
+
+-   Idea: sample time to various states for individual patient trajectories
+-   \[Pros and cons\]
+
+### Calibration
+
+-   \[How to quantify uncertainty\] \[Why from Bayesian perspective\]
+
+## Default discrete event simulation model
+
+\[Picture of model schema\]
+
+Setup
+
+```{r}
+# Run this once
+# install.packages("devtools")
+# devtools::install_github("carolyner/imabc")
+
+# Clear workspace
+rm(list = ls())
+
+# Options
+options(scipen=999)
+
+# Load packages
+library(readxl)
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(survival)
+library(imabc)
+library(keras)
+
+# Load functions
+distr.sources <- list.files("R", 
+                            pattern="*.R$", full.names=TRUE, 
+                            ignore.case=TRUE, recursive = TRUE)
+sapply(distr.sources, source, .GlobalEnv)
+```
+
+Load default parameters
+
+```{r}
+# Load default parameters
+l_params_all <- load_default_params()
+
+# Make cohort small for testing
+l_params_all <- update_param_list(l_params_all,
+                                  list(n_cohort = 10000,
+                                       v_strats = l_params_all$v_strats[1]))
+```
+
+Visualize data inputs: Background mortality and survival from diagnosis
+
+```{r}
+# Background mortality
+n_mort_ages <- length(l_params_all$time_0_Do_female$params$xs)
+df_mort <- data.frame(sex = c(rep("Female", n_mort_ages),
+                              rep("Male", n_mort_ages)),
+                      yrs = c(l_params_all$time_0_Do_female$params$xs,
+                              l_params_all$time_0_Do_male$params$xs),
+                      prob = c(1 - c(0, cumsum(l_params_all$time_0_Do_female$params$probs[-n_mort_ages])),
+                               1 - c(0, cumsum(l_params_all$time_0_Do_male$params$probs[-n_mort_ages])))
+)
+
+plot_mort <- ggplot(df_mort, aes(yrs, prob, color = sex)) + 
+  geom_line() + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0, 1)) +
+  labs(title = "Background mortality",
+       x = "Years from birth",
+       y = "Proportion alive",
+       color = "Sex")
+
+# Survival after diagnosis
+df_surv <- data.frame()
+for (stg in l_params_all$v_cancer) {
+  var <- paste0("time_3", stg, "_Dc")
+  n_surv_ages <- length(l_params_all[[var]]$params$xs)
+  temp_df_surv <- data.frame(stage = toupper(stg),
+                             yrs = l_params_all[[var]]$params$xs,
+                             prob = 1 - c(0, cumsum(l_params_all[[var]]$params$probs[-n_surv_ages])))
+    
+  df_surv <- rbind(df_surv, temp_df_surv)
+}
+
+plot_surv <- ggplot(df_surv, aes(yrs, prob, color = stage)) + 
+  geom_line() + 
+  geom_point(alpha = 0.7) +
+  theme_minimal() +
+  coord_cartesian(ylim=c(0, 1)) +
+  labs(title = "Survival after diagnosis",
+       x = "Years from diagnosis",
+       y = "Proportion alive",
+       color = "Stage at diagnosis")
+
+# Plot together
+(plot_mort + plot_surv) + 
+  plot_layout(
+    ncol = 2,
+    guides = "collect",
+    axes = "collect",
+    axis_titles = "collect"
+  ) &
+  theme(legend.position = 'bottom')
+```
+
+Run default model \[Exercise to look at, fix, and understand decision modeling functions\]
+
+```{r}
+results <- run_model(l_params_all)
+results_noscreening <- results[['None']]
+```
+
+Visualize outputs
+
+```{r}
+
+
+```
+
+## Calibration
+
+Why calibrate? How?
+
+Visualize calibration targets and default model
+
+```{r}
+# Load calibration targets
+true_prevalence_a <- read.csv(file = 'data/prevalence_lesion_a.csv')
+true_prevalence_b <- read.csv(file = 'data/prevalence_lesion_b.csv')
+true_incidence_cancer <- read.csv(file = 'data/incidence_cancer.csv')
+true_stage_distr <- read.csv(file = 'data/stage_distr.csv')
+
+# Load calibration parameter sample
+load('data/calibration_sample.RData')
+
+# Create censor variable for screening
+results_noscreening$m_cohort[, time_screen_censor := pmin(time_0_D, time_0_3, na.rm = TRUE)]
+
+# Get vector of ages
+v_ages_prevalence <- list()
+v_ages_prevalence[['a']] <- get_age_range(true_prevalence_a)
+v_ages_prevalence[['b']] <- get_age_range(true_prevalence_b)
+
+v_ages_incidence <- get_age_range(true_incidence_cancer)
+
+# Calculate calibration targets with default model
+l_calib_outputs <- calc_calib_targets(l_params_all, results_noscreening$m_cohort, results_noscreening$m_lesions, v_ages_prevalence, v_ages_incidence)
+  
+# Plot true and default prevalence
+default_prevalence <- l_calib_outputs$prevalence
+full_prevalence_df <- rbind(true_prevalence_a %>%
+                              mutate(lesion = 'a',
+                                     label = 'True'), 
+                            true_prevalence_b %>%
+                              mutate(lesion = 'b', 
+                                     label = 'True'),
+                            default_prevalence$a %>%
+                              mutate(lesion = 'a',
+                                     label = 'Default'), 
+                            default_prevalence$b %>%
+                              mutate(lesion = 'b',
+                                     label = 'Default')) %>%
+  mutate(median_age = (age_end + age_start) / 2) %>%
+  mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)))
+
+ggplot(full_prevalence_df, aes(x = median_age, 
+                               y = prevalence,
+                               color = lesion,
+                               linetype = label)) + 
+  geom_point() + 
+  geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+  labs(title = 'Precancerous lesion prevalence',
+       x = 'Age',
+       y = 'Prevalence')
+```
+
+```{r}
+# Plot true and default incidence
+default_incidence <- l_calib_outputs$incidence
+full_incidence_df <- rbind(true_incidence_cancer %>%
+                              mutate(label = 'True'), 
+                            default_incidence %>%
+                              mutate(label = 'Default')) %>%
+  mutate(median_age = (age_end + age_start) / 2) %>%
+  mutate(median_age = ifelse(label == 'True', floor(median_age), ceiling(median_age)),
+         ci_lb = incidence - 1.96 * se,
+         ci_ub = incidence + 1.96 * se)
+  
+ggplot(full_incidence_df, aes(x = median_age, 
+                               y = incidence,
+                               color = label)) + 
+  geom_point() + 
+  geom_errorbar(aes(x=median_age, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+  labs(title = 'Cancer incidence',
+       x = 'Age',
+       y = 'Incidence')
+```
+
+```{r}
+# Stage distribution
+default_stage_distr <- l_calib_outputs$stage_distr
+full_stage_distr_df <- rbind(true_stage_distr %>%
+                              mutate(label = 'True'), 
+                            default_stage_distr %>%
+                              mutate(label = 'Default'))
+  
+ggplot(full_stage_distr_df, aes(x = stage_dx, 
+                               y = pct,
+                               color = label)) + 
+  geom_point() + 
+  geom_errorbar(aes(x=stage_dx, ymin=ci_lb, ymax=ci_ub), alpha = 0.5) + 
+  labs(title = 'Cancer stage distribution',
+       x = 'Stage',
+       y = 'Percentage')
+```
+
+How would you describe the fit of the default parameters to the calibration targets?
+
+### BayCANN: Bayesian Calibration with Artificial Neural Network
+
+```{r}
+
+```
+
+Visualize results and compare to before calibration
+
+[@Rutter2019]
