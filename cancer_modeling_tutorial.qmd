@@ -8,7 +8,7 @@ bibliography: references.bib
 ::: panel-tabset
 ## Model schema
 
-![Cancer natural history model schema](figures/model_schema.png){alt="Cancer natural history model schema"}
+![Cancer natural history model schema](figures/model_schema.png)
 
 ## Setup
 
@@ -62,13 +62,13 @@ Background mortality and survival from diagnosis
 
 ```{r}
 # Background mortality
-n_mort_ages <- length(l_params_all$time_0_Do_female$params$xs)
+n_mort_ages <- length(l_params_all$time_H_Do_female$params$xs)
 df_mort <- data.frame(sex = c(rep("Female", n_mort_ages),
                               rep("Male", n_mort_ages)),
-                      yrs = c(l_params_all$time_0_Do_female$params$xs,
-                              l_params_all$time_0_Do_male$params$xs),
-                      prob = c(1 - c(0, cumsum(l_params_all$time_0_Do_female$params$probs[-n_mort_ages])),
-                               1 - c(0, cumsum(l_params_all$time_0_Do_male$params$probs[-n_mort_ages])))
+                      yrs = c(l_params_all$time_H_Do_female$params$xs,
+                              l_params_all$time_H_Do_male$params$xs),
+                      prob = c(1 - c(0, cumsum(l_params_all$time_H_Do_female$params$probs[-n_mort_ages])),
+                               1 - c(0, cumsum(l_params_all$time_H_Do_male$params$probs[-n_mort_ages])))
 )
 
 plot_mort <- ggplot(df_mort, aes(yrs, prob, color = sex)) + 
@@ -83,7 +83,7 @@ plot_mort <- ggplot(df_mort, aes(yrs, prob, color = sex)) +
 # Survival after diagnosis
 df_surv <- data.frame()
 for (stg in l_params_all$v_cancer) {
-  var <- paste0("time_2", stg, "_Dc")
+  var <- paste0("time_C", stg, "_Dc")
   n_surv_ages <- length(l_params_all[[var]]$params$xs)
   temp_df_surv <- data.frame(stage = toupper(stg),
                              yrs = l_params_all[[var]]$params$xs,
@@ -124,7 +124,7 @@ plot_surv <- ggplot(df_surv, aes(yrs, prob, color = stage)) +
 # Load priors
 param_map <- make_param_map(l_params_all)
 prior_path <- 'data/priors.RData'
-load(prior_path)
+prior_map <- readRDS(prior_path)
 ```
 
 #### Visualize calibration targets and prior outputs
@@ -163,14 +163,11 @@ plot_priors <- calc_and_plot_calib_targets(l_true_targets,
 
 Incremental mixture approximate Bayesian calibration [@Rutter2019]
 
-@@@ TO DO: Update target plots, make numbers more consistent
-@@@ TODO: Check BayCANN: check if STAN priors are actually uniform
-@@ journal ideas
+\@\@\@ TO DO: Update target plots, make numbers more consistent \@\@\@ TODO: Check BayCANN: check if STAN priors are actually uniform \@\@ journal ideas
 
 #### Run algorithm
 
-\[External step\] 
-1. Run analysis/run_IMABC.R
+\[External step\] 1. Run analysis/run_IMABC.R
 
 #### Load IMABC outputs
 

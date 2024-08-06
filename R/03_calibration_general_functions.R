@@ -37,22 +37,22 @@ calc_calib_targets <- function(l_params_all, m_patients,
   }
   
   # Create censor variable for precancerous lesion prevalence screening
-  m_screen_sample[, time_screen_censor := pmin(time_0_D, time_0_2, na.rm = TRUE)]
+  m_screen_sample[, time_screen_censor := pmin(time_H_D, time_H_C, na.rm = TRUE)]
   
   # Calculate precancerous lesion prevalence with default model
-  prevalence <- calc_prevalence(m_screen_sample, "time_0_1", "time_0_2", "time_screen_censor", 
+  prevalence <- calc_prevalence(m_screen_sample, "time_H_P", "time_H_C", "time_screen_censor", 
                                 v_ages[['prevalence']],
                                 conf_level = l_params_all$conf_level) %>%
     dplyr::select(-c("person_years_cases", "person_years_total"))
   
   # Calculate cancer age-specific incidence
   if(verbose) print('Calculating age-specific incidence')
-  incidence <- calc_incidence(m_patients, "time_0_2", "time_0_D", v_ages[['incidence']]) %>%
+  incidence <- calc_incidence(m_patients, "time_H_C", "time_H_D", v_ages[['incidence']]) %>%
     dplyr::select(-c("total_atrisk", "age_diff"))
   
   # Calculate cancer stage distribution
   if(verbose) print('Calculating stage distribution')
-  stage_distr <- calc_stage_distr(l_params_all, m_patients, "stage_dx", "time_0_2", "time_0_D")
+  stage_distr <- calc_stage_distr(l_params_all, m_patients, "stage_dx", "time_H_C", "time_H_D")
   
   # Return outputs
   return(list(prevalence = prevalence,

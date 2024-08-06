@@ -15,7 +15,7 @@ library(readxl)
 library(data.table)
 library(tidyverse)
 library(survival)
-library(survminer)
+# library(survminer)
 
 # Load functions
 distr.sources <- list.files("R", 
@@ -27,22 +27,16 @@ sapply(distr.sources, source, .GlobalEnv)
 # Parameters
 ################################################################################
 
-#### Modifiable parameters ####
-debug <- FALSE
-data_outpath <- 'data/'
-true_param_outpath <- '_solutions/'
+# File paths
+data_outpath <- 'data'
+true_param_outpath <- 'ground_truth'
 
 # Check if directory exists, make if not
 dir.create(file.path(data_outpath), showWarnings = FALSE)
 
 # Model structure
-if(debug) {
-  n_cohort <- 1000 # Number to simulate in cohort
-  n_screen_sample <- 100
-} else {
-  n_cohort <- 100000 # Number to simulate in cohort
-  n_screen_sample <- 10000
-}
+n_cohort <- 100000 # Number to simulate in cohort
+n_screen_sample <- 10000
 
 # Randomization 
 seed <- 1 # Random seed for generating data
@@ -115,7 +109,7 @@ m_cohort_cancer_dx <- results_noscreening[time_H_C < time_H_D]
 
 # Create survival object for death due to cancer
 cancer_surv_obj <- with(m_cohort_cancer_dx, {
-  Surv(time_2_D, fl_death_cancer)
+  Surv(time_C_D, fl_Dc)
 })
 
 # Get Kaplan-Meier fit
@@ -131,23 +125,22 @@ output_surv <- with(summary(cancer_surv_fit, times = 0:10),
 
 
 #### Save outputs to data folder ####
-if(!debug) {
-  # Lesion prevalence
-  write.csv(l_outputs$prevalence, paste0(data_outpath, "prevalence_asymptomatic_cancer.csv"), row.names = FALSE)
-  
-  # Cancer incidence
-  write.csv(l_outputs$incidence, paste0(data_outpath, "incidence_symptomatic_cancer.csv"), row.names = FALSE)
-  
-  # Stage distribution
-  write.csv(l_outputs$stage_distr, paste0(data_outpath, "stage_distr.csv"), row.names = FALSE)
-  
-  # Survival
-  write.csv(output_surv, paste0(data_outpath, "relative_survival_cancer.csv"), row.names = FALSE)
-  
-  # Save priors
-  save(prior_map, file = paste0(data_outpath, "priors.RData"))
-  
-  # Save true parameters in current folder
-  save(param_map, file = paste0(true_param_outpath, "true_param_map.RData"))
-}
+# Lesion prevalence
+write.csv(l_outputs$prevalence, file.path(data_outpath, "prevalence_asymptomatic_cancer.csv"), row.names = FALSE)
+
+# Cancer incidence
+write.csv(l_outputs$incidence, file.path(data_outpath, "incidence_symptomatic_cancer.csv"), row.names = FALSE)
+
+# Stage distribution
+write.csv(l_outputs$stage_distr, file.path(data_outpath, "stage_distr.csv"), row.names = FALSE)
+
+# Survival
+write.csv(output_surv, file.path(data_outpath, "relative_survival_cancer.csv"), row.names = FALSE)
+
+# Save priors
+saveRDS(prior_map, file = file.path(data_outpath, "priors.RData"))
+
+# Save true parameters in current folder
+saveRDS(param_map, file = file.path(true_param_outpath, "true_param_map.RData"))
+
 
