@@ -16,7 +16,7 @@ load_default_params <- function(
     v_death     = c("o", "c"),           # Death states
     v_strats    = c("None", "Screen"),   # CEA strategies,
     file.mort   = "data/background_mortality.xlsx",   # Path to background mortality data
-    file.surv   = "data/relative_survival_cancer.csv" # Path to relative survival data){
+    file.surv   = "data/relative_survival_cancer.csv"){ # Path to relative survival data
   
   #### General setup ####
   # Initialize list to store all parameters
@@ -41,7 +41,7 @@ load_default_params <- function(
                             msg = 'Number of cancer states in survival file not consistent with number of states expected in v_cancer')
   }
   
-  #### Create useful variables ####
+  #### Create other useful variables ####
   # Maximum age
   max_age <- max(l_lifetables$female$age, l_lifetables$male$age) + 1
   
@@ -65,9 +65,9 @@ load_default_params <- function(
                                 src = "known")
     }
   } else {
-    # If no survival file uploaded, use true survival distribution from diagnosis
-    # and manually input parameters after running function in the form
-    # distr = <string> and params = <list of named parameters>
+    # If no survival file, create placeholder for true survival distribution 
+    # from diagnosis. Manually input parameters after running function in the 
+    # form distr = <string> and params = <list of named parameters>
     l_distr_surv <- list()
     for (i in v_cancer) {    
       l_distr_surv[[i]] <- list(distr = NULL,
@@ -77,7 +77,8 @@ load_default_params <- function(
   }
   
   #### Update parameter list with distributions ####
-  l_params_all <- within(l_params_all, {
+  l_params_update <- list()
+  l_params_update <- within(l_params_update, {
     # Max age
     max_age <- max_age
     
@@ -139,9 +140,10 @@ load_default_params <- function(
   })
   
   # Remove variable for looping
-  l_params_all$i <- NULL
+  l_params_update$i <- NULL
   
-  # Screening
+  # Add updated variables to l_params_all
+  l_params_all <- c(l_params_all, rev(l_params_update))
   
   return(l_params_all)
 }

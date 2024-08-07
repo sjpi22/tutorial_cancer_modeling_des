@@ -28,8 +28,6 @@ distr.sources <- list.files("R",
 sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
-run_parallel <- TRUE
-run_slurm <- TRUE
 
 ###### 2.1 file paths 
 targets_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
@@ -46,20 +44,17 @@ l_params_all <- update_param_list(l_params_all,
                                   list(n_cohort = 500000,
                                        v_strats = l_params_all$v_strats[1]))
 
-# Note: use larger cohort size for cancer incidence - 100000 is low, try 500000
-# Note: order of targets matters
-
 #### 3. Pre-processing actions  ===========================================
 
 # Set random seed
 set.seed(l_params_all$seed)
 
 # Set number of cores to use
-if(run_slurm) {
+if(is.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))) {
   # use the environment variable SLURM_NTASKS_PER_NODE to set
   # the number of cores to use
   registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
-} else if(run_parallel) {
+} else {
   registerDoParallel(cores=detectCores(logical = TRUE) - 2)  
 }
 
@@ -157,4 +152,4 @@ print(end_time - start_time) # 29.41799 mins
 # 'length = 2' in coercion to 'logical(1)'
 
 print('Saving output')
-save(calibration_results, file = file.path(outpath, 'IMABC_calibration.RData'))
+saveRDS(calibration_results, file = file.path(outpath, 'IMABC_calibration.rds'))
