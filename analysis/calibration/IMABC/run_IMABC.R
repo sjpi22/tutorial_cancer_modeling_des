@@ -30,24 +30,27 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 file paths 
-targets_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
+target_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
   incidence = "data/incidence_symptomatic_cancer.csv",
   stage_distr = "data/stage_distr.csv")
 
-###### 2.1 model parameters 
+###### 2.12 model parameters 
+n_cohort_calib <- 500000
+seed_calib <- 42
+outpath <- 'output/calibration/IMABC'
 
-# Load default data
-l_params_all <- load_default_params()
-
-# Update defaults
-l_params_all <- update_param_list(l_params_all,
-                                  list(n_cohort = 500000,
-                                       v_strats = l_params_all$v_strats[1]))
 
 #### 3. Pre-processing actions  ===========================================
 
-# Set random seed
-set.seed(l_params_all$seed)
+# Load model parameters
+l_params_init <- load_default_params()
+
+# Load calibration parameters
+l_params_calib <- load_calib_params(l_params_init,
+                                    target_files = target_files,
+                                    n_cohort_calib = n_cohort_calib,
+                                    seed_calib = seed_calib,
+                                    outpath = outpath)
 
 # Set number of cores to use
 if(is.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))) {
@@ -55,38 +58,23 @@ if(is.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))) {
   # the number of cores to use
   registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
 } else {
-  registerDoParallel(cores=detectCores(logical = TRUE) - 2)  
+  registerDoParallel(cores=detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)  
 }
 
-# Create directory if it does not exist
-outpath <- 'output/imabc'
-dir.create(file.path(outpath))
-
-# Load parameter mapping
-prior_map <- readRDS('data/priors.rds')
-
-# Load targets
-l_true_targets <- recursive_read_csv(targets_files)
-
 # Reshape true targets and get mapping
-l_true_reshaped <- reshape_calib_targets(l_true_targets, output_se = TRUE, output_map = TRUE)
-
-# Get vector of ages for prevalence and incidence
-v_ages_prevalence <- get_age_range(l_true_targets$prevalence)
-v_ages_incidence <- get_age_range(l_true_targets$incidence)
-v_ages <- list(prevalence = v_ages_prevalence,
-               incidence = v_ages_incidence)
-
+l_true_reshaped <- reshape_calib_targets(l_params_calib$l_true_targets, output_se = TRUE, output_map = TRUE)
 
 #### 4. IMABC inputs  ===========================================
 
 # Define Model Parameters/Priors
-param_df <- data.frame(
-  name_var = prior_map$var_id,
-  dist_var = prior_map$prior_distr,
-  min = prior_map$prior_min,
-  max = prior_map$prior_max
-)
+param_df <- with(l_params_calib, {
+  data.frame(
+    name_var = prior_map$var_id,
+    dist_var = prior_map$distr,
+    min = prior_map$min,
+    max = prior_map$max
+  )
+})
 
 priors <- as.priors(
   param_df,
@@ -120,8 +108,10 @@ targets <- as.targets(target_df)
 
 # Define Target Function
 fn <- function(v_params_update) {
-  v_targets <- params_to_calib_targets(l_params_all, v_params_update, prior_map, 
-                                       v_ages)
+  v_targets <- with(l_params_calib, {
+    params_to_calib_targets(l_params_all, v_params_update, prior_map, 
+                            v_ages)
+  })
   return(v_targets)
 }
 
@@ -131,20 +121,22 @@ target_fun <- define_target_function(
 
 # Calibrate model - see here for documentation: https://github.com/c-rutter/imabc/tree/a58a3b7c8db18948ff87fb6be55c6175399f41a2
 start_time <- Sys.time()
-calibration_results <- imabc(
-  priors = priors,
-  targets = targets,
-  target_fun = target_fun,
-  seed = l_params_all$seed,
-  N_start = 1000 * length(priors),
-  N_centers = 1,
-  Center_n = 100,
-  # output_directory = outpath,
-  N_post = 2000,
-  verbose = TRUE,
-  max_iter = 1000
-  # validate_run = TRUE
-)
+calibration_results <- with(l_params_calib, {
+  imabc(
+    priors = priors,
+    targets = targets,
+    target_fun = target_fun,
+    seed = l_params_all$seed,
+    N_start = 1000 * length(priors),
+    N_centers = 1,
+    Center_n = 100,
+    # output_directory = outpath,
+    N_post = 2000,
+    verbose = TRUE,
+    max_iter = 1000
+    # validate_run = TRUE
+  )
+})
 end_time <- Sys.time()
 print(end_time - start_time) # 29.41799 mins
 
@@ -152,4 +144,5 @@ print(end_time - start_time) # 29.41799 mins
 # 'length = 2' in coercion to 'logical(1)'
 
 print('Saving output')
-saveRDS(calibration_results, file = file.path(outpath, 'IMABC_calibration.rds'))
+saveRDS(calibration_results, file = file.path(outpath, 'IMABC_outputs.rds'))
+saveRDS(l_params_calib, file = file.path(outpath, 'IMABC_params.rds'))

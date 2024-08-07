@@ -53,7 +53,6 @@ load_default_params <- function(
       temp_surv_data <- surv_data[surv_data$stage == i, ]
       
       # Calculate probability mass function from CDF
-      # probs <- pmax(diff(temp_surv_data$pct_died), 0)
       probs <- diff(temp_surv_data$pct_died)
       probs <- c(probs, 1 - sum(probs))
       

@@ -141,10 +141,9 @@ l_true_targets <- list(prevalence = true_prevalence,
                         stage_distr = true_stage_distr)
 
 # Summarize calibration outputs generated from LHS sample of priors
-# load('data/BayCANN_sample.RData')
-load('alternate_versions/simplified/data/BayCANN_sample.RData')
-out_calib_targets <- data.frame(out_calib_targets) %>%
-  dplyr::select(-prev_80_100)
+load('data/BayCANN_sample.RData')
+out_calib_targets <- data.frame(out_calib_targets)
+out_calib_targets <- matrix(0, nrow = 3, ncol = nrow(l_true_targets$prevalence) + nrow(l_true_targets$incidence) + nrow(l_true_targets$stage_distr))
 
 plot_priors <- calc_and_plot_calib_targets(l_true_targets, 
                                            out_calib_targets,

@@ -15,6 +15,66 @@ recursive_read_csv <- function(l_files) {
   return(file_data)
 }
 
+# General parameters for calibration
+load_calib_params <- function(l_params_all, # Model parameters to update
+                              target_files, # List of file paths with targets
+                              prior_file = 'data/priors.rds', # Path to parameter mapping as .rds file
+                              outpath = 'output', # Path for output
+                              n_cores_reserved_local = 2, # Number of cores to remove when running in parallel locally; all other detected cores will be used for parallel processing
+                              n_cohort_calib = NULL, # Number of individuals to simulate for calibration simulations
+                              seed_calib = NULL, # Random seed for calibration
+                              showWarnings = FALSE) {
+  
+  # Update model parameters
+  l_params_all <- update_param_list(l_params_all,
+                                    list(v_strats = l_params_all$v_strats[1]))
+  
+  if (!is.null(n_cohort_calib)) {
+    l_params_all <- update_param_list(l_params_all,
+                                      list(n_cohort = n_cohort_calib))
+  }
+  
+  if (!is.null(seed_calib)) {
+    l_params_all <- update_param_list(l_params_all,
+                                      list(seed = seed_calib))
+  }
+  
+  # Load targets
+  l_true_targets <- recursive_read_csv(target_files)
+  
+  # Get vector of ages for prevalence and incidence
+  v_ages_prevalence <- get_age_range(l_true_targets$prevalence)
+  v_ages_incidence <- get_age_range(l_true_targets$incidence)
+  v_ages <- list(prevalence = v_ages_prevalence,
+                 incidence = v_ages_incidence)
+  
+  # Parameters for calculating targets
+  # list(prevalence = list(start_var,
+  #                     end_var,
+  #                     censor_var,
+  #                     v_ages,
+  #                     conf_level),
+  #      incidence = list(time_var, censor_var, v_ages, strat_var, rate_unit),
+  #      stage_distr = list(groups_expected, grouping_var, event_var, censor_var, conf_level))
+  
+  # Create directory if it does not exist
+  outpath_split <- unlist(strsplit(outpath, split = "/"))
+  for (i in 1:length(outpath_split)) {
+    dir.create(do.call(file.path, as.list(outpath_split[1:i])), showWarnings = showWarnings)
+  }
+  
+  # Load parameter mapping
+  prior_map <- readRDS(prior_file)
+  
+  # Return list of calibration parameters
+  l_params_calib <- list(l_params_all = l_params_all,
+                         l_true_targets = l_true_targets,
+                         v_ages = v_ages,
+                         prior_map = prior_map,
+                         outpath = outpath,
+                         n_cores_reserved_local = n_cores_reserved_local)
+  
+}
 
 # Run model and generate calibration target outputs
 calc_calib_targets <- function(l_params_all, m_patients, 
