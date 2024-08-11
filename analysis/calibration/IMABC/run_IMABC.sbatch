@@ -1,13 +1,15 @@
 #!/usr/bin/bash
+#SBATCH --job-name=run_IMABC
 #SBATCH --nodes=1
 #SBATCH --time=24:00:00
 #SBATCH --mem=20G
 #SBATCH --ntasks-per-node=24
-#SBATCH --output=run_IMABC.%j.log
-#SBATCH --error=run_IMABC.%j.err
+#SBATCH --output=output/calibration/IMABC/run_IMABC.log
+#SBATCH --mail-user=sjpi@stanford.edu
+#SBATCH --mail-type=ALL  
 
 # load R module
 ml R/4.3.2
 
 # run R code
-Rscript analysis/run_IMABC.R
+Rscript analysis/calibration/IMABC/run_IMABC.R

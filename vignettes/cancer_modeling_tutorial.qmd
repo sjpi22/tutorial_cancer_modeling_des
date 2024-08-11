@@ -141,9 +141,17 @@ l_true_targets <- list(prevalence = true_prevalence,
                         stage_distr = true_stage_distr)
 
 # Summarize calibration outputs generated from LHS sample of priors
-load('data/BayCANN_sample.RData')
-out_calib_targets <- data.frame(out_calib_targets)
-out_calib_targets <- matrix(0, nrow = 3, ncol = nrow(l_true_targets$prevalence) + nrow(l_true_targets$incidence) + nrow(l_true_targets$stage_distr))
+# load('data/BayCANN_sample.RData')
+# Get vector of ages for prevalence and incidence
+v_ages_prevalence <- get_age_range(l_true_targets$prevalence)
+v_ages_incidence <- get_age_range(l_true_targets$incidence)
+v_ages <- list(prevalence = v_ages_prevalence,
+               incidence = v_ages_incidence)
+res_min <- params_to_calib_targets(l_params_all, prior_map$min, param_map,
+                                   v_ages = v_ages)
+res_max <- params_to_calib_targets(l_params_all, prior_map$max, param_map,
+                                   v_ages = v_ages)
+out_calib_targets <- rbind(res_min, res_max)
 
 plot_priors <- calc_and_plot_calib_targets(l_true_targets, 
                                            out_calib_targets,
