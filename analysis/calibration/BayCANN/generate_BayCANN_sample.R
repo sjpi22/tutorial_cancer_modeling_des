@@ -25,23 +25,15 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 file paths 
-data_inpath <- data_outpath <- 'data'
+target_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
+                     incidence = "data/incidence_symptomatic_cancer.csv",
+                     stage_distr = "data/stage_distr.csv")
+outpath <- 'output/calibration/BayCANN'
 
-###### 2.2 modifiable parameters
-# Control variables for running on cluster and/or parallelized
-run_parallel <- TRUE
-
-# For viewing outputs
-print_increment = 0.05
-
-# Number of samples
+###### 2.2 model parameters
+n_cohort_calib <- 500000
+seed_calib <- 42
 n_samp <- 2000
-n_cohort <- 100000
-
-# Set number of cores to use
-if(run_parallel) {
-  registerDoParallel(cores=detectCores(logical = TRUE) - 2)  
-}
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -49,13 +41,15 @@ if(run_parallel) {
 # Create directory if it does not exist
 dir.create(file.path(data_outpath), showWarnings = FALSE)
 
-# Load default data
-l_params_all <- load_default_params()
+# Load model parameters
+l_params_init <- load_default_params()
 
-# Make cohort small for testing
-l_params_all <- update_param_list(l_params_all,
-                                  list(n_cohort = n_cohort,
-                                       v_strats = l_params_all$v_strats[1]))
+# Load calibration parameters
+l_params_calib <- load_calib_params(l_params_init,
+                                    target_files = target_files,
+                                    n_cohort_calib = n_cohort_calib,
+                                    seed_calib = seed_calib,
+                                    outpath = outpath)
 
 # Set seed
 set.seed(l_params_all$seed)
@@ -66,15 +60,14 @@ prior_map <- readRDS(file.path(data_inpath, 'priors.rds'))
 # Get number of params to calibrate
 n_param <- nrow(prior_map)
 
-# Load calibration targets for vectors of ages
-true_prevalence <- read.csv(file = paste0(data_inpath, 'prevalence_asymptomatic_cancer.csv'))
-true_incidence_cancer <- read.csv(file = paste0(data_inpath, 'incidence_symptomatic_cancer.csv'))
-
-# Get vector of ages for prevalence and incidence
-v_ages_prevalence <- get_age_range(true_prevalence)
-v_ages_incidence <- get_age_range(true_incidence_cancer)
-v_ages <- list(prevalence = v_ages_prevalence,
-               incidence = v_ages_incidence)
+# Set number of cores to use
+if(is.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))) {
+  # use the environment variable SLURM_NTASKS_PER_NODE to set
+  # the number of cores to use
+  registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
+} else {
+  registerDoParallel(cores=detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)  
+}
 
 #### 4. Generate random set of inputs  ===========================================
 
@@ -95,50 +88,29 @@ colnames(m_BayCANN_param_samp) <- prior_map$var_id
 
 # Run model for each input parameter sample and get corresponding targets
 m_BayCANN_calib_outputs <- data.frame()
-verbose <- FALSE
 
-if(run_parallel) {
-  # Parallel processing
-  stime <- system.time({
-    m_BayCANN_calib_outputs <- foreach(i=1:n_samp, .combine=rbind, 
-                                       .inorder=FALSE, 
-                                       .packages=c("data.table","tidyverse")) %dopar% {
-                                         
-                                         # Get row of parameters and calculate targets
-                                         v_params_update <- m_BayCANN_param_samp[i,]
-                                         v_calib_targets <- params_to_calib_targets(l_params_all, 
-                                                                                    v_params_update, 
-                                                                                    prior_map,
-                                                                                    v_ages,
-                                                                                    verbose = verbose)
-                                         # Call item to save
-                                         t(v_calib_targets)
-                                       }
-  })
-  
-  print(stime)
-  
-  closeAllConnections()
-} else {
-  start_time <- Sys.time()
-  for (i in 1:n_samp) {
-    # Print index for progress
-    if (round(i %% (n_samp * print_increment)) == 1) {
-      print(paste0(round(i/n_samp * 100, 1), '% of simulations generated'))
-    }
-    
-    # Get row of parameters and calculate targets
-    v_params_update <- m_BayCANN_param_samp[i,]
-    v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, prior_map,
-                                               v_ages,
-                                               verbose = verbose)
-    
-    # Append target vector to dataframe
-    m_BayCANN_calib_outputs <- rbind(m_BayCANN_calib_outputs, t(v_calib_targets))
-  }
-  end_time <- Sys.time()
-  print(paste('Simulation time:', end_time - start_time))
-}
+# Parallel processing
+stime <- system.time({
+  m_BayCANN_calib_outputs <- foreach(i=1:n_samp, .combine=rbind, 
+                                     .inorder=FALSE, 
+                                     .packages=c("data.table","tidyverse")) %dopar% {
+                                       
+                                       # Get row of parameters and calculate targets
+                                       v_params_update <- m_BayCANN_param_samp[i,]
+                                       v_calib_targets <- params_to_calib_targets(l_params_all, 
+                                                                                  v_params_update, 
+                                                                                  prior_map,
+                                                                                  v_ages,
+                                                                                  verbose = verbose)
+                                       # Call item to save
+                                       t(v_calib_targets)
+                                     }
+})
+
+print(stime)
+
+closeAllConnections()
+
 
 # Check for any NaN
 assertthat::validate_that(sum(sapply(m_BayCANN_param_samp, function(x) any(is.nan(x)))) == 0, 

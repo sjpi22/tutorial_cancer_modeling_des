@@ -18,6 +18,7 @@ library(readxl)
 library(tidyverse)
 library(doParallel)
 library(assertthat)
+library(binom)
 
 #* Clean environment
 rm(list = ls())
@@ -34,13 +35,13 @@ sapply(distr.sources, source, .GlobalEnv)
 target_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
                      incidence = "data/incidence_symptomatic_cancer.csv",
                      stage_distr = "data/stage_distr.csv")
+outpath <- 'output/calibration/IMABC'
 
 ###### 2.2 model parameters 
 n_cohort_calib <- 500000
 seed_calib <- 42
 
 ###### 2.3 IMABC parameters 
-outpath <- 'output/calibration/IMABC'
 alpha_current <- c(1e-4, 1e-15, 1e-15)
 alpha_stop = c(0.05, 1e-7, 1e-7)
 fn_use_seed <- FALSE
