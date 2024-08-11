@@ -181,31 +181,26 @@ Incremental mixture approximate Bayesian calibration [@Rutter2019]
 
 ```{r}
 # File paths 
-# path_imabc <- "output/IMABC/IMABC_calibration.rds"
-path_imabc <- "alternate_versions/simplified/output/imabc/IMABC_calibration.RData"
+path_imabc <- "output/calibration/IMABC/IMABC_outputs.rds"
 
 # Set random seed
 set.seed(l_params_all$seed)
 
 # Reshape true targets and get mapping
-l_true_reshaped <- reshape_calib_targets(l_true_targets, output_se = TRUE, output_map = TRUE)
+l_true_reshaped <- reshape_calib_targets(l_true_targets, output_map = TRUE)
 
 # Load IMABC results
-load(path_imabc)
+IMABC_outputs <- readRDS(path_imabc)
 
 # Load true parameters (unknown in real life!)
 true_params <- readRDS("ground_truth/true_param_map.rds") # Output: param_map
 
-# Load priors
-# prior_map <- readRDS("data/priors.rds")
-load("alternate_versions/simplified/data/priors.RData")
-
 # Sample with replacement
-n_imabc_sample <- nrow(calibration_results$good_parm_draws) * 100
-indices_imabc_sample <- sample(1:nrow(calibration_results$good_parm_draws), 
+n_imabc_sample <- nrow(IMABC_outputs$good_parm_draws) * 100
+indices_imabc_sample <- sample(1:nrow(IMABC_outputs$good_parm_draws), 
                                n_imabc_sample, 
                                replace = TRUE, 
-                               prob = calibration_results$good_parm_draws$sample_wt)
+                               prob = IMABC_outputs$good_parm_draws$sample_wt)
 ```
 
 #### Plot parameters
@@ -214,7 +209,7 @@ IMABC distribution in gray, true parameters in red, uniform range of priors in b
 
 ```{r}
 # IMABC posterior parameters
-imabc_params_unweighted <- calibration_results$good_parm_draws %>%
+imabc_params_unweighted <- IMABC_outputs$good_parm_draws %>%
   dplyr::select(prior_map$var_id)
 
 imabc_params <- imabc_params_unweighted[indices_imabc_sample, ]
@@ -231,9 +226,9 @@ plot_params_imabc <- ggplot(imabc_params_long, aes(value)) +
   geom_vline(data = true_params %>%
                rename(name = var_id), aes(xintercept=param_val), color = 'red') +
   geom_vline(data = prior_map %>%
-               rename(name = var_id), aes(xintercept=prior_min), color = 'blue') +
+               rename(name = var_id), aes(xintercept=min), color = 'blue') +
   geom_vline(data = prior_map %>%
-               rename(name = var_id), aes(xintercept=prior_max), color = 'blue') +
+               rename(name = var_id), aes(xintercept=max), color = 'blue') +
   facet_wrap(~name, scales = "free") +
   ggtitle('IMABC')
 
@@ -244,23 +239,13 @@ plot_params_imabc
 
 ```{r}
 
-# Get vector of ages for prevalence and incidence
-v_ages_prevalence <- get_age_range(l_true_targets$prevalence)
-v_ages_incidence <- get_age_range(l_true_targets$incidence)
-v_ages <- list(prevalence = v_ages_prevalence,
-               incidence = v_ages_incidence)
-
 # Rerun model with posterior parameter sample
 l_params_all <- update_param_list(l_params_all,
                                   list(n_cohort = 100000))
 
-# Just for simplified/ case
-true_params <- readRDS("ground_truth/true_param_map.rds") # Output: param_map
-prior_map$var_name <- true_params$var_name
-names(imabc_params) <- true_params$var_id
-
 imabc_calib_targets <- data.frame()
-for (i in 1:min(nrow(imabc_params), 1000)) {
+# for (i in 1:min(nrow(imabc_params), 1000)) {
+for (i in 1:min(nrow(imabc_params), 100)) {
   
   v_params_update <- as.numeric(imabc_params[i,])
   v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, prior_map,
@@ -277,9 +262,13 @@ collapse_LB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.025, data=imabc
 collapse_UB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.75, data=imabc_calib_targets, keep.names=TRUE)
 collapse_LB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.25, data=imabc_calib_targets, keep.names=TRUE)
 
+# Get confidence interval of true targets
+output_ci <- calc_target_ci(l_true_targets)
+
 out_summary <-  data.frame(l_true_reshaped$target_map,
                            true_val = l_true_reshaped$v_targets,
-                           true_se = l_true_reshaped$v_se,
+                           true_lb = output_ci$lb,
+                           true_ub = output_ci$ub,
                            model_mean = unname(t(collapse_mean)),
                            model_UB_95 = unname(t(collapse_UB_95)),
                            model_LB_95 = unname(t(collapse_LB_95)),
@@ -289,10 +278,10 @@ out_summary <-  data.frame(l_true_reshaped$target_map,
 
 # Plot 
 plot_targets_imabc <- ggplot(data = out_summary, 
-               aes(x    = target_index, 
-                   y    = true_val, 
-                   ymin = true_val - true_se, 
-                   ymax = true_val + true_se))+ 
+                             aes(x    = target_index, 
+                                 y    = true_val, 
+                                 ymin = true_lb, 
+                                 ymax = true_ub))+ 
   geom_errorbar(width=.4, size=0.9, color="red") +
   theme(legend.position="none") +
   geom_errorbar(data = out_summary[out_summary$categorical==1,],

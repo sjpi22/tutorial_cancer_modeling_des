@@ -172,7 +172,7 @@ calc_target_ci <- function(l_calib_targets,
       ci[[label]] <- calc_target_ci_internal(l_calib_targets, alpha[[label]], reshape_outputs = TRUE)
     }
   } else {
-    ci <- calc_target_ci_internal(l_calib_targets, alpha[[label]], reshape_outputs = TRUE)
+    ci <- calc_target_ci_internal(l_calib_targets, alpha, reshape_outputs = TRUE)
   }
   
   return(ci)

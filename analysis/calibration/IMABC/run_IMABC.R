@@ -43,12 +43,13 @@ seed_calib <- 42
 
 ###### 2.3 IMABC parameters 
 alpha_current <- c(1e-4, 1e-15, 1e-15)
-alpha_stop = c(0.05, 1e-7, 1e-7)
+alpha_stop = c(0.05, 1e-3, 1e-3)
 fn_use_seed <- FALSE
 optional_args = list(
   N_centers = 1,
   Center_n = 100,
-  N_post = 2000
+  N_post = 2000,
+  max_iter = 2000
 )
 
 #### 3. Pre-processing actions  ===========================================
