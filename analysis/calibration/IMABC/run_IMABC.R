@@ -17,6 +17,7 @@ library(utils)
 library(readxl)
 library(tidyverse)
 library(doParallel)
+library(assertthat)
 
 #* Clean environment
 rm(list = ls())
