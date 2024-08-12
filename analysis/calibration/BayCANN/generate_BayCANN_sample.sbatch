@@ -2,11 +2,11 @@
 #SBATCH --job-name=generate_BayCANN_sample
 #SBATCH --nodes=1
 #SBATCH --time=10:00:00
-#SBATCH --mem=32G
+#SBATCH --mem=20G
 #SBATCH --ntasks-per-node=8
 #SBATCH --output=output/calibration/BayCANN/generate_BayCANN_sample.log
 #SBATCH --mail-user=sjpi@stanford.edu
-#SBATCH --mail-type=ALL  
+#SBATCH --mail-type=ALL
 
 #* To send the job to Sherlock use:
 # - sbatch analysis/calibration/BayCANN/generate_BayCANN_sample.sbatch

@@ -15,6 +15,7 @@ library(tidyverse)
 library(lhs)
 library(doParallel)
 library(foreach)
+library(assertthat)
 
 ###### 1.1 Load  functions =================================================
 distr.sources <- list.files("R", 
@@ -35,7 +36,6 @@ n_cohort_calib <- 500000
 seed_calib <- 42
 n_samp <- 2000
 
-
 #### 3. Pre-processing actions  ===========================================
 
 # Load model parameters
@@ -49,9 +49,6 @@ l_params_calib <- load_calib_params(l_params_init,
                                     seed_calib = seed_calib,
                                     outpath = outpath)
 
-# Get number of params to calibrate
-n_param <- nrow(l_params_calib$prior_map)
-
 # Set number of cores to use
 if(is.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))) {
   # use the environment variable SLURM_NTASKS_PER_NODE to set
@@ -63,58 +60,56 @@ if(is.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))) {
 
 #### 4. Generate random set of inputs  ===========================================
 
-# Sample unit Latin Hypercube
-m_lhs_unit <- randomLHS(n_samp, n_param)
-
-# Rescale to min/max of each parameter
-m_BayCANN_param_samp <- matrix(nrow = n_samp, ncol = n_param)
-for (i in 1:n_param) {
-  m_BayCANN_param_samp[, i] <- qunif(m_lhs_unit[, i],
-                                     min = l_params_calib$prior_map$min[i],
-                                     max = l_params_calib$prior_map$max[i])
+m_param_samp <- with(l_params_calib, {
+  # Get number of params to calibrate
+  n_param <- nrow(prior_map)
+  
+  # Sample unit Latin Hypercube
+  m_lhs_unit <- randomLHS(n_samp, n_param)
+  
+  # Rescale to min/max of each parameter
+  m_param_samp <- matrix(nrow = n_samp, ncol = n_param)
+  for (i in 1:n_param) {
+    m_param_samp[, i] <- qunif(m_lhs_unit[, i],
+                               min = prior_map$min[i],
+                               max = prior_map$max[i])
+  }
+  colnames(m_param_samp) <- prior_map$var_id
+  
+  return(m_param_samp)
 }
-colnames(m_BayCANN_param_samp) <- l_params_calib$prior_map$var_id
-
+)
 
 #### 5. Generate corresponding outputs  ===========================================
 
 # Run model for each input parameter sample and get corresponding targets
-m_BayCANN_calib_outputs <- data.frame()
-
-# Parallel processing
-stime <- system.time({
-  m_BayCANN_calib_outputs <- foreach(
-    i=1:n_samp, 
-    .combine=rbind, 
-    .inorder=FALSE, 
-    .packages=c("data.table","tidyverse")) %dopar% {
-      
-      # Get row of parameters and calculate targets
-      v_params_update <- m_BayCANN_param_samp[i,]
-      v_calib_targets <- params_to_calib_targets(
-        l_params_calib$l_params_all, 
-        v_params_update, 
-        l_params_calib$prior_map,
-        l_params_calib$v_ages,
-        verbose = verbose)
-      # Call item to save
-      t(v_calib_targets)
-    }
-})
+m_outputs <- with(l_params_calib, {
+  m_outputs <- param_sample_to_outputs(
+    m_param_samp, 
+    fn = 'params_to_calib_targets', 
+    param_arg_name = 'v_params_update',
+    fn_other_args = list(
+      l_params_all = l_params_all,
+      param_map = prior_map,
+      v_ages = v_ages))
+  return(m_outputs)
+}
+)
 
 print(stime)
 
 closeAllConnections()
 
-
 # Check for any NaN
-assertthat::validate_that(
-  sum(sapply(m_BayCANN_param_samp, function(x) any(is.nan(x)))) == 0, 
+validate_that(
+  sum(sapply(m_param_samp, function(x) any(is.nan(x)))) == 0, 
   msg = 'Parameters include NaN')
-assertthat::validate_that(
-  sum(sapply(m_BayCANN_calib_outputs, function(x) any(is.nan(x)))) == 0, 
+validate_that(
+  sum(sapply(m_outputs, function(x) any(is.nan(x)))) == 0, 
   msg = 'Outputs include NaN')
 
 #### 6. Save data files  ===========================================
 
-save(m_BayCANN_param_samp, m_BayCANN_calib_outputs, file = file.path(data_outpath, 'BayCANN_sample.RData'))
+saveRDS(list(param_samp = m_param_samp, 
+             calib_outputs = m_outputs), 
+        file = file.path(outpath, 'BayCANN_sample.rds'))

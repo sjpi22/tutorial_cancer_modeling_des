@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=24
 #SBATCH --output=output/calibration/IMABC/run_IMABC.log
 #SBATCH --mail-user=sjpi@stanford.edu
-#SBATCH --mail-type=ALL  
+#SBATCH --mail-type=ALL
 
 #* To send the job to Sherlock use:
 # - sbatch analysis/calibration/IMABC/run_IMABC.sbatch

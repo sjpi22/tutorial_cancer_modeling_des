@@ -75,8 +75,7 @@ m_outputs <- with(l_params_calib, {
     fn_other_args = list(
       l_params_all = l_params_all,
       param_map = prior_map,
-      v_ages = v_ages),
-    run_parallel = TRUE)
+      v_ages = v_ages))
   return(m_outputs)
 }
 )
