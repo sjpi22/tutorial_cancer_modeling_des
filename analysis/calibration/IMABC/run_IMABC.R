@@ -42,8 +42,8 @@ n_cohort_calib <- 500000
 seed_calib <- 42
 
 ###### 2.3 IMABC parameters 
-alpha_current <- c(1e-4, 1e-15, 1e-15)
-alpha_stop = c(0.05, 1e-3, 1e-3)
+alpha_current <- c(1e-4, 1e-4, 1e-4)
+alpha_stop = c(0.05, 0.05, 0.05)
 fn_use_seed <- FALSE
 optional_args = list(
   N_centers = 1,

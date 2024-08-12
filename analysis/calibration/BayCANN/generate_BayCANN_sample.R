@@ -38,11 +38,9 @@ n_samp <- 2000
 
 #### 3. Pre-processing actions  ===========================================
 
-# Create directory if it does not exist
-dir.create(file.path(data_outpath), showWarnings = FALSE)
-
 # Load model parameters
 l_params_init <- load_default_params()
+verbose <- FALSE
 
 # Load calibration parameters
 l_params_calib <- load_calib_params(l_params_init,
@@ -51,14 +49,8 @@ l_params_calib <- load_calib_params(l_params_init,
                                     seed_calib = seed_calib,
                                     outpath = outpath)
 
-# Set seed
-set.seed(l_params_all$seed)
-
-# Set prior distributions (set uniform for everything)
-prior_map <- readRDS(file.path(data_inpath, 'priors.rds'))
-
 # Get number of params to calibrate
-n_param <- nrow(prior_map)
+n_param <- nrow(l_params_calib$prior_map)
 
 # Set number of cores to use
 if(is.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))) {
@@ -78,10 +70,10 @@ m_lhs_unit <- randomLHS(n_samp, n_param)
 m_BayCANN_param_samp <- matrix(nrow = n_samp, ncol = n_param)
 for (i in 1:n_param) {
   m_BayCANN_param_samp[, i] <- qunif(m_lhs_unit[, i],
-                                     min = prior_map$prior_min[i],
-                                     max = prior_map$prior_max[i])
+                                     min = l_params_calib$prior_map$min[i],
+                                     max = l_params_calib$prior_map$max[i])
 }
-colnames(m_BayCANN_param_samp) <- prior_map$var_id
+colnames(m_BayCANN_param_samp) <- l_params_calib$prior_map$var_id
 
 
 #### 5. Generate corresponding outputs  ===========================================
@@ -91,20 +83,23 @@ m_BayCANN_calib_outputs <- data.frame()
 
 # Parallel processing
 stime <- system.time({
-  m_BayCANN_calib_outputs <- foreach(i=1:n_samp, .combine=rbind, 
-                                     .inorder=FALSE, 
-                                     .packages=c("data.table","tidyverse")) %dopar% {
-                                       
-                                       # Get row of parameters and calculate targets
-                                       v_params_update <- m_BayCANN_param_samp[i,]
-                                       v_calib_targets <- params_to_calib_targets(l_params_all, 
-                                                                                  v_params_update, 
-                                                                                  prior_map,
-                                                                                  v_ages,
-                                                                                  verbose = verbose)
-                                       # Call item to save
-                                       t(v_calib_targets)
-                                     }
+  m_BayCANN_calib_outputs <- foreach(
+    i=1:n_samp, 
+    .combine=rbind, 
+    .inorder=FALSE, 
+    .packages=c("data.table","tidyverse")) %dopar% {
+      
+      # Get row of parameters and calculate targets
+      v_params_update <- m_BayCANN_param_samp[i,]
+      v_calib_targets <- params_to_calib_targets(
+        l_params_calib$l_params_all, 
+        v_params_update, 
+        l_params_calib$prior_map,
+        l_params_calib$v_ages,
+        verbose = verbose)
+      # Call item to save
+      t(v_calib_targets)
+    }
 })
 
 print(stime)
@@ -113,10 +108,12 @@ closeAllConnections()
 
 
 # Check for any NaN
-assertthat::validate_that(sum(sapply(m_BayCANN_param_samp, function(x) any(is.nan(x)))) == 0, 
-                          msg = 'Parameters include NaN')
-assertthat::validate_that(sum(sapply(m_BayCANN_calib_outputs, function(x) any(is.nan(x)))) == 0, 
-                          msg = 'Outputs include NaN')
+assertthat::validate_that(
+  sum(sapply(m_BayCANN_param_samp, function(x) any(is.nan(x)))) == 0, 
+  msg = 'Parameters include NaN')
+assertthat::validate_that(
+  sum(sapply(m_BayCANN_calib_outputs, function(x) any(is.nan(x)))) == 0, 
+  msg = 'Outputs include NaN')
 
 #### 6. Save data files  ===========================================
 

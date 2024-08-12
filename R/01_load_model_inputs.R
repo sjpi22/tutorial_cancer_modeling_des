@@ -193,7 +193,7 @@ update_param_from_map <- function(l_params_all, v_params_update, param_map) {
   assertthat::are_equal(length(v_params_update), nrow(param_map))
   for (i in seq(length(v_params_update))) {
     # Get value to update variable to
-    val <- v_params_update[i]
+    val <- unlist(v_params_update)[i]
     
     # Get parameter to update
     var_info <- unlist(param_map[i,])

@@ -1,7 +1,8 @@
-###########################  IMABC outputs   #########################################
+###########################  IMABC outputs   ###################################
 #
-#  Objective: Script to generate calibration target outputs for IMABC calibrated parameters
-########################### <<<<<>>>>> ##############################################
+#  Objective: Script to regenerate calibration target outputs for IMABC 
+# calibrated parameters with cohort size consistent with targets
+########################### <<<<<>>>>> #########################################
 
 
 #### 1.Libraries and functions  ==================================================
@@ -24,96 +25,61 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 file paths 
-prior_file <- "data/priors.RData"
+target_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
+                     incidence = "data/incidence_symptomatic_cancer.csv",
+                     stage_distr = "data/stage_distr.csv")
+inpath <- 'output/calibration/IMABC/IMABC_outputs.rds'
+outpath <- 'output/calibration/IMABC'
+outfile <- 'IMABC_targets_resampled.rds'
 
-targets_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
-                      incidence = "data/incidence_symptomatic_cancer.csv",
-                      stage_distr = "data/stage_distr.csv")
-
-path_baycann <- "output/calibrated_posteriors_BayCANN.csv"
-outpath <- "output/calibration_targets_BayCANN.csv"
-
-###### 2.1 model parameters 
-
-# Load default data
-l_params_all <- load_default_params()
-
+###### 2.2 model parameters 
+n_cohort <- 100000
+seed_calib <- 42
 
 #### 3. Pre-processing actions  ===========================================
 
-# Set random seed
-set.seed(l_params_all$seed)
+# Load model parameters
+l_params_init <- load_default_params()
 
-# Load parameter mapping
-load(prior_file) 
+# Load calibration parameters
+l_params_calib <- load_calib_params(l_params_init,
+                                    target_files = target_files,
+                                    n_cohort_calib = n_cohort,
+                                    seed_calib = seed_calib,
+                                    outpath = outpath)
 
-# Load targets
-l_true_targets <- recursive_read_csv(targets_files)
-
-# Reshape true targets and get mapping
-l_true_reshaped <- reshape_calib_targets(l_true_targets, output_se = TRUE, output_map = TRUE)
-
-# Load BayCANN calibrated parameters
-calibrated_params_baycann <- read_csv(path_baycann) %>%
-  dplyr::select(-lp) %>% # Remove last non-parameter column
-  as.matrix()
-
-# Get vector of ages for prevalence and incidence
-v_ages_prevalence <- get_age_range(l_true_targets$prevalence)
-v_ages_incidence <- get_age_range(l_true_targets$incidence)
-v_ages <- list(prevalence = v_ages_prevalence,
-               incidence = v_ages_incidence)
+# Load calibration outputs and extract parameter samples
+calibration_outputs <- readRDS(inpath)
+m_param_samp <- calibration_outputs$good_parm_draws %>%
+  dplyr::select(l_params_calib$prior_map$var_id)
 
 # Set number of cores to use
-if(run_parallel) {
-  registerDoParallel(cores=detectCores(logical = TRUE) - 2)  
-}
-
-
-################################################################################
-###  Generate BayCANN outputs                                          ###
-################################################################################
-# Run model for each input parameter sample and get corresponding targets
-if(run_parallel) {
-  # Parallel processing
-  stime <- system.time({
-    out_calib_targets <- foreach(i=1:nrow(calibrated_params_baycann), .combine=rbind, 
-                                 .inorder=FALSE, 
-                                 .packages=c("data.table","tidyverse")) %dopar% {
-                                   
-                                   # Get row of parameters and calculate targets
-                                   v_params_update <- calibrated_params_baycann[i,]
-                                   v_calib_targets <- params_to_calib_targets(l_params_all, 
-                                                                              v_params_update, 
-                                                                              prior_map,
-                                                                              v_ages,
-                                                                              verbose = verbose)
-                                   # Call item to save
-                                   t(v_calib_targets)
-                                 }
-  })
-  
-  print(stime)
-  
-  closeAllConnections()
+if(is.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))) {
+  # use the environment variable SLURM_NTASKS_PER_NODE to set
+  # the number of cores to use
+  registerDoParallel(cores=(Sys.getenv("SLURM_NTASKS_PER_NODE")))
 } else {
-  
-  out_calib_targets <- data.frame()
-  start_time <- Sys.time()
-  for (i in 1:nrow(calibrated_params_baycann)) {
-    
-    v_params_update <- calibrated_params_baycann[i,]
-    v_calib_targets <- params_to_calib_targets(l_params_all, v_params_update, prior_map,
-                                               v_ages, verbose = verbose)
-    
-    out_calib_targets <- rbind(out_calib_targets, t(v_calib_targets))
-  }
-  end_time <- Sys.time()
-  print(paste('Simulation time:', end_time - start_time))
-  
+  registerDoParallel(cores=detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)  
 }
 
-# Save the unscaled posterior samples
-write.csv(out_calib_targets,
-          file = outpath,
-          row.names = FALSE)
+################################################################################
+###  Generate IMABC outputs                                          ###
+################################################################################
+
+# Run model for each input parameter sample and get corresponding targets
+m_outputs <- with(l_params_calib, {
+  m_outputs <- param_sample_to_outputs(
+    m_param_samp, 
+    fn = 'params_to_calib_targets', 
+    param_arg_name = 'v_params_update',
+    fn_other_args = list(
+      l_params_all = l_params_all,
+      param_map = prior_map,
+      v_ages = v_ages),
+    run_parallel = TRUE)
+  return(m_outputs)
+}
+)
+
+# Save the posterior outputs
+saveRDS(m_outputs, file = file.path(outpath, outfile))

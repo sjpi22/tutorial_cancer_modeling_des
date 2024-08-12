@@ -350,7 +350,6 @@ reshape_calib_targets <- function(l_calib_targets,
 # Wrapper for running calibration and outputting vector of outputs
 params_to_calib_targets <- function(l_params_all, v_params_update, param_map, 
                                     v_ages, reshape_output = TRUE, 
-                                    extract_vars = NULL,
                                     output_map = FALSE, 
                                     conf_level = 0.95,
                                     verbose = FALSE) {
@@ -375,6 +374,58 @@ params_to_calib_targets <- function(l_params_all, v_params_update, param_map,
   }
   
 }
+
+# Simulate model outputs for parameter samples
+# Note: If running in parallel (run_parallel = TRUE), requires packages 
+# doParallel and foreach, and requires registering cores using
+# registerDoParallel()
+param_sample_to_outputs <- function(m_param_samp, 
+                                    fn = 'params_to_calib_targets', 
+                                    param_arg_name = 'v_params_update',
+                                    fn_other_args = list(),
+                                    run_parallel = TRUE) {
+  
+  # Define function arguments
+  fn_args <- list('.')
+  names(fn_args) <- param_arg_name
+  fn_args <- c(fn_args, fn_other_args)
+  
+  # Simulate with parallel processing
+  if(run_parallel) {
+    stime <- system.time({
+      m_outputs <- foreach(
+        i=1:nrow(m_param_samp), 
+        .combine=rbind, 
+        .inorder=FALSE, 
+        .packages=c("data.table","tidyverse")) %dopar% {
+          # Get row of parameters and calculate targets
+          v_params_update <- m_param_samp[i,]
+          fn_args[[param_arg_name]] <- v_params_update
+          v_calib_targets <- do.call(what = fn,
+                                     args = fn_args)
+          # Call item to save
+          t(v_calib_targets)
+        }
+    })
+    print(stime)
+    closeAllConnections()
+  } else { # Simulate with apply()
+    
+    fn <- function(v_params_update) {
+      v_outputs <- do.call(what = fn,
+                           args = fn_args,
+                           quote = TRUE)
+      return(v_outputs)
+    }
+    
+    start_time <- Sys.time()
+    m_outputs <- apply(X, MARGIN = 1, FUN = fn)
+    end_time <- Sys.time()
+    print(paste('Simulation time:', end_time - start_time))
+  }
+  return(m_outputs)
+}
+
 
 calc_and_plot_calib_targets <- function(l_true_targets, 
                                         m_target_outputs,
