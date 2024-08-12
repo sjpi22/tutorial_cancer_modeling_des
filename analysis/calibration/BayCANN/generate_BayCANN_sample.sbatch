@@ -15,4 +15,4 @@
 ml R/4.3.2
 
 # run R code
-Rscript analysis/generate_BayCANN_sample.R
+Rscript analysis/calibration/BayCANN/generate_BayCANN_sample.R

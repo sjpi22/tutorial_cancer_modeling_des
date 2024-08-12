@@ -247,11 +247,11 @@ imabc_targets <- imabc_targets_unweighted[indices_imabc_sample, ]
 
 # Summarize targets
 # Note: weight for 50th and 95th with resampling
-collapse_mean  <- summaryBy( . ~ index , FUN=c(mean), data=imabc_calib_targets, keep.names=TRUE)
-collapse_UB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.975, data=imabc_calib_targets, keep.names=TRUE)
-collapse_LB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.025, data=imabc_calib_targets, keep.names=TRUE)
-collapse_UB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.75, data=imabc_calib_targets, keep.names=TRUE)
-collapse_LB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.25, data=imabc_calib_targets, keep.names=TRUE)
+collapse_mean  <- summaryBy( . ~ index , FUN=c(mean), data=imabc_targets, keep.names=TRUE)
+collapse_UB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.975, data=imabc_targets, keep.names=TRUE)
+collapse_LB_95 <- summaryBy( . ~ index , FUN=quantile, probs = 0.025, data=imabc_targets, keep.names=TRUE)
+collapse_UB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.75, data=imabc_targets, keep.names=TRUE)
+collapse_LB_50 <- summaryBy( . ~ index , FUN=quantile, probs = 0.25, data=imabc_targets, keep.names=TRUE)
 
 # Get confidence interval of true targets
 output_ci <- calc_target_ci(l_true_targets)
