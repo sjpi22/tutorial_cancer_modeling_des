@@ -67,6 +67,6 @@ visible FALSE                     FALSE
 value   ?                       ?                    
 visible FALSE                   FALSE                
     user   system  elapsed 
-2703.680   37.934  353.543 
-Error: object 'stime' not found
-Execution halted
+2738.849   81.160  389.153 
+[1] TRUE
+[1] TRUE
