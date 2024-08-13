@@ -96,8 +96,6 @@ m_outputs <- with(l_params_calib, {
 }
 )
 
-print(stime)
-
 closeAllConnections()
 
 # Check for any NaN
