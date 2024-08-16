@@ -14,7 +14,7 @@ load_default_params <- function(
     v_states    = c("H", "P", "C", "D"), # Health states
     v_cancer    = c(1, 2),               # Cancer stages in order
     v_death     = c("o", "c"),           # Death states
-    v_strats    = c("None", "Screen"),   # CEA strategies,
+    v_strats    = c("None", "Screen"),   # CEA strategy names (no screening is assumed to be first)
     file.mort   = "data/background_mortality.xlsx",   # Path to background mortality data
     file.surv   = "data/relative_survival_cancer.csv"){ # Path to relative survival data
   

@@ -108,6 +108,6 @@ validate_that(
 
 #### 6. Save data files  ===========================================
 
-saveRDS(list(param_samp = m_param_samp, 
-             calib_outputs = m_outputs), 
+saveRDS(list(m_param_samp = m_param_samp, 
+             m_calib_outputs = m_outputs), 
         file = file.path(outpath, 'BayCANN_sample.rds'))

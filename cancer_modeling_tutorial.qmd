@@ -36,6 +36,7 @@ library(imabc)
 library(keras)
 library(doBy)
 library(GGally)
+library(binom)
 
 # Load functions
 distr.sources <- list.files("R", 
@@ -170,8 +171,6 @@ plot_priors <- calc_and_plot_calib_targets(l_true_targets,
 ### IMABC
 
 Incremental mixture approximate Bayesian calibration [@Rutter2019]
-
-\@\@\@ TO DO: Update target plots, make numbers more consistent \@\@\@ TODO: Check BayCANN: check if STAN priors are actually uniform \@\@ journal ideas
 
 #### Run algorithm
 
@@ -331,19 +330,19 @@ Bayesian Calibration with Artificial Neural Network [@Jalal2021]
 
 ```{r}
 # File paths
-path_baycann_post <- "output/calibrated_posteriors_BayCANN.csv"
-path_baycann_target <- "output/calibration_targets_BayCANN.csv"
-
-# Load BayCANN calibration outputs
-baycann_posteriors <- read_csv(path_baycann_post) %>%
-  dplyr::select(-lp)
-baycann_targets <- read_csv(path_baycann_target)
-
-# Rename posterior columns and create long df
-names(baycann_posteriors) <- prior_map$var_id
-
-baycann_posteriors_long <- baycann_posteriors %>%
-  pivot_longer(everything())
+# path_baycann_post <- "output/calibrated_posteriors_BayCANN.csv"
+# path_baycann_target <- "output/calibration_targets_BayCANN.csv"
+# 
+# # Load BayCANN calibration outputs
+# baycann_posteriors <- read_csv(path_baycann_post) %>%
+#   dplyr::select(-lp)
+# baycann_targets <- read_csv(path_baycann_target)
+# 
+# # Rename posterior columns and create long df
+# names(baycann_posteriors) <- prior_map$var_id
+# 
+# baycann_posteriors_long <- baycann_posteriors %>%
+#   pivot_longer(everything())
 
 
 ```
@@ -352,86 +351,86 @@ baycann_posteriors_long <- baycann_posteriors %>%
 
 ```{r}
 # Plot BayCANN parameters against true parameters and priors
-plot_params_baycann <- ggplot(baycann_posteriors_long, aes(value)) + 
-  geom_histogram() + 
-  geom_vline(data = param_map %>%
-               rename(name = var_id), aes(xintercept=param_val), color = 'red') +
-  geom_vline(data = prior_map %>%
-               rename(name = var_id), aes(xintercept=prior_min), color = 'blue') +
-  geom_vline(data = prior_map %>%
-               rename(name = var_id), aes(xintercept=prior_max), color = 'blue') +
-  facet_wrap(~name, scales = "free") +
-  ggtitle('BayCANN')
-
-plot_params_baycann
+# plot_params_baycann <- ggplot(baycann_posteriors_long, aes(value)) + 
+#   geom_histogram() + 
+#   geom_vline(data = param_map %>%
+#                rename(name = var_id), aes(xintercept=param_val), color = 'red') +
+#   geom_vline(data = prior_map %>%
+#                rename(name = var_id), aes(xintercept=prior_min), color = 'blue') +
+#   geom_vline(data = prior_map %>%
+#                rename(name = var_id), aes(xintercept=prior_max), color = 'blue') +
+#   facet_wrap(~name, scales = "free") +
+#   ggtitle('BayCANN')
+# 
+# plot_params_baycann
 ```
 
 #### Plot calibration targets
 
 ```{r}
 # Summarize targets
-collapse_mean_bc  <- summaryBy( . ~ index , FUN=c(mean), data=baycann_targets,keep.names=TRUE)
-collapse_UB_95_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.975, data=baycann_targets, keep.names=TRUE)
-collapse_LB_95_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.025, data=baycann_targets, keep.names=TRUE)
-collapse_UB_50_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.75, data=baycann_targets, keep.names=TRUE)
-collapse_LB_50_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.25, data=baycann_targets, keep.names=TRUE)
-
-out_summary_bc <-  data.frame(l_true_reshaped$target_map,
-                           true_val = l_true_reshaped$v_targets,
-                           true_se = l_true_reshaped$v_se,
-                           model_mean = unname(t(collapse_mean_bc)),
-                           model_UB_95 = unname(t(collapse_UB_95_bc)),
-                           model_LB_95 = unname(t(collapse_LB_95_bc)),
-                           model_UB_50 = unname(t(collapse_UB_50_bc)),
-                           model_LB_50 = unname(t(collapse_LB_50_bc))) %>%
-  mutate(categorical = (target_groups %in% c('Stage at diagnosis', 'Prevalence of lesion type b')))
-
-# Plot 
-plot_targets_baycann <- ggplot(data = out_summary_bc, 
-                aes(x    = target_index, 
-                    y    = true_val, 
-                    ymin = true_val - true_se, 
-                    ymax = true_val + true_se))+ 
-  geom_errorbar(width=.4, size=0.9, color="red") +
-  theme(legend.position="none") +
-  geom_errorbar(data = out_summary_bc[out_summary_bc$categorical==1,],
-                aes(x    = target_index-0.07,
-                    y    = model_mean,
-                    ymin = model_LB_95,
-                    ymax = model_UB_95),width=.4, size=0.7, color="black", alpha = 0.7, position = "dodge2") +
-  geom_ribbon(data = out_summary_bc[out_summary_bc$categorical==0,],
-              aes(x    = target_index,
-                  y    = true_val,
-                  ymin = model_LB_95,
-                  ymax = model_UB_95),
-              fill = "black",
-              alpha = 0.3) +
-  geom_ribbon(data = out_summary_bc[out_summary_bc$categorical==0,],
-              aes(x    = target_index,
-                  y    = true_val,
-                  ymin = model_LB_50,
-                  ymax = model_UB_50),
-              fill = "black",
-              alpha = 0.5) +
-  facet_wrap(~ target_groups,scales="free", ncol = 3) +
-  theme(
-    strip.background = element_blank(),
-    strip.text.x = element_blank(), legend.position="none") +
-  scale_fill_manual(values = c("grey10", "grey30"))+
-  scale_y_continuous(breaks = number_ticks(5))+
-  theme_bw(base_size = 23) +
-  theme(plot.title = element_text(size = 22, face = "bold"),
-        axis.text.x = element_text(size = 12, angle = 90),
-        axis.text.y = element_text(size = 12),
-        axis.title = element_text(size = 18),
-        panel.grid.major = element_blank(),
-        panel.border = element_rect(colour = "black", fill = NA),
-        strip.background = element_blank(),
-        strip.text = element_text(hjust = 0)) +
-  labs(title = "BayCANN calibration", 
-       x     = "", y     = "")
-
-plot_targets_baycann
+# collapse_mean_bc  <- summaryBy( . ~ index , FUN=c(mean), data=baycann_targets,keep.names=TRUE)
+# collapse_UB_95_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.975, data=baycann_targets, keep.names=TRUE)
+# collapse_LB_95_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.025, data=baycann_targets, keep.names=TRUE)
+# collapse_UB_50_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.75, data=baycann_targets, keep.names=TRUE)
+# collapse_LB_50_bc <- summaryBy( . ~ index , FUN=quantile, probs = 0.25, data=baycann_targets, keep.names=TRUE)
+# 
+# out_summary_bc <-  data.frame(l_true_reshaped$target_map,
+#                            true_val = l_true_reshaped$v_targets,
+#                            true_se = l_true_reshaped$v_se,
+#                            model_mean = unname(t(collapse_mean_bc)),
+#                            model_UB_95 = unname(t(collapse_UB_95_bc)),
+#                            model_LB_95 = unname(t(collapse_LB_95_bc)),
+#                            model_UB_50 = unname(t(collapse_UB_50_bc)),
+#                            model_LB_50 = unname(t(collapse_LB_50_bc))) %>%
+#   mutate(categorical = (target_groups %in% c('Stage at diagnosis', 'Prevalence of lesion type b')))
+# 
+# # Plot 
+# plot_targets_baycann <- ggplot(data = out_summary_bc, 
+#                 aes(x    = target_index, 
+#                     y    = true_val, 
+#                     ymin = true_val - true_se, 
+#                     ymax = true_val + true_se))+ 
+#   geom_errorbar(width=.4, size=0.9, color="red") +
+#   theme(legend.position="none") +
+#   geom_errorbar(data = out_summary_bc[out_summary_bc$categorical==1,],
+#                 aes(x    = target_index-0.07,
+#                     y    = model_mean,
+#                     ymin = model_LB_95,
+#                     ymax = model_UB_95),width=.4, size=0.7, color="black", alpha = 0.7, position = "dodge2") +
+#   geom_ribbon(data = out_summary_bc[out_summary_bc$categorical==0,],
+#               aes(x    = target_index,
+#                   y    = true_val,
+#                   ymin = model_LB_95,
+#                   ymax = model_UB_95),
+#               fill = "black",
+#               alpha = 0.3) +
+#   geom_ribbon(data = out_summary_bc[out_summary_bc$categorical==0,],
+#               aes(x    = target_index,
+#                   y    = true_val,
+#                   ymin = model_LB_50,
+#                   ymax = model_UB_50),
+#               fill = "black",
+#               alpha = 0.5) +
+#   facet_wrap(~ target_groups,scales="free", ncol = 3) +
+#   theme(
+#     strip.background = element_blank(),
+#     strip.text.x = element_blank(), legend.position="none") +
+#   scale_fill_manual(values = c("grey10", "grey30"))+
+#   scale_y_continuous(breaks = number_ticks(5))+
+#   theme_bw(base_size = 23) +
+#   theme(plot.title = element_text(size = 22, face = "bold"),
+#         axis.text.x = element_text(size = 12, angle = 90),
+#         axis.text.y = element_text(size = 12),
+#         axis.title = element_text(size = 18),
+#         panel.grid.major = element_blank(),
+#         panel.border = element_rect(colour = "black", fill = NA),
+#         strip.background = element_blank(),
+#         strip.text = element_text(hjust = 0)) +
+#   labs(title = "BayCANN calibration", 
+#        x     = "", y     = "")
+# 
+# plot_targets_baycann
 ```
 :::
 :::

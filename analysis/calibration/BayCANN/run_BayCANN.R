@@ -26,6 +26,8 @@ library(tidyverse)
 library(ggplot2)
 library(doParallel)
 library(patchwork)
+library(MASS)
+library(bestNormalize)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
@@ -44,14 +46,15 @@ sapply(distr.sources, source, .GlobalEnv)
 scale_type <- 1  ## 1: for scale from -1 to 1; 2: for standardization ; 3: for scale from 0 to 1
 seed <- 123
 train_split <- 0.8
-sample_file <- "data/BayCANN_sample.rds"
 targets_files <- list(prevalence = "data/prevalence_asymptomatic_cancer.csv",
-  incidence = "data/incidence_symptomatic_cancer.csv",
-  stage_distr = "data/stage_distr.csv")
+                      incidence = "data/incidence_symptomatic_cancer.csv",
+                      stage_distr = "data/stage_distr.csv")
+outpath <- "output/calibration/BayCANN"
+sample_file <- file.path(outpath, "BayCANN_sample.rds")
 
-path_keras_model <- paste0("output/model_keras_BayCANN.h5")    ##File path for the compiled model
-path_baycann_params <- paste0("output/parameters_BayCANN.RData")
-path_posterior <- "output/calibrated_posteriors_BayCANN.csv"
+path_keras_model <- file.path(outpath, "model_keras_BayCANN.h5")    ##File path for the compiled model
+path_baycann_params <- file.path(outpath, "parameters_BayCANN.RData")
+path_posterior <- file.path(outpath, "calibrated_posteriors_BayCANN.csv")
 file_stan <- "stan/post_multi_perceptron.stan"
 
 ###### 2.1 parameters for ANN 
@@ -89,25 +92,13 @@ Selected_targets    <- FALSE  # TRUE if we want to use an specific list of calib
 
 #### 4. Load the training and test data for the simulations =======================
 
-load(sample_file)
+BayCANN_sample <- readRDS(sample_file)
 
 ###### 4.1 Input Parameters ####
-
-data_sim_param <- as.matrix(m_param_samp)
-
-# Remove inputs for which there are no outputs
-if(nrow(out_calib_targets) < nrow(m_param_samp)) data_sim_param <- data_sim_param[1:nrow(out_calib_targets),]
+data_sim_param <- as.matrix(BayCANN_sample$m_param_samp)
 
 ###### 4.2 Model Outputs ####
-
-# Change NAs to 0 with warning
-if (sum(sapply(out_calib_targets, function(x) any(is.nan(x)))) > 0) {
-  print('Warning: Nans in targets, replacing with 0')
-  out_calib_targets <- out_calib_targets %>%
-    mutate_all(~replace(., is.na(.), 0))
-}
-
-data_sim_target <- as.matrix(out_calib_targets)
+data_sim_target <- as.matrix(BayCANN_sample$m_calib_outputs)
 
 #### 5. Removing outliers from model outputs ####
 
@@ -500,9 +491,6 @@ gg_prior_post <- ggplot(df_samp_prior_post,
         strip.text = element_text(hjust = 0))
 gg_prior_post
 ggsave(gg_prior_post,
-       filename = paste0("output/fig_BayCANN-prior-posterior.pdf"),
-       width = 36, height = 24)
-ggsave(gg_prior_post,
        filename = paste0("output/fig_BayCANN-prior-posterior.png"),
        width = 36, height = 24)
 
@@ -511,7 +499,6 @@ ggsave(gg_prior_post,
 
 ##Save BayCANN parameters
 param_BayCANN <- list(scale_type,
-                      scale_type, 
                       verbose,
                       n_batch_size,
                       n_chains,

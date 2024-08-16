@@ -1,8 +1,4 @@
 # =================================================
-# Libraries
-library(MASS)
-library(bestNormalize)
-
 # functions
 prepare_data <- function(xtrain, ytrain, xtest, ytest, scale_type){
   y_names <- colnames(ytrain)
