@@ -1,8 +1,9 @@
-# Unit tests
+###########################  Unit tests  ##########################
+#
+#  Objective: Tests and sanity checks to validate functions
+########################### <<<<<>>>>> #########################################
 
-################################################################################
-# Setup
-################################################################################
+#### 1.Libraries and functions  ==================================================
 # Clear workspace
 rm(list = ls())
 
@@ -15,6 +16,8 @@ library(data.table)
 library(tidyverse)
 library(survival)
 library(survminer)
+library(doParallel)
+library(foreach)
 library(assertthat)
 
 # Load functions
@@ -22,6 +25,133 @@ distr.sources <- list.files("R",
                             pattern="*.R$", full.names=TRUE, 
                             ignore.case=TRUE, recursive = TRUE)
 sapply(distr.sources, source, .GlobalEnv)
+
+
+#### 2. General parameters ========================================================
+
+###### 2.1 file paths
+file_truth <- "ground_truth/true_param_map.rds"
+file_params <- "data/calibration_params.rds"
+outpath <- "output/calibration/BayCANN"
+
+###### 2.2 other parameters
+n_samp <- 100 # Number of samples to simulate
+n_cohort_orig <- 100000
+n_screen_sample_orig <- 20000
+seed_orig <- 2024
+
+
+#### 3. Validate BayCANN sample generation =====================================
+
+# Load model and ground truth params
+l_params_calib <- readRDS(file_params)
+df_true_params <- readRDS(file_truth)
+v_params_update <- df_true_params$param_val
+
+# Make copy of calibration parameters based on ground truth
+l_params_calib_orig <- copy(l_params_calib)
+l_params_calib_orig$l_params_all$n_cohort <- n_cohort_orig
+l_params_calib_orig$l_params_all$seed <- seed_orig
+l_params_calib_orig$l_outcome_params$prevalence$n_screen_sample <- n_screen_sample_orig
+
+# Set seed
+set.seed(seed_orig)
+
+# Replicate ground truth values with IMABC function
+fn <- function(v_params_update) {
+  v_targets <- with(l_params_calib_orig, {
+    params_to_calib_outputs(
+      l_params_all = l_params_all,
+      v_params_update = v_params_update,
+      param_map = prior_map,
+      l_outcome_params = l_outcome_params,
+      l_censor_vars = l_censor_vars
+    )
+  })
+  return(v_targets)
+}
+v_calib_outputs_rep <- fn(v_params_update)
+
+# Set null seed
+l_params_calib$l_params_all$seed <- NULL
+
+# Simulate outputs with true parameters
+stime <- system.time({
+  m_outputs <- foreach(
+    i=1:n_samp, 
+    .combine=rbind, 
+    .inorder=TRUE, 
+    .packages=c("data.table","tidyverse")) %dopar% {
+      # Get row of parameters and calculate outputs
+      v_calib_outputs <- with(l_params_calib, {
+        params_to_calib_outputs(
+          l_params_all = l_params_all,
+          v_params_update = v_params_update,
+          param_map = prior_map,
+          l_outcome_params = l_outcome_params,
+          l_censor_vars = l_censor_vars
+        )
+      })
+      # Call item to save
+      t(v_calib_outputs)
+    }
+})
+
+print(stime)
+closeAllConnections()
+
+# Process targets
+df_targets <- l_params_calib$df_true_targets %>%
+  mutate(target_index = factor(target_index)) %>% # Create plot labels
+  mutate(plot_grp = case_when(target_groups == "stage_distr" ~ "Stage distribution",
+                              target_groups == "incidence" ~ "Incidence per 100k by age",
+                              target_groups == "prevalence" ~ "Prevalence by age"))
+df_targets$rep_targets <- v_calib_outputs_rep
+
+# Convert outputs from wide to long
+out_full_bc_cat <- data.frame(m_outputs) %>%
+  pivot_longer(
+    cols = everything(), 
+    names_to = "target_names",
+    values_to = "value"
+  ) %>%
+  mutate(target_index = rep(df_targets$target_index, nrow(m_outputs)),
+         plot_grp = rep(df_targets$plot_grp, nrow(m_outputs)))
+
+# Plot distribution of outputs against targets
+plot_coverage <- ggplot(data = df_targets) + 
+  geom_point(
+    aes(x = target_index, 
+        y = rep_targets),
+    color = "black") +
+  geom_errorbar(
+    aes(x    = target_index, 
+        y    = targets, 
+        ymin = targets - se, 
+        ymax = targets + se),
+    width = 0.4, linewidth = 0.9, color="red") +
+  theme(legend.position="none") +
+  geom_violin(data = out_full_bc_cat,
+              aes(x    = target_index,
+                  y    = value),
+              alpha = 0.4) +
+  facet_wrap(~ plot_grp, scales="free") +
+  theme(strip.background = element_blank(),
+        strip.text.x = element_blank(), legend.position="none") +
+  scale_fill_manual(values = c("grey10", "grey30"))+
+  scale_y_continuous(breaks = number_ticks(5))+
+  theme_bw(base_size = 23) +
+  theme(plot.title = element_text(size = 22, face = "bold"),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        axis.title = element_text(size = 18),
+        panel.grid.major = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA),
+        strip.background = element_blank(),
+        strip.text = element_text(hjust = 0)) +
+  labs(x     = "", y     = "")
+plot_coverage
+
 
 ################################################################################
 # Parameters

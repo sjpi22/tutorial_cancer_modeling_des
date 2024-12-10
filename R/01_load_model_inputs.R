@@ -7,14 +7,15 @@
 #' A list of all parameters used for the decision model
 #' 
 #' @export
-load_default_params <- function(
+load_model_params <- function(
     seed        = 123,                   # Random seed
     n_cohort    = 100000,                # Cohort size
     conf_level  = 0.95,                  # Confidence level
+    sex         = c("male", "female"),   # Determines which mortality table(s) to use - male only, female only, or male and female
+    p_male      = 0.5,                   # Proportion of males born in population - only used if sex is c("male", "female")
     v_states    = c("H", "P", "C", "D"), # Health states
-    v_cancer    = c(1, 2),               # Cancer stages in order
-    v_death     = c("o", "c"),           # Death states
-    v_strats    = c("None", "Screen"),   # CEA strategy names (no screening is assumed to be first)
+    v_cancer    = seq(4),                # Cancer stages in order
+    v_death     = c("o", "c"),           # Death causes
     file.mort   = "data/background_mortality.xlsx",   # Path to background mortality data
     file.surv   = "data/relative_survival_cancer.csv"){ # Path to relative survival data
   
@@ -24,30 +25,34 @@ load_default_params <- function(
     seed        = seed,
     n_cohort    = n_cohort,
     conf_level  = conf_level,
+    sex         = sex,
     v_states    = v_states,
     v_cancer    = v_cancer,
-    v_death     = v_death,
-    v_strats    = v_strats
+    v_death     = v_death
   )
   
   #### Load input data ####
-  l_lifetables <- load_from_excel(file.mort) # Background mortality
+  l_lifetables <- load_lifetables(file.mort) # Background mortality
   
-  # Disease-specific relative survival
-  if (!is.null(file.surv)) {
-    surv_data <- read.csv(file = file.surv) %>%
-      mutate(pct_died = 1 - surv)
-    assertthat::validate_that(length(l_params_all$v_cancer) == length(unique(surv_data$stage)), 
-                            msg = 'Number of cancer states in survival file not consistent with number of states expected in v_cancer')
+  #### Create background mortality distributions and get maximum age ####
+  d_time_H_Do <- list()
+  max_age <- 0
+  for(label in names(l_lifetables)) {
+    d_time_H_Do[[label]] <- with(l_params_all, {
+      l_distr <- set_mort_distr(
+        l_lifetables, 
+        label
+      )
+    })
+    max_age <- max(max_age, l_lifetables[[label]]$age)
   }
+  max_age <- max_age + 1
   
-  #### Create other useful variables ####
-  # Maximum age
-  max_age <- max(l_lifetables$female$age, l_lifetables$male$age) + 1
-  
-  # Survival after cancer diagnosis
+  # If survival data filepath is given, load disease-specific relative survival 
+  # and create distributions
   if (!is.null(file.surv)) {
-    l_distr_surv <- list()
+    surv_data <- load_surv_data(file.surv)
+    d_time_C_Dc <- list()
     for (i in v_cancer) {
       # Filter survival data to stage at diagnosis
       temp_surv_data <- surv_data[surv_data$stage == i, ]
@@ -57,7 +62,7 @@ load_default_params <- function(
       probs <- c(probs, 1 - sum(probs))
       
       # Create distribution data
-      l_distr_surv[[i]] <- list(distr = "empirical", 
+      d_time_C_Dc[[i]] <- list(distr = "empirical", 
                                 params = list(xs = temp_surv_data$years_from_dx, 
                                               probs = probs, 
                                               max_x = max_age), 
@@ -67,9 +72,9 @@ load_default_params <- function(
     # If no survival file, create placeholder for true survival distribution 
     # from diagnosis. Manually input parameters after running function in the 
     # form distr = <string> and params = <list of named parameters>
-    l_distr_surv <- list()
+    d_time_C_Dc <- list()
     for (i in v_cancer) {    
-      l_distr_surv[[i]] <- list(distr = NULL,
+      d_time_C_Dc[[i]] <- list(distr = NULL,
                                 params = NULL,
                                 src = "known")
     }
@@ -82,37 +87,27 @@ load_default_params <- function(
     max_age <- max_age
     
     # Sex
-    b_male <- list(distr = "binom", 
-                   params = list(size = 1, prob = 0.5), 
+    d_male <- list(distr = "binom", 
+                   params = list(size = 1, prob = p_male), 
                    src = "known")
     
     # Time to death from other causes
-    time_H_Do_male <- list(distr = "empirical", 
-                           params = list(xs = l_lifetables$male$age, 
-                                         probs = l_lifetables$male$p_death, 
-                                         max_x = max_age), 
-                           src = "known")
-    
-    time_H_Do_female <- list(distr = "empirical", 
-                             params = list(xs = l_lifetables$female$age, 
-                                           probs = l_lifetables$female$p_death,
-                                           max_x = max_age),
-                             src = "known")
+    d_time_H_Do <- d_time_H_Do
     
     # Add next distributions depending on whether model includes precancerous lesion state
     if("L" %in% v_states) {
       # Time to precancerous lesion onset
-      time_H_L = list(distr = "weibull", 
+      d_time_H_L = list(distr = "weibull", 
                       params = list(shape = 1, scale = 1), 
                       src = "unknown")
       
       # Time from precancerous lesion onset to preclinical cancer onset
-      time_L_P = list(distr = "exp", 
+      d_time_L_P = list(distr = "exp", 
                       params = list(rate = 1), 
                       src = "unknown")
     } else {
       # Time to preclinical cancer onset
-      time_H_P = list(distr = "weibull", 
+      d_time_H_P = list(distr = "weibull", 
                       params = list(shape = 1, scale = 1), 
                       src = "unknown")
     }
@@ -121,21 +116,21 @@ load_default_params <- function(
     for (i in 1:length(v_cancer)) {
       if (i < length(v_cancer)) {
         # Time to next stage of preclinical cancer
-        assign(paste0("time_P", v_cancer[i], "_P", v_cancer[i+1]), 
+        assign(paste0("d_time_P", v_cancer[i], "_P", v_cancer[i+1]), 
                list(distr = "exp", 
                     params = list(rate = 1), 
                     src = "unknown"))
       }
       
       # Cancer symptomatic detection by stage
-      assign(paste0("time_P", v_cancer[i], "_C"), 
+      assign(paste0("d_time_P", v_cancer[i], "_C"), 
              list(distr = "exp", 
                   params = list(rate = 1), 
                   src = "unknown"))
-      
-      # Survival after cancer diagnosis by stage
-      assign(paste0("time_C", v_cancer[i], "_Dc"), l_distr_surv[[v_cancer[i]]])
     }
+    
+    # Survival after cancer diagnosis by stage
+    d_time_C_Dc <- d_time_C_Dc
   })
   
   # Remove variable for looping
@@ -201,42 +196,6 @@ update_param_from_map <- function(l_params_all, v_params_update, param_map) {
   }
   
   return(l_params_update)
-}
-
-#' Load list of Excel tables from list of filepaths
-#'
-#' \code{load_from_excel} loads and processes data from Excel sheets 
-#' tables
-#'
-#' @param filepath File path for tables
-#' 
-#' @return A labeled list of processed tables
-#' 
-#' @import tidyverse
-#' @import readxl
-#' @import dplyr
-#' 
-#' @export
-load_from_excel <- function(filepath) {
-  if(!is.null(filepath)) {
-    # Read sheet names
-    sheet_names <- excel_sheets(filepath)
-    
-    # Read data
-    l_lifetables <- list()
-    for(nm in sheet_names) {
-      df_lifetable <- read_excel(filepath, sheet = nm)
-      l_lifetables <- c(l_lifetables, list(df_lifetable))
-    }
-    names(l_lifetables) <- sheet_names
-    
-    # Return list of data tables if there were >1 sheets, otherwise return singular data table
-    if(length(sheet_names) > 1) return(l_lifetables)
-    else return(l_lifetables[[1]])
-  } else {
-    # Return nothing if no filepath given
-    return()
-  }
 }
 
 

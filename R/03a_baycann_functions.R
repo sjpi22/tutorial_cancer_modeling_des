@@ -1,6 +1,6 @@
 # =================================================
 # functions
-prepare_data <- function(xtrain, ytrain, xtest, ytest, scale_type){
+prepare_data <- function(xtrain, ytrain, xtest, ytest, scale_type, scale_cols = NULL){
   y_names <- colnames(ytrain)
   x_names <- colnames(xtrain)
   n_train <- nrow(xtrain)
@@ -10,9 +10,15 @@ prepare_data <- function(xtrain, ytrain, xtest, ytest, scale_type){
   n <- nrow(x)
   n_inputs <- length(x_names)
   n_outputs <- length(y_names)
+  
   # scale the PSA inputs and outputs
-  xresults <- scale_data(x,scale_type) 
-  yresults <- scale_data(y,scale_type)  ##I think this is not adequate, because we are including the test data
+  if (length(scale_type)==1) {
+    xresults <- scale_data(x, scale_type) 
+    yresults <- scale_data(y, scale_type, scale_cols)  ##I think this is not adequate, because we are including the test data
+  } else {
+    xresults <- scale_data(x, scale_type[1]) 
+    yresults <- scale_data(y, scale_type[2], scale_cols)
+  }
   
   xscaled <- xresults$scaled_data 
   yscaled <- yresults$scaled_data 
@@ -25,7 +31,7 @@ prepare_data <- function(xtrain, ytrain, xtest, ytest, scale_type){
   ymaxs <- yresults$vec.maxs
   ymeans<- yresults$vec.means
   ysds  <- yresults$vec.sds
-
+  
   xtrain_scaled <- xscaled[1:n_train, ]
   ytrain_scaled <- yscaled[1:n_train, ]
   xtest_scaled  <- xscaled[(n_train+1):n, ]
@@ -51,16 +57,16 @@ prepare_data <- function(xtrain, ytrain, xtest, ytest, scale_type){
               ymaxs = ymaxs,
               ymeans= ymeans,
               ysds  = ysds
-              ))
+  ))
 }
 
-scale_data  <- function(unscaled_data,type){
+scale_data  <- function(unscaled_data, type, scale_cols=NULL){
   vec.maxs  <- apply(unscaled_data, 2, max) 
   vec.mins  <- apply(unscaled_data, 2, min)
-  vec.means <- apply(unscaled_data, 2,mean)
-  vec.sds   <- apply(unscaled_data, 2,sd)
-
-  vec.quant <- apply(unscaled_data, 2,quantile)
+  vec.means <- apply(unscaled_data, 2, mean)
+  vec.sds   <- apply(unscaled_data, 2, sd)
+  
+  vec.quant <- apply(unscaled_data, 2, quantile)
   vec.q50   <- vec.quant[3,]
   vec.q25   <- vec.quant[2,]
   vec.q75   <- vec.quant[4,]
@@ -89,13 +95,17 @@ scale_data  <- function(unscaled_data,type){
     scaled_data <- (unscaled_data - mat.mins) / (mat.maxs - mat.mins)           ### range from 0 to 1
   }
   
-
+  if (!is.null(scale_cols)) { # Applies scaling only to the columns specified in scale_cols
+    scaled_data_final <- unscaled_data
+    scaled_data_final[, scale_cols] <- scaled_data[, scale_cols]
+    scaled_data <- scaled_data_final
+  }
   
   results <- list(scaled_data = scaled_data, vec.mins = vec.mins, vec.maxs = vec.maxs,vec.means=vec.means,vec.sds=vec.sds)
   return(results)
 }
 
-unscale_data <- function(scaled_data, vec.mins, vec.maxs,vec.means,vec.sds, type){
+unscale_data <- function(scaled_data, vec.mins, vec.maxs,vec.means,vec.sds, type, scale_cols=NULL){
   vec.ones <- matrix(1, nrow = nrow(scaled_data), 1)
   mat.mins <- vec.ones %*% vec.mins
   mat.maxs <- vec.ones %*% vec.maxs
@@ -115,6 +125,12 @@ unscale_data <- function(scaled_data, vec.mins, vec.maxs,vec.means,vec.sds, type
     unscaled_data <- scaled_data * (mat.maxs - mat.mins) + mat.mins          ### range from 0 to 1
   }
   
+  if (!is.null(scale_cols)) {
+    unscaled_data_final <- scaled_data
+    unscaled_data_final[, scale_cols] <- unscaled_data[, scale_cols]
+    unscaled_data <- unscaled_data_final
+  }
+  
   return(unscale_data= unscaled_data)
 }
 
@@ -132,10 +148,10 @@ norm_vector <- function(x) {
 
 
 best_normal <- function(vec) {
- BN_obj  <- bestNormalize(vec)
- vec     <- predict(BN_obj)
- results <- list(vec = vec, BN_obj = BN_obj)
- return  (results)
+  BN_obj  <- bestNormalize(vec)
+  vec     <- predict(BN_obj)
+  results <- list(vec = vec, BN_obj = BN_obj)
+  return  (results)
 }
 
 best_normal_dataset <- function(data) { 
