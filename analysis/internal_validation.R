@@ -36,10 +36,40 @@ file_fig_validation <- file.path(outpath, "plots/fig_internal_validation.png")
 
 #### 3. Pre-processing actions  ===========================================
 
-# Load parameter mapping
-load(prior_file) 
+# # Load model and calibration parameters
+# l_params_calib <- readRDS(file_params)
+# 
+# # Generate sample data
+# m_times <- run_base_model(l_params_calib$l_params_all)
+# 
+# 
+# # Run screening 
+# m_times_screen <- copy(m_times)
+# run_screening_counterfactual(    age_screen_start = 45,
+#                                  age_screen_end = 75,
+#                                  int_screen = 10,
+#                                  p_sens = list(P = 0.9),
+#                                  p_spec = 0.95,
+#                                  l_params_all = l_params_calib$l_params_all,
+#                                  m_times)
 
 
+### Test for lesion
+# Load model parameters
+l_params_init <- load_model_params(
+  lesion_state = TRUE
+)
+
+# Generate sample data
+m_times <- run_base_model(l_params_init)
+
+run_screening_counterfactual(    age_screen_start = 45,
+                                 age_screen_end = 75,
+                                 int_screen = 10,
+                                 p_sens = list(P = 0.9),
+                                 p_spec = 0.95,
+                                 l_params_all = l_params_calib$l_params_all,
+                                 m_times)
 ################################################################################
 ###  Generate IMABC outputs                                          ###
 ################################################################################

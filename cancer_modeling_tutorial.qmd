@@ -49,7 +49,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ```{r}
 # Load default parameters
-l_params_all <- load_default_params()
+l_params_all <- load_model_params()
 
 # Make cohort small for testing
 l_params_all <- update_param_list(l_params_all,
@@ -63,11 +63,11 @@ Background mortality and survival from diagnosis
 
 ```{r}
 # Background mortality
-n_mort_ages <- length(l_params_all$time_H_Do_female$params$xs)
+n_mort_ages <- length(l_params_all$d_time_H_Do$female$params$xs)
 df_mort <- data.frame(sex = c(rep("Female", n_mort_ages),
                               rep("Male", n_mort_ages)),
-                      yrs = c(l_params_all$time_H_Do_female$params$xs,
-                              l_params_all$time_H_Do_male$params$xs),
+                      yrs = c(l_params_all$d_time_H_Do$female$params$xs,
+                              l_params_all$d_time_H_Do$male$params$xs),
                       prob = c(1 - c(0, cumsum(l_params_all$time_H_Do_female$params$probs[-n_mort_ages])),
                                1 - c(0, cumsum(l_params_all$time_H_Do_male$params$probs[-n_mort_ages])))
 )
@@ -84,10 +84,9 @@ plot_mort <- ggplot(df_mort, aes(yrs, prob, color = sex)) +
 # Survival after diagnosis
 df_surv <- data.frame()
 for (stg in l_params_all$v_cancer) {
-  var <- paste0("time_C", stg, "_Dc")
-  n_surv_ages <- length(l_params_all[[var]]$params$xs)
+  n_surv_ages <- length(l_params_all$d_time_C_Dc[[stg]]$params$xs)
   temp_df_surv <- data.frame(stage = toupper(stg),
-                             yrs = l_params_all[[var]]$params$xs,
+                             yrs = l_params_all$d_time_C_Dc[[stg]]$params$xs,
                              prob = 1 - c(0, cumsum(l_params_all[[var]]$params$probs[-n_surv_ages])))
     
   df_surv <- rbind(df_surv, temp_df_surv)

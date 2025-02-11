@@ -120,7 +120,7 @@ calc_incidence <- function(m_patients, time_var, censor_var, v_ages,
   if(is.null(rate_unit)) rate_unit <- 1
   
   # Number of events by category
-  event_counts <- m_screen_sample[get(time_var) < pmin(get(censor_var), max(age_bounds))][
+  event_counts <- m_screen_sample[get(time_var) <= pmin(get(censor_var), max(age_bounds))][
     , age_range := age_ranges[findInterval(get(time_var), age_bounds)]
   ][, .N, by = grouping_vars]
   setnames(event_counts, "N", "n_events")
@@ -166,7 +166,7 @@ calc_incidence <- function(m_patients, time_var, censor_var, v_ages,
 
 # Calculate distribution (such as cancer stage or lesion type) from patient-level data
 calc_distr <- function(m_patients, grouping_var, event_var, censor_var, 
-                       groups_expected, n_screen_sample = NULL, 
+                       groups_expected, min_age = 0, n_screen_sample = NULL, 
                        idx_screen_sample = NULL,
                        conf_level = 0.95) {
   
@@ -174,8 +174,8 @@ calc_distr <- function(m_patients, grouping_var, event_var, censor_var,
   m_screen_sample <- screen_sample(m_patients, n_screen_sample, idx_screen_sample)
   
   # Count patients diagnosed at each stage
-  cts <- m_screen_sample[get(event_var) < get(censor_var), 
-                .(ct = .N), by = grouping_var]
+  cts <- m_screen_sample[get(event_var) >= min_age & get(event_var) < get(censor_var), 
+                         .(ct = .N), by = grouping_var]
   
   # Create dataframe of expected stages if necessary
   if (nrow(cts) < length(groups_expected)) {

@@ -1,13 +1,17 @@
-# Ground truth disease simulator
+###########################  Ground truth disease simulator  ################
+#
+#  Objective: Simulate targets for preclinical cancer prevalence and cancer 
+#  incidence with ground truth model
+########################### <<<<<>>>>> ##############################################
 
-################################################################################
-# Setup
-################################################################################
-# Clear workspace
+
+
+#### 1.Libraries and functions  ==================================================
+# Clean environment
 rm(list = ls())
 
 # Options
-options(scipen=999)
+options(scipen = 999)
 
 # Load packages
 library(readxl)
@@ -16,17 +20,16 @@ library(tidyverse)
 library(survival)
 library(assertthat)
 
-# Load functions
+###### 1.1 Load functions =================================================
 distr.sources <- list.files("R", 
                             pattern="*.R$", full.names=TRUE, 
                             ignore.case=TRUE, recursive = TRUE)
 sapply(distr.sources, source, .GlobalEnv)
 
-################################################################################
-# Parameters
-################################################################################
 
-# File paths
+#### 2. General parameters ========================================================
+
+###### 2.1 file paths
 data_outpath <- 'data'
 true_param_outpath <- 'ground_truth'
 
@@ -38,8 +41,17 @@ n_cohort <- 100000                            # Number to simulate in cohort
 n_screen_sample <- 20000                      # Number to sample for screening
 seed <- 2024                                  # Random seed for generating ground truth data
 v_cancer <- seq(4)                            # Cancer stages in order
-rate_Cx_Dc <- c(0.05, 0.1, 0.2, 0.3)          # Exponential rate for survival from stage at diagnosis
-v_param_update <- c(3, 200, 0.2, 0.06, 0.3, 0.1, 0.3, 0.2, 0.4)  # True values for unknown parameters (in order of param_map)
+rate_Cx_Dc <- c(0.05, 0.08, 0.16, 0.5)        # Exponential rate for survival from stage at diagnosis
+v_param_update <- c( # True values for unknown parameters (in order of param_map)
+  d_time_H_P.shape = 3, 
+  d_time_H_P.scale = 200,
+  d_time_P1_P2.rate = 0.33,
+  d_time_P1_C.rate = 0.09,
+  d_time_P2_P3.rate = 0.4,
+  d_time_P2_C.rate = 0.2,
+  d_time_P3_P4.rate = 0.6,
+  d_time_P3_C.rate = 0.5,
+  d_time_P4_C.rate = 2)
 
 # Outcome reporting
 v_ages_prevalence <- seq(30, 80, 10) # Ages for lesion prevalence
@@ -47,7 +59,7 @@ v_ages_incidence = c(v_ages_prevalence, 90) # Age for cancer incidence
 v_time_surv <- seq(0, 10)            # Times from event to calculate relative survival
 
 # Prior generation
-prior_pct_width_init <- 0.3 # Percentage width of initial randomly generated prior bounds
+prior_pct_width_init <- 0.8 # Percentage width of initial randomly generated prior bounds
 prior_pct_multiplier <- 0.2 # Final multiplier adjustment to increase bounds of priors
 
 # Define parameters for calculating outcomes
@@ -79,7 +91,8 @@ l_censor_vars <- list(
   time_screen_censor = c("time_H_C", "time_H_D")
 )
 
-#### Load and update parameters ####
+
+#### 3. Pre-processing ========================================================
 
 # Load default data
 l_params_all <- load_model_params(
@@ -102,25 +115,24 @@ param_map <- make_param_map(l_params_all)
 l_params_all <- update_param_from_map(l_params_all, v_param_update, param_map)
 param_map$param_val <- v_param_update
 
-# Set seed
-set.seed(l_params_all$seed)
-
-################################################################################
-# Generate population data and outputs
-################################################################################
-
-# Simulate cohort
-m_cohort <- run_base_model(l_params_all)
-
 # Establish priors by adding random noise around the true parameter values
 prior_map <- param_map %>%
   mutate(shift = runif(nrow(param_map))) %>%
   mutate(distr = "unif",
          min = param_val * (1 - prior_pct_width_init/2 + (shift - 0.5) * prior_pct_width_init),
          max = param_val * (1 + prior_pct_width_init/2 + (shift - 0.5) * prior_pct_width_init)) %>%
-  mutate(min = min * (1 - prior_pct_multiplier),
-         max = max * (1 + prior_pct_multiplier)) %>%
+  mutate(min = round(min * (1 - prior_pct_multiplier), 2),
+         max = round(max * (1 + prior_pct_multiplier), 2)) %>%
   dplyr::select(-c("param_val", "shift"))
+
+# Set seed
+set.seed(l_params_all$seed)
+
+
+#### 4. Generate population data and outputs ========================================================
+
+# Simulate cohort
+m_cohort <- run_base_model(l_params_all)
 
 # Get prevalence, incidence, and stage outputs
 l_outputs <- calc_calib_outputs(m_cohort, 

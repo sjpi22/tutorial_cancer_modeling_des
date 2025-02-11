@@ -8,27 +8,37 @@
 #' 
 #' @export
 load_model_params <- function(
-    seed        = 123,                   # Random seed
-    n_cohort    = 100000,                # Cohort size
-    conf_level  = 0.95,                  # Confidence level
-    sex         = c("male", "female"),   # Determines which mortality table(s) to use - male only, female only, or male and female
-    p_male      = 0.5,                   # Proportion of males born in population - only used if sex is c("male", "female")
-    v_states    = c("H", "P", "C", "D"), # Health states
-    v_cancer    = seq(4),                # Cancer stages in order
-    v_death     = c("o", "c"),           # Death causes
-    file.mort   = "data/background_mortality.xlsx",   # Path to background mortality data
-    file.surv   = "data/relative_survival_cancer.csv"){ # Path to relative survival data
+    seed          = 123,                   # Random seed
+    n_cohort      = 100000,                # Cohort size
+    conf_level    = 0.95,                  # Confidence level
+    sex           = c("male", "female"),   # Determines which mortality table(s) to use - male only, female only, or male and female
+    p_male        = 0.5,                   # Proportion of males born in population - only used if sex is c("male", "female")
+    lesion_state  = FALSE,                 # Indicator to include precancerous lesion state
+    n_lesions_max = 20,                   # Maximum number of precancerous lesions
+    v_cancer      = seq(4),                # Cancer stages in order
+    v_death       = c("o", "c"),           # Death causes
+    file.mort     = "data/background_mortality.xlsx",   # Path to background mortality data
+    file.surv     = "data/relative_survival_cancer.csv"){ # Path to relative survival data
   
   #### General setup ####
+  # Assign health states and reset max number of lesions depending on whether lesions are included
+  if (lesion_state) {
+    v_states <- c("H", "L", "P", "C", "D")
+  } else {
+    v_states <- c("H", "P", "C", "D")
+    n_lesions_max = NULL
+  }
+  
   # Initialize list to store all parameters
   l_params_all <- list(
-    seed        = seed,
-    n_cohort    = n_cohort,
-    conf_level  = conf_level,
-    sex         = sex,
-    v_states    = v_states,
-    v_cancer    = v_cancer,
-    v_death     = v_death
+    seed          = seed,
+    n_cohort      = n_cohort,
+    conf_level    = conf_level,
+    sex           = sex,
+    v_states      = v_states,
+    v_cancer      = v_cancer,
+    v_death       = v_death,
+    n_lesions_max = n_lesions_max
   )
   
   #### Load input data ####
@@ -63,10 +73,10 @@ load_model_params <- function(
       
       # Create distribution data
       d_time_C_Dc[[i]] <- list(distr = "empirical", 
-                                params = list(xs = temp_surv_data$years_from_dx, 
-                                              probs = probs, 
-                                              max_x = max_age), 
-                                src = "known")
+                               params = list(xs = temp_surv_data$years_from_dx, 
+                                             probs = probs, 
+                                             max_x = max_age), 
+                               src = "known")
     }
   } else {
     # If no survival file, create placeholder for true survival distribution 
@@ -75,8 +85,8 @@ load_model_params <- function(
     d_time_C_Dc <- list()
     for (i in v_cancer) {    
       d_time_C_Dc[[i]] <- list(distr = NULL,
-                                params = NULL,
-                                src = "known")
+                               params = NULL,
+                               src = "known")
     }
   }
   
@@ -97,19 +107,29 @@ load_model_params <- function(
     # Add next distributions depending on whether model includes precancerous lesion state
     if("L" %in% v_states) {
       # Time to precancerous lesion onset
-      d_time_H_L = list(distr = "weibull", 
-                      params = list(shape = 1, scale = 1), 
-                      src = "unknown")
+      d_time_H_L <- list(distr = "weibull", 
+                         params = list(shape = 1, scale = 1), 
+                         src = "unknown")
       
       # Time from precancerous lesion onset to preclinical cancer onset
-      d_time_L_P = list(distr = "exp", 
-                      params = list(rate = 1), 
-                      src = "unknown")
+      d_time_L_P <- list(distr = "exp", 
+                         params = list(rate = 1), 
+                         src = "unknown")
+      
+      # Rate of lesion development after onset
+      d_n_L <- list(distr = "pois", 
+                    params = list(lambda = 1), 
+                    src = "unknown")
+      
+      # Time to additional lesion development after onset
+      d_time_L_Lj <- list(distr = "unif",
+                          params = list(min = 0, max = 1),
+                          src = "assumed")
     } else {
       # Time to preclinical cancer onset
       d_time_H_P = list(distr = "weibull", 
-                      params = list(shape = 1, scale = 1), 
-                      src = "unknown")
+                        params = list(shape = 1, scale = 1), 
+                        src = "unknown")
     }
     
     # Add default distributions for cancer progression by stage

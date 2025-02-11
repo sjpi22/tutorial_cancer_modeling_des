@@ -12,6 +12,7 @@ rm(list = ls())
 library(tidyverse)
 library(dplyr)
 library(doBy)
+library(patchwork)
 
 ###### 1.1 Load functions =================================================
 
@@ -47,14 +48,11 @@ m_param_samp <- calibration_outputs$good_parm_draws %>%
 # Load true parameters
 df_true_params <- readRDS(file_truth)
 
-# Set number of cores to use
-registerDoParallel(cores=detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
-
 
 #### 4. Internal validation  ===========================================
 
 # Sample with replacement
-n_imabc_sample <- nrow(calibration_outputs$good_parm_draws) * 10
+n_imabc_sample <- nrow(calibration_outputs$good_parm_draws) * nrow(calibration_outputs$good_parm_draws)
 indices_imabc_sample <- sample(1:nrow(calibration_outputs$good_parm_draws), 
                                n_imabc_sample, 
                                replace = TRUE, 
@@ -68,14 +66,14 @@ df_params_long <- imabc_params %>%
   pivot_longer(everything())
 
 # Get posterior outputs
-imabc_targets_unweighted <- calibration_results$good_sim_target %>%
+imabc_targets_unweighted <- calibration_outputs$good_sim_target %>%
   dplyr::select(-c("iter", "draw", "step"))
 
 m_outputs <- as.matrix(imabc_targets_unweighted[indices_imabc_sample, ])
 
 # Summarize targets
 # Note: weight for 50th and 95th with resampling
-collapse_mean  <- t(summaryBy( . ~ index , FUN=c(weighted.mean), w = calibration_results$good_parm_draws$sample_wt, data=imabc_targets_unweighted, keep.names=TRUE))
+collapse_mean  <- t(summaryBy( . ~ index , FUN=c(weighted.mean), w = calibration_outputs$good_parm_draws$sample_wt, data=imabc_targets_unweighted, keep.names=TRUE))
 collapse_UB_95 <- apply(m_outputs, 2, FUN=quantile, probs = 0.975, simplify = TRUE)
 collapse_LB_95 <- apply(m_outputs, 2, FUN=quantile, probs = 0.025, simplify = TRUE)
 collapse_UB_50 <- apply(m_outputs, 2, FUN=quantile, probs = 0.75, simplify = TRUE)

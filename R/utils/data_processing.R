@@ -145,14 +145,7 @@ load_calibration_targets <- function(l_filepaths){
   l_true_targets <- list()
   for (label in names(l_filepaths)) {
     filedata <- do.call(paste0("load_", label), 
-                        list(l_filepaths[[label]], label)) %>%
-      dplyr::select(any_of(c("target_names", "target_groups", 
-                             "target_index",  
-                             "age_start", "age_end",
-                             "targets", "se", 
-                             "ci_lb", "ci_ub", 
-                             "total_atrisk", "n_events",
-                             "sex", "lesion_type")))
+                        list(l_filepaths[[label]], label))
     l_true_targets[[label]] <- filedata 
   }
   return(l_true_targets)

@@ -28,8 +28,8 @@ sapply(distr.sources, source, .GlobalEnv)
 ###### 2.1 file paths
 file_params <- "data/calibration_params.rds"
 outpath <- "output/calibration/BayCANN"
-file_sample <- file.path(outpath, 'sample_BayCANN.rds')
-file_fig_coverage <- file.path(outpath, 'plots', 'fig_coverage_BayCANN.png')
+file_sample <- file.path(outpath, "sample_BayCANN.rds")
+file_fig_coverage <- file.path(outpath, "plots", "fig_coverage_BayCANN.png")
 
 ###### 2.2 BayCANN parameters
 n_samp_per_param <- 1000
@@ -102,10 +102,10 @@ colnames(m_outputs) <- l_params_calib$df_true_targets$target_names
 # Check for any NaN
 validate_that(
   sum(sapply(m_param_samp, function(x) any(is.nan(x)))) == 0, 
-  msg = 'Parameters include NaN')
+  msg = "Parameters include NaN")
 validate_that(
   sum(sapply(m_outputs, function(x) any(is.nan(x)))) == 0, 
-  msg = 'Outputs include NaN')
+  msg = "Outputs include NaN")
 
 # Save parameter sample and corresponding outputs
 saveRDS(list(m_param_samp = m_param_samp, 
