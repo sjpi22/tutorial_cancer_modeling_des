@@ -1,5 +1,5 @@
 # Load general parameters for calibration
-load_calib_params <- function(l_params_all, # Model parameters to update
+load_calib_params <- function(l_params_model, # Model parameters to update
                               target_files, # List of file paths with targets
                               l_outcome_params, # Path to file with outcome parameters
                               l_censor_vars, # List of variables to combine for censor variables
@@ -11,7 +11,7 @@ load_calib_params <- function(l_params_all, # Model parameters to update
                               showWarnings = FALSE) {
   
   # Update model parameters from function inputs
-  updated_params <- list(v_strats = l_params_all$v_strats[1])
+  updated_params <- list(v_strats = l_params_model$v_strats[1])
   if (!is.null(n_cohort_calib)) {
     updated_params <- c(updated_params, list(n_cohort = n_cohort_calib))
   }
@@ -20,8 +20,8 @@ load_calib_params <- function(l_params_all, # Model parameters to update
     updated_params <- c(updated_params, list(seed = seed_calib))
   }
   
-  l_params_all <- update_param_list(
-    l_params_all,
+  l_params_model <- update_param_list(
+    l_params_model,
     updated_params
   )
   
@@ -43,7 +43,7 @@ load_calib_params <- function(l_params_all, # Model parameters to update
     # Subset targets to specified sex if applicable
     if ("sex" %in% colnames(l_true_targets[[label]])) {
       l_true_targets[[label]] <- l_true_targets[[label]] %>%
-        filter(sex %in% c(l_params_all$sex, "both"))
+        filter(sex %in% c(l_params_model$sex, "both"))
     }
     
     # Augment parameters with v_ages for calculating outcomes
@@ -66,13 +66,13 @@ load_calib_params <- function(l_params_all, # Model parameters to update
   prior_map <- readRDS(prior_file)
   
   # Update default parameters with  mean of priors
-  l_params_all <- update_param_from_map(l_params_all, 
+  l_params_model <- update_param_from_map(l_params_model, 
                                         v_params_update = rowMeans(prior_map[, c("min", "max")]), 
                                         param_map = prior_map)
   
   # Return list of calibration parameters
   l_params_calib <- list(
-    l_params_all = l_params_all,
+    l_params_model = l_params_model,
     df_true_targets = df_targets_flattened,
     l_outcome_params = l_outcome_params,
     l_censor_vars = l_censor_vars,
@@ -133,7 +133,7 @@ reshape_calib_outputs <- function(l_calib_outputs, var_to_keep = "value") {
 
 
 # Wrapper for running calibration and outputting vector of outputs
-params_to_calib_outputs <- function(l_params_all, v_params_update = NULL, 
+params_to_calib_outputs <- function(l_params_model, v_params_update = NULL, 
                                     param_map = NULL,
                                     l_outcome_params, l_censor_vars,
                                     reshape_output = TRUE, 
@@ -144,9 +144,9 @@ params_to_calib_outputs <- function(l_params_all, v_params_update = NULL,
     if (is.null(param_map)) {
       stop("Input parameter map")
     }
-    l_params_update <- update_param_from_map(l_params_all, v_params_update, param_map)
+    l_params_update <- update_param_from_map(l_params_model, v_params_update, param_map)
   } else {
-    l_params_update <- l_params_all
+    l_params_update <- l_params_model
   }
   
   # Run decision model

@@ -31,7 +31,7 @@ load_model_params <- function(
   }
   
   # Initialize list to store all parameters
-  l_params_all <- list(
+  l_params_model <- list(
     seed          = seed,
     n_cohort      = n_cohort,
     conf_level    = conf_level,
@@ -49,7 +49,7 @@ load_model_params <- function(
   d_time_H_Do <- list()
   max_age <- 0
   for(label in names(l_lifetables)) {
-    d_time_H_Do[[label]] <- with(l_params_all, {
+    d_time_H_Do[[label]] <- with(l_params_model, {
       l_distr <- set_mort_distr(
         l_lifetables, 
         label
@@ -157,8 +157,8 @@ load_model_params <- function(
   # Remove variable for looping
   l_params_update$i <- NULL
   
-  # Add updated variables to l_params_all
-  l_params_all <- c(l_params_all, rev(l_params_update))
+  # Add updated variables to l_params_model
+  l_params_model <- c(l_params_model, rev(l_params_update))
   
   # Load distribution file if given
   if (!is.null(file.distr)) {
@@ -183,26 +183,26 @@ load_model_params <- function(
         .groups = "drop"
       ) 
     
-    # Loop over grouped parameters and update l_params_all for variables in the list
+    # Loop over grouped parameters and update l_params_model for variables in the list
     for (i in seq(nrow(df_distr_grouped))) {
-      if (df_distr_grouped$var_name[i] %in% names(l_params_all)) {
+      if (df_distr_grouped$var_name[i] %in% names(l_params_model)) {
         # Get list of of values to update
         l_distr_updates <- list(distr = df_distr_grouped$distr[i],
                                 params = as.list(df_distr_grouped$params[[i]]))
         
         # Check if distribution has an index within a nested list and update the distribution
         if (is.na(df_distr_grouped$idx[i])) {
-          l_params_all[[df_distr_grouped$var_name[i]]]$distr <- l_distr_updates$distr
-          l_params_all[[df_distr_grouped$var_name[i]]]$params <- l_distr_updates$params
+          l_params_model[[df_distr_grouped$var_name[i]]]$distr <- l_distr_updates$distr
+          l_params_model[[df_distr_grouped$var_name[i]]]$params <- l_distr_updates$params
         } else {
-          l_params_all[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$distr <- l_distr_updates$distr
-          l_params_all[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$params <- l_distr_updates$params
+          l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$distr <- l_distr_updates$distr
+          l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$params <- l_distr_updates$params
         }
       }
     }
   }
   
-  return(l_params_all)
+  return(l_params_model)
 }
 
 
@@ -211,20 +211,20 @@ load_model_params <- function(
 #' \code{update_param_list} is used to update list of all parameters with new 
 #' values for specific parameters
 #'
-#' @param l_params_all List with all parameters of decision model
+#' @param l_params_model List with all parameters of decision model
 #' @param params_updated Parameters for which values need to be updated
 #' 
 #' @return A list with all parameters updated
 #' @export
-update_param_list <- function(l_params_all, params_updated){
+update_param_list <- function(l_params_model, params_updated){
   
   if (typeof(params_updated) != "list"){
     # Convert the named vector to a list
     params_updated <- split(unname(params_updated), names(params_updated)) 
   }
   # Update the values
-  l_params_all <- modifyList(l_params_all, params_updated) 
-  return(l_params_all)
+  l_params_model <- modifyList(l_params_model, params_updated) 
+  return(l_params_model)
 }
 
 #' Update parameters given in the specified parameter vector and mapping
@@ -232,10 +232,10 @@ update_param_list <- function(l_params_all, params_updated){
 #' \code{update_param_from_map} is used to update list of all parameters with 
 #' new values for specific parameters using a mapping dataframe
 #'
-#' @param l_params_all List with all parameters of decision model
+#' @param l_params_model List with all parameters of decision model
 #' @param v_params_update Vector of new parameter values
 #' @param param_map Dataframe as created by make_param_map below with columns 
-#' var_name (parameter label in l_params_all), var_distr (distribution of 
+#' var_name (parameter label in l_params_model), var_distr (distribution of 
 #' parameter), param_name (name of parameter in distribution function), 
 #' param_index (index of parameter if a vector, otherwise 1), param_val 
 #' (old saved value of parameter), and var_id (unique variable ID consisting of
@@ -243,9 +243,9 @@ update_param_list <- function(l_params_all, params_updated){
 #' 
 #' @return A list with all parameters updated
 #' @export
-update_param_from_map <- function(l_params_all, v_params_update, param_map) {
+update_param_from_map <- function(l_params_model, v_params_update, param_map) {
   # Make copy of parameter list
-  l_params_update <- copy(l_params_all)
+  l_params_update <- copy(l_params_model)
   
   # Update parameters based on mapping
   assertthat::are_equal(length(v_params_update), nrow(param_map))
@@ -266,10 +266,10 @@ update_param_from_map <- function(l_params_all, v_params_update, param_map) {
 
 
 # Function to make dataframe of parameters
-make_param_map <- function(l_params_all, src = 'unknown') {
-  param_map <- lapply(names(l_params_all), function(x) {
+make_param_map <- function(l_params_model, src = 'unknown') {
+  param_map <- lapply(names(l_params_model), function(x) {
     # Find distribution variables, which have 'params' item
-    var <- l_params_all[[x]]
+    var <- l_params_model[[x]]
     if ('params' %in% names(var)) {
       # Only keep distributions that are unknown (not from data or assumption)
       if (var$src %in% src) {

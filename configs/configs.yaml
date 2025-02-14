@@ -14,9 +14,13 @@ params_model:
   n_cohort: 100000         # Number to simulate per cohort
   lesion_state: TRUE      # Indicator to include precancerous lesion state
   v_cancer: [1, 2, 3, 4]   # Cancer stages in order
+  file.mort: "data/background_mortality.xlsx" # File path for background mortality data
+  file.surv: "data/relative_survival_cancer.csv" # File path for relative survival from cancer diagnosis data
 
 # Calibration parameters
 params_calib:
+  seed_calib: 42
+  file_priors: "data/priors.csv" # File path for prior distributions for calibration parameters
   l_outcome_params: # Parameters for calculating calibration outcomes
     prevalence:
       file_path: "data/prevalence_preclinical_cancer.csv"

@@ -1,26 +1,22 @@
-###########################  Create Prior Distributions  ##########################
+###########################  Create prior distributions  ##########################
 #
-#  Objective: Establish data-driven prior distributions for model parameters
-#  if priors do not exist
+#  Objective: Refine data-driven prior distributions for model parameters
 ########################### <<<<<>>>>> #########################################
 
+rm(list = ls()) # Clean environment
+options(scipen = 999) # View data without scientific notation
 
 #### 1.Libraries and functions  ==================================================
-# Clean environment
-rm(list = ls())
-options(scipen = 99)
 
+###### 1.1 Load packages
 library(readxl)
 library(tidyverse)
-library(lhs)
 library(assertthat)
 library(data.table)
 library(cobs) # For fitting constrained B-splines
 library(sandwich) # For heteroskedasticity-robust linear model standard errors
-library(lhs) # For Latin hypercube sampling
-library(tools) # For title case
 
-###### 1.1 Load functions =================================================
+###### 1.2 Load functions
 distr.sources <- list.files("R", 
                             pattern="*.R$", full.names=TRUE, 
                             ignore.case=TRUE, recursive = TRUE)
@@ -31,70 +27,58 @@ ir_clinical <- function(x) {
   return(pmax(0, predict(fit_spline, x)[, "fit"]))
 }
 
+
 #### 2. General parameters ========================================================
 
-###### 2.1 file paths 
-target_files <- list(
-  prevalence = "data/prevalence_asymptomatic_cancer.csv",
-  incidence = "data/incidence_symptomatic_cancer.csv",
-  stage_distr = "data/stage_distr.csv")
-prior_file <- "data/priors.rds"
+###### 2.1 Configurations
+# Run file to process configurations
+source("configs/process_configs.R")
 
-###### 2.2 model parameters
-seed_calib <- 42
-max_age <- 111
-n_cohort <- 100000
-v_ages <- seq(0, max_age, 0.25)
+###### 2.2 Other parameters
 alpha <- 0.01
 multiplier_bounds <- 0.2
-
-# Define parameters for calculating outcomes
-# Names of lists should be the same as those of target_files
-l_outcome_params <- list(
-  prevalence = list(
-    outcome_name = "prevalence",
-    m_patients = "m_patients",
-    start_var = "time_H_P", 
-    end_var = "time_H_C", 
-    censor_var = "time_screen_censor"),
-  incidence = list(
-    outcome_name = "incidence",
-    m_patients = "m_patients",
-    time_var = "time_H_C", 
-    censor_var = "time_H_D"),
-  stage_distr = list(
-    outcome_name = "distr",
-    m_patients = "m_patients",
-    grouping_var = "stage_dx", 
-    event_var = "time_H_C", 
-    censor_var = "time_H_D",
-    groups_expected = 1:4)
-)
-
-l_censor_vars <- list(
-  time_screen_censor = c("time_H_C", "time_H_D")
-)
-
+age_interval <- 0.25
 v_cols <- c("targets", "ci_lb", "ci_ub")
 
 
 #### 3. Load data  ===========================================
 
 # Load targets
-l_true_targets <- load_calibration_targets(target_files)
+l_true_targets <- load_calibration_targets(params_calib$l_outcome_params)
 
-# Calculate approximate confidence intervals for incidence
-l_true_targets$incidence <- l_true_targets$incidence %>%    
-  mutate(ci_lb = pmax(0, targets - qnorm(1 - alpha/2)*se),
-         ci_ub = targets + qnorm(1 - alpha/2)*se)
-
-# Rescale incidence values by unit
-for (val in c(v_cols, "se")) {
-  l_true_targets$incidence[[val]] <- l_true_targets$incidence[[val]] / l_true_targets$incidence$unit
+# Process incidence data
+for (target in names(params_calib$l_outcome_params)) {
+  if (params_calib$l_outcome_params[[target]][["outcome_type"]] == "incidence") {
+    # Calculate approximate confidence intervals for incidence
+    l_true_targets[[target]] <- l_true_targets[[target]] %>%    
+      mutate(ci_lb = pmax(0, targets - qnorm(1 - alpha/2)*se),
+             ci_ub = targets + qnorm(1 - alpha/2)*se)
+    
+    # Rescale incidence values by unit
+    for (val in c(v_cols, "se")) {
+      l_true_targets[[target]][[val]] <- l_true_targets[[target]][[val]] / l_true_targets[[target]]$unit
+    }
+  }
 }
 
-# Load survival data
-df_surv <- load_surv_data("data/relative_survival_cancer.csv")
+# Load ground truth model parameters
+l_params_model <- do.call(load_model_params, c(
+  params_model,
+  list(seed = params_calib$seed_calib)
+))
+
+# Set variables dependent on parameters
+max_age <- l_params_model$max_age
+v_ages <- seq(0, max_age, 0.25)
+if (params_model$lesion_state == T) {
+  target1 <- "prevalence_lesion"
+  target2 <- "prevalence"
+} else {
+  target1 <- "prevalence"
+}
+
+# Set seed
+set.seed(params_calib$seed_calib)
 
 
 #### 4. Derive prior distribution for time to disease onset  ===========================================
@@ -105,21 +89,20 @@ df_surv <- load_surv_data("data/relative_survival_cancer.csv")
 m_death <- data.table()
 
 # Sample every three values of ages for spline knots
-v_knots_Dc <- df_surv[df_surv$stage == 1, "years_from_dx"]
+v_knots_Dc <- l_params_model$d_time_C_Dc[[1]]$params$xs
 v_knots_Dc <- c(v_knots_Dc[seq(1, length(v_knots_Dc), 4)], max_age)
 
 # Fit splines to survival
-v_cancer <- unique(df_surv$stage)
-par(mfrow = c(length(v_cancer)/2, 2))
+par(mfrow = c(length(l_params_model$v_cancer)/2, 2))
 d_time_C_Dc <- list()
-for (i in v_cancer) {
-  # Filter survival data to stage at diagnosis
-  temp_surv_data <- df_surv[df_surv$stage == i, ]
+for (i in l_params_model$v_cancer) {
+  # Calculate cumulative percentage dead from survival distribution
+  pct_died <- cumsum(l_params_model$d_time_C_Dc[[i]]$params$probs)
   
   # Fit spline to survival data
   fit_spline_Dc <- cobs(
-    x = temp_surv_data$years_from_dx,
-    y = temp_surv_data$pct_died, 
+    x = l_params_model$d_time_C_Dc[[i]]$params$xs[-1],
+    y = head(pct_died, -1), 
     constraint = c("increase", "concave"),
     knots = v_knots_Dc,
     pointwise = matrix(c(0, 0, 0), ncol = 3))
@@ -136,15 +119,15 @@ for (i in v_cancer) {
   probs <- diff(cdf_Dc)
   probs <- c(probs, 1 - sum(probs))
   
-  # Create distribution data
+  # Create spline distribution data
   d_time_C_Dc[[i]] <- list(distr = "empirical", 
                            params = list(xs = v_ages, 
                                          probs = probs, 
                                          max_x = max_age))
   
-  # Simulate time to death
+  # Simulate time to death with spline
   m_death[, paste0("time_C", i, "_Dc") := query_distr(
-    "r", n_cohort, 
+    "r", l_params_model$n_cohort, 
     d_time_C_Dc[[i]]$distr, 
     d_time_C_Dc[[i]]$params
   )]
@@ -152,7 +135,6 @@ for (i in v_cancer) {
 
 # Get expectation of time to death
 mean_Dc <- sum(l_true_targets$stage_distr$targets * colMeans(m_death))
-
 
 ##### 4.2 Derive time-to-event distribution from targets using splines
 
@@ -183,7 +165,7 @@ for (val in v_cols) {
   # If cancer patients were considered not at risk after diagnosis in incidence calculate,
   # convert clinical cancer cumulative hazard to cumulative probability,
   # but if they were considered still at risk, the cumulative hazard is actually the cumulative probability
-  if (l_outcome_params$incidence$censor_var == "time_H_C") {
+  if (params_calib$l_outcome_params$incidence$censor_var == "time_H_C") {
     # Plot spline fit
     plot(fit_spline, xlab = "Age", ylab = "Incidence", main = paste("Spline fit:", label),
          xlim = c(0, max(l_true_targets$incidence$age_end) + 1))
@@ -194,7 +176,7 @@ for (val in v_cols) {
     
     # Calculate cumulative probability of clinical cancer
     l_p_clinical[[val]] <- 1 - exp(-chaz_clinical)
-  } else if (l_outcome_params$incidence$censor_var == "time_H_D") {
+  } else if (params_calib$l_outcome_params$incidence$censor_var == "time_H_D") {
     # Estimate percent dead from cancer
     pct_dead <- sapply(l_true_targets$incidence$target_index,
                        function(t) integrate(function(u) ir_clinical(u)*(t - pmax(u, t - mean_Dc))/mean_Dc, lower = 0, upper = t)[["value"]])
@@ -223,22 +205,37 @@ for (val in v_cols) {
   
   # Calculate probabilities for time to preclinical cancer by adding and scaling preclinical prevalence and clinical probability
   l_true_targets$prevalence[[paste("p", val, sep = "_")]] <- l_true_targets$prevalence[[val]] * (1 - l_p_clinical[[val]]) + l_p_clinical[[val]]
+  
+  # Calculate probabilities for time to precancerous lesion by adding and scaling lesion prevalence and preclinical probability
+  if (params_model$lesion_state == T) {
+    l_true_targets[[target1]][[paste("p", val, sep = "_")]] <- l_true_targets[[target1]][[val]] * (1 - l_p_clinical[[val]]) + l_p_clinical[[val]]
+  }
 }
 
 # Plots
 par(mfrow = c(1, 1))
 for (val in v_cols) {
+  # Plot targets
   if (val == "targets") {
-    # Plot estimated preclinical cancer CDF
-    plot(l_true_targets$prevalence$target_index, l_true_targets$prevalence$p_targets,
-         type = "l",
+    # Plot estimated disease onset CDF
+    plot(l_true_targets[[target1]]$target_index, l_true_targets[[target1]]$p_targets,
+         type = "l", ylim = c(0, max(l_true_targets[[target1]]$p_ci_ub)),
          xlab = "Age", ylab = "Probability")
+    
+    # Plot preclinical cancer CDF if model includes lesion state
+    if (params_model$lesion_state == T) {
+      lines(l_true_targets[[target2]]$target_index, l_true_targets[[target2]]$p_targets, col = "purple", type = "l")
+    }
     
     # Plot estimated clinical cancer CDF
     lines(l_true_targets$prevalence$target_index, l_p_clinical[[val]], col = "red", type = "l")
   } else {
+    # Plot error bounds
+    lines(l_true_targets[[target1]]$target_index, l_true_targets[[target1]][[paste("p", val, sep = "_")]], col = "black", type = "l", lty = 2)
+    if (params_model$lesion_state == T) {
+      lines(l_true_targets[[target2]]$target_index, l_true_targets[[target2]][[paste("p", val, sep = "_")]], col = "purple", type = "l", lty = 2)
+    }
     lines(l_true_targets$prevalence$target_index, l_p_clinical[[val]], col = "red", type = "l", lty = 2)
-    lines(l_true_targets$prevalence$target_index, l_true_targets$prevalence[[paste("p", val, sep = "_")]], col = "black", type = "l", lty = 2)
   }
 }
 
@@ -248,44 +245,40 @@ arrows(l_true_targets$prevalence$target_index, l_true_targets$prevalence$ci_lb,
        col = "blue")
 
 # Add legend
-legend("bottomright", legend=c("Clinical CDF", "Preclinical CDF", "Prevalence"),
-       col = c("black", "red", "blue"), lty = c(1, 1))
+v_labs <- c("Preclinical CDF", "Clinical CDF", "Preclinical Prevalence")
+if (params_model$lesion_state == T) {
+  v_labs <- c("Lesion CDF", v_labs)
+  v_colors <- c("black", "purple", "red", "blue")
+} else {
+  v_colors <- c("black", "red", "blue")
+}
+legend("topleft", legend = v_labs, col = v_colors, lty = rep(1, length(v_labs)))
 
-
-##### 4.3 Fit Weibull distribution to time to preclinical cancer
+##### 4.5 Fit Weibull distribution to time to disease onset
 
 # Calculate Weibull x transformation
-l_true_targets$prevalence <- l_true_targets$prevalence %>%
+l_true_targets[[target1]] <- l_true_targets[[target1]] %>%
   mutate(x_transformed = log(target_index))
 
 # Calculate Weibull y transformation
-for (val in v_cols) {# Add spline predictions to preclinical cancer prevalence to calculate preclinical cancer cumulative probability
-  l_true_targets$prevalence[[paste("y", val, sep = "_")]] <- log(-log(1 - l_true_targets$prevalence[[paste("p", val, sep = "_")]]))
+for (val in v_cols) {
+  l_true_targets[[target1]][[paste("y", val, sep = "_")]] <- log(-log(1 - l_true_targets[[target1]][[paste("p", val, sep = "_")]]))
 }
 
 # Plot transformations to validate Weibull fit - should be linear
 for (val in v_cols) {
   if (val == v_cols[1]) {
-    plot(l_true_targets$prevalence$x_transformed, l_true_targets$prevalence[[paste("y", val, sep = "_")]], 
+    plot(l_true_targets[[target1]]$x_transformed, l_true_targets[[target1]][[paste("y", val, sep = "_")]], 
          xlab = "log(age)", ylab = "log(-log(1 - CDF))",
          main = "Transformations for Weibull regression",
-         ylim = range(l_true_targets$prevalence[paste("y", v_cols, sep = "_")]))
+         ylim = range(l_true_targets[[target1]][paste("y", v_cols, sep = "_")]))
   } else {
-    points(l_true_targets$prevalence$x_transformed, l_true_targets$prevalence[[paste("y", val, sep = "_")]])
+    points(l_true_targets[[target1]]$x_transformed, l_true_targets[[target1]][[paste("y", val, sep = "_")]])
   }
 }
 
-# Stack y data
-l_true_targets$prevalence_long <- rbind(
-  l_true_targets$prevalence %>%
-    select(x_transformed, y_transformed = y_ci_lb, se) %>%
-    mutate(type = "ci_lb"),
-  l_true_targets$prevalence %>%
-    select(x_transformed, y_transformed = y_ci_ub, se) %>%
-    mutate(type = "ci_ub"))
-
 # Get Weibull estimates using weighted linear regression
-fit_lm_mean <- lm(y_targets ~ x_transformed, data = l_true_targets$prevalence, 
+fit_lm_mean <- lm(y_targets ~ x_transformed, data = l_true_targets[[target1]], 
                   weights = 1/(y_ci_ub - y_ci_lb)^2) # Weight scales CI to log level
 
 # Get shape and scale estimates for time to preclinical cancer distribution
@@ -317,8 +310,9 @@ scale_H_P_bounds <- scale_H_P_ci * v_multiplier
 ##### 4.4 Update prior distribution
 
 # Update prior dataframe
-df_priors <- readRDS(prior_file)
-df_priors[df_priors$var_id == "d_time_H_P.shape", c("min", "max")] <- as.list(shape_H_P_bounds)
-df_priors[df_priors$var_id == "d_time_H_P.scale", c("min", "max")] <- as.list(scale_H_P_bounds)
+df_priors <- read.csv(params_calib$file_prior)
+df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".shape"), c("min", "max")] <- as.list(shape_H_P_bounds)
+df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".scale"), c("min", "max")] <- as.list(scale_H_P_bounds)
 
-saveRDS(df_priors, prior_file)
+# Overwrite prior file
+write.csv(df_priors, file = params_calib$file_priors, row.names = FALSE)

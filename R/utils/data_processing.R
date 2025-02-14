@@ -118,13 +118,14 @@ load_incidence <- function(filepath, target_groups = NULL) {
   return(filedata)
 }
 
-# Load cancer stage distribution data
-load_stage_distr <- function(filepath, target_groups = NULL) {
+# Load cancer stage distribution and other distribution data
+load_distr <- function(filepath, target_groups = NULL) {
   if (is.null(target_groups)) {
     target_groups <- "stage_distr"
   }
-  filedata <- read.csv(filepath) %>% 
-    rename(target_index = stage_dx) %>%
+  filedata <- read.csv(filepath) 
+  colnames(filedata)[1] <- "target_index"
+  filedata <- filedata %>% 
     mutate(target_groups = target_groups,
            target_names = paste(target_groups, target_index, sep="_"))
   return(filedata)
@@ -140,12 +141,12 @@ load_stage_distr <- function(filepath, target_groups = NULL) {
 #' @import readxl
 #' 
 #' @export
-load_calibration_targets <- function(l_filepaths){
+load_calibration_targets <- function(l_outcome_params){
   # Read files into list of data files
   l_true_targets <- list()
-  for (label in names(l_filepaths)) {
-    filedata <- do.call(paste0("load_", label), 
-                        list(l_filepaths[[label]], label))
+  for (label in names(l_outcome_params)) {
+    filedata <- do.call(paste0("load_", l_outcome_params[[label]][["outcome_type"]]), 
+                        list(l_outcome_params[[label]][["file_path"]], label))
     l_true_targets[[label]] <- filedata 
   }
   return(l_true_targets)

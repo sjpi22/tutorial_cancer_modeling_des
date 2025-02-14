@@ -10,7 +10,6 @@ options(scipen = 999) # View data without scientific notation
 #### 1.Libraries and functions  ==================================================
 
 ###### 1.1 Load packages
-library(yaml)
 library(readxl)
 library(data.table)
 library(tidyverse)
@@ -27,32 +26,22 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
-configs <- read_yaml(file.path("configs", "configs.yaml")) # Load configuration parameters
-list2env(configs, envir = .GlobalEnv) # Assign items within configs to global environment
-
-# Make updates for lesion model if necessary
-if ("lesion_state" %in% names(params_model)) {
-  if (params_model$lesion_state == T) {
-    params_calib$l_outcome_params <- c(params_calib$l_outcome_params_lesion, params_calib$l_outcome_params)
-  }
-}
+# Run file to process configurations
+source("configs/process_configs.R")
 
 ###### 2.2 File paths
-path_truth <- 'ground_truth'
+path_truth <- "_ground_truth"
 path_data <- paths$data
 file_distr <- file.path(path_truth, "true_params.xlsx")
-file_surv <- file.path(path_data, "relative_survival_cancer.csv")
-file_priors <- file.path(path_data, "priors.rds")
 
 # Check if data directory exists, make if not
 dir.create(file.path(path_data), showWarnings = FALSE)
 
 ###### 2.3 Other parameters
+# Simulation parameters and outcome reporting
 seed <- 2025 # Random seed for generating ground truth data
-n_screen_sample <- 20000
-
-# Outcome reporting
-v_time_surv <- seq(0, 10)                    # Times from event to calculate relative survival
+n_screen_sample <- 20000 # Subset of cohort for prevalence outputs
+v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 
 # Prior generation
 prior_pct_width_init <- 0.8 # Percentage width of initial randomly generated prior bounds
@@ -64,16 +53,17 @@ prior_pct_multiplier <- 0.2 # Final multiplier adjustment to increase bounds of 
 # Set seed
 set.seed(seed)
 
-# Load ground truth model parameters
-l_params_all <- do.call(load_model_params, c(
-  params_model,
+# Load ground truth model parameters (with file_surv set to NULL as survival data is generated in this script)
+l_params_model <- do.call(load_model_params, c(
+  modifyList(params_model,
+             list(file.surv = NULL),
+             keep.null = T),
   list(seed = seed,
-       file.distr = file_distr,
-       file.surv = NULL)
+       file.distr = file_distr)
 ))
 
 # Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
-param_map <- make_param_map(l_params_all)
+param_map <- make_param_map(l_params_model)
 
 # Establish priors by adding random noise around the true parameter values
 prior_map <- param_map %>%
@@ -98,7 +88,7 @@ for (target in names(params_calib$l_outcome_params)) {
 
 ###### 4.1 Simulate data and outputs
 # Simulate cohort
-m_cohort <- run_base_model(l_params_all)
+m_cohort <- run_base_model(l_params_model)
 
 # Separate patient and lesion data as necessary
 if (params_model$lesion_state == T) {
@@ -144,10 +134,10 @@ for (target in names(l_outputs)) {
   df_target <- l_outputs[[target]] %>%
     rename(targets = value) 
   
-  if (params_calib$l_outcome_params[[target]][[2]] == "prevalence") {
+  if (params_calib$l_outcome_params[[target]][["outcome_type"]] == "prevalence") {
     df_target <- df_target %>%
       dplyr::select(-c("person_years_cases", "person_years_total"))
-  } else if (params_calib$l_outcome_params[[target]][[2]] == "incidence") {
+  } else if (params_calib$l_outcome_params[[target]][["outcome_type"]] == "incidence") {
     df_target <- df_target %>%
       dplyr::select(-c("total_atrisk", "n_events"))
   }
@@ -159,8 +149,7 @@ for (target in names(l_outputs)) {
 }
 
 # Save disease-specific relative survival from diagnosis
-write.csv(output_surv, file_surv, row.names = FALSE)
+write.csv(output_surv, params_model$file.surv, row.names = FALSE)
 
 # Save priors
-saveRDS(prior_map, file = file_priors)
-
+write.csv(prior_map, file = params_calib$file_priors, row.names = FALSE)

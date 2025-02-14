@@ -1,42 +1,42 @@
 #' Generate time to event data for base case (no screening) decision model
 #'
-#' @param l_params_all List with all parameters of decision model
+#' @param l_params_model List with all parameters of decision model
 #' 
 #' @return Data table of time to event data for each individual
 #' 
 #' @export
-run_base_model <- function(l_params_all) {
+run_base_model <- function(l_params_model) {
   # Set seed
-  if(!is.null(l_params_all$seed)) {
-    set.seed(l_params_all$seed)
+  if(!is.null(l_params_model$seed)) {
+    set.seed(l_params_model$seed)
   }
   
   # Initialize matrix of patient data
-  m_cohort_base <- initialize_cohort(l_params_all)
+  m_cohort_base <- initialize_cohort(l_params_model)
   
   # Simulate baseline characteristics
-  simulate_baseline_data(m_cohort_base, l_params_all)
+  simulate_baseline_data(m_cohort_base, l_params_model)
   
   # Simulate disease (lesion and/or cancer) onset
-  simulate_disease_onset(m_cohort_base, l_params_all)
+  simulate_disease_onset(m_cohort_base, l_params_model)
   
   # Simulate additional lesion onset and lesion progression
-  if("L" %in% l_params_all$v_states) {
-    m_lesion <- simulate_additional_lesions(m_cohort_base, l_params_all)
-    simulate_lesion_progression(m_cohort_base, m_lesion, l_params_all)
+  if("L" %in% l_params_model$v_states) {
+    m_lesion <- simulate_additional_lesions(m_cohort_base, l_params_model)
+    simulate_lesion_progression(m_cohort_base, m_lesion, l_params_model)
   }
   
   # Simulate cancer progression
-  simulate_cancer_progression(m_cohort_base, l_params_all)
+  simulate_cancer_progression(m_cohort_base, l_params_model)
   
   # Simulate cancer mortality
-  simulate_cancer_mortality(m_cohort_base, l_params_all)
+  simulate_cancer_mortality(m_cohort_base, l_params_model)
   
   # Compile overall mortality outcomes from background and cancer data
   calc_mortality_outcomes(m_cohort_base)
   
   # Wrap no screening results
-  if("L" %in% l_params_all$v_states) {
+  if("L" %in% l_params_model$v_states) {
     res <- list(patient_level = m_cohort_base,
                 lesion_level = m_lesion)
   } else {
@@ -48,8 +48,8 @@ run_base_model <- function(l_params_all) {
 
 
 # Initialize time to event matrix for patient cohort with patient IDs and baseline strategy
-initialize_cohort <- function(l_params_all) {
-  m_times_init <- with(as.list(l_params_all), {
+initialize_cohort <- function(l_params_model) {
+  m_times_init <- with(as.list(l_params_model), {
     m_times <- data.table(
       pt_id = 1:n_cohort
     )
@@ -62,8 +62,8 @@ initialize_cohort <- function(l_params_all) {
 
 
 # Simulate baseline characteristics
-simulate_baseline_data <- function(m_times, l_params_all) {
-  with(l_params_all, {
+simulate_baseline_data <- function(m_times, l_params_model) {
+  with(l_params_model, {
     # Sample time to death from other causes for multiple sexes
     if (length(sex) > 1) {
       # Sample male / female
@@ -103,8 +103,8 @@ simulate_baseline_data <- function(m_times, l_params_all) {
 
 
 # Simulate disease (lesion or cancer) onset
-simulate_disease_onset <- function(m_times, l_params_all) {
-  with(l_params_all, {
+simulate_disease_onset <- function(m_times, l_params_model) {
+  with(l_params_model, {
     # If including lesion state, simulate time to lesion and cancer onset
     if("L" %in% v_states) {
       # Simulate time to first lesion onset
@@ -134,8 +134,8 @@ simulate_disease_onset <- function(m_times, l_params_all) {
 
 
 # Simulate development of additional lesions and output lesion-level data table
-simulate_additional_lesions <- function(m_times, l_params_all) {
-  m_lesion <- with(as.list(l_params_all), {
+simulate_additional_lesions <- function(m_times, l_params_model) {
+  m_lesion <- with(as.list(l_params_model), {
     # Subset to individuals with lesion onset before death
     m_lesion <- m_times[time_H_L < time_H_Do]
     
@@ -177,8 +177,8 @@ simulate_additional_lesions <- function(m_times, l_params_all) {
 
 
 # Simulate lesion progression to cancer
-simulate_lesion_progression <- function(m_times, m_lesion, l_params_all) {
-  with(as.list(l_params_all), {
+simulate_lesion_progression <- function(m_times, m_lesion, l_params_model) {
+  with(as.list(l_params_model), {
     # Account for case of no lesions
     if (!is.null(m_lesion)) {
       # Sample time to cancer
@@ -207,8 +207,8 @@ simulate_lesion_progression <- function(m_times, m_lesion, l_params_all) {
 
 
 # Simulate cancer stage progression by stage
-simulate_cancer_progression <- function(m_times, l_params_all) {
-  with(l_params_all, {
+simulate_cancer_progression <- function(m_times, l_params_model) {
+  with(l_params_model, {
     # Populate time to progression to next preclinical stage
     for (i in 1:(length(v_cancer)-1)) {
       var_progress <- paste0("time_P", v_cancer[i], "_P", v_cancer[i+1])
@@ -268,13 +268,13 @@ simulate_cancer_progression <- function(m_times, l_params_all) {
 
 
 # Simulate cancer mortality by stage at diagnosis among people with cancer onset before death from other causes
-simulate_cancer_mortality <- function(m_times, l_params_all) {
+simulate_cancer_mortality <- function(m_times, l_params_model) {
   # Get indices of patients with cancer onset before death from other causes
   # Not cancer diagnosis before death from other causes to be more conservative, in case screening may convert from preclinical to clinical before death
   idx <- m_times[time_H_P < time_H_Do, which = TRUE]
   
   if (length(idx) > 0) {
-    with(l_params_all, {
+    with(l_params_model, {
       m_times[idx, time_C_Dc := query_distr(
         "r", .N, 
         d_time_C_Dc[[stage_dx]]$distr, 
@@ -316,7 +316,7 @@ run_screening_counterfactual <- function(
     int_screen,
     p_sens,
     p_spec,
-    l_params_all,
+    l_params_model,
     m_times,
     m_lesion = NULL,
     verbose = FALSE
@@ -324,7 +324,7 @@ run_screening_counterfactual <- function(
   
   #### Case 1: Simulate screening before disease ####
   # Set variable for time to disease onset
-  var_onset <- paste("time", l_params_all$v_states[1], l_params_all$v_states[2], sep = "_")
+  var_onset <- paste("time", l_params_model$v_states[1], l_params_model$v_states[2], sep = "_")
   
   # Simulate screening during healthy state
   simulate_screening_H(m_times = m_times,
@@ -336,11 +336,11 @@ run_screening_counterfactual <- function(
   
   
   #### Case 2: Lesions developed by screen age, but no preclinical cancer ####
-  if ('L' %in% l_params_all$v_states) {
+  if ('L' %in% l_params_model$v_states) {
     # Simulate lesion progression to cancer
     simulate_screening_L(m_times = m_times, 
                          m_lesion = m_lesion,
-                         l_params_all = l_params_all,
+                         l_params_model = l_params_model,
                          age_screen_end = age_screen_end,
                          int_screen = int_screen,
                          p_sens = p_sens[["L"]],
@@ -350,7 +350,7 @@ run_screening_counterfactual <- function(
   
   #### Case 3: Preclinical cancer screening and surveillance ####
   simulate_screening_P(m_times = m_times,
-                       l_params_all = l_params_all,
+                       l_params_model = l_params_model,
                        age_screen_end = age_screen_end,
                        int_screen = int_screen,
                        p_sens = p_sens[["P"]],
@@ -401,7 +401,7 @@ simulate_screening_H <- function(m_times,
 simulate_screening_L <- function(m_times,
                                  m_lesion,
                                  var_onset,
-                                 l_params_all,
+                                 l_params_model,
                                  age_screen_end,
                                  int_screen,
                                  p_sens,
@@ -506,7 +506,7 @@ simulate_screening_L <- function(m_times,
 # Assumes that screening during healthy state has been completed for population,
 # which initializes the screen_age variable
 simulate_screening_P <- function(m_times,
-                                 l_params_all,
+                                 l_params_model,
                                  age_screen_end,
                                  int_screen,
                                  p_sens,
@@ -557,13 +557,13 @@ simulate_screening_P <- function(m_times,
   m_times[fl_detected == 1, `:=` (stage_dx = 1,
                                   time_P_C_running = time_P1_P2)]
   
-  for (stg in 2:length(l_params_all$v_cancer)) {
+  for (stg in 2:length(l_params_model$v_cancer)) {
     m_times[fl_detected == 1 & time_P_C > time_P_C_running, `:=` (stage_dx = stage_dx + 1,
                                                                   time_P_C_running = time_P_C_running + get(paste0("time_P", stg, "_P", stg + 1)))]
   }
   
   # Recalculate time to death from cancer among people with screen-detected cancer
-  with(l_params_all, {
+  with(l_params_model, {
     m_times[fl_detected == 1, time_C_Dc := query_distr(
       "r", .N,
       d_time_C_Dc[[v_surv[stage_dx]]]$distr,
