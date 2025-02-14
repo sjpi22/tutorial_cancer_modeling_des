@@ -91,7 +91,6 @@ calc_calib_outputs <- function(m_patients,
                                l_outcome_params,
                                l_censor_vars = NULL,
                                m_lesions = NULL) {
-  # browser()
   # Create censor variables
   if (!is.null(l_censor_vars)) {
     for (varname in names(l_censor_vars)) {
@@ -104,8 +103,8 @@ calc_calib_outputs <- function(m_patients,
   l_results <- list()
   for (outcome in names(l_outcome_params)) {
     l_results[[outcome]] <- do.call(
-      paste0("calc_", l_outcome_params[[outcome]][[1]]), 
-      c(list(get(l_outcome_params[[outcome]][[2]])), tail(l_outcome_params[[outcome]], -2)))
+      paste0("calc_", l_outcome_params[[outcome]][[2]]), 
+      c(list(get(l_outcome_params[[outcome]][[3]])), tail(l_outcome_params[[outcome]], -3)))
   }
   
   # Return outputs

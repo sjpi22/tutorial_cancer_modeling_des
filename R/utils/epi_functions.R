@@ -27,7 +27,7 @@ calc_prevalence <- function(m_patients, start_var, end_var, censor_var, v_ages,
   res <- cbind(res, t(mapply(
     function(age_start, age_end) {
       denom <- unname(unlist(m_screen_sample[, sum(pmax(pmin(get(censor_var), age_end) - age_start, 0))]))
-      num <- unname(unlist(m_screen_sample[, sum(pmax(pmin(get(end_var), get(censor_var), age_end, na.rm = TRUE) - pmax(get(start_var), age_start, na.rm = TRUE), 0))]))
+      num <- unname(unlist(m_screen_sample[, sum(pmax(pmin(get(end_var), get(censor_var), age_end, na.rm = TRUE) - pmax(pmin(get(start_var), Inf, na.rm = T), age_start, na.rm = TRUE), 0))]))
       return(c(
         person_years_cases = num, 
         person_years_total = denom, 

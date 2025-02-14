@@ -46,6 +46,7 @@ max_age <- 111
 n_cohort <- 100000
 v_ages <- seq(0, max_age, 0.25)
 alpha <- 0.01
+multiplier_bounds <- 0.2
 
 # Define parameters for calculating outcomes
 # Names of lists should be the same as those of target_files
@@ -75,6 +76,7 @@ l_censor_vars <- list(
 )
 
 v_cols <- c("targets", "ci_lb", "ci_ub")
+
 
 #### 3. Load data  ===========================================
 
@@ -307,12 +309,16 @@ coefs_H_P_ci <- cbind(coefs_H_P_lb, coefs_H_P_ub)
 shape_H_P_ci <- coefs_H_P_ci[2, ]
 scale_H_P_ci <- rev(exp(-coefs_H_P_ci[1,]/shape_H_P_ci))
 
+# Increase CIs by multiplier bounds
+v_multiplier <- c(1 - multiplier_bounds, 1 + multiplier_bounds)
+shape_H_P_bounds <- shape_H_P_ci * v_multiplier
+scale_H_P_bounds <- scale_H_P_ci * v_multiplier
 
 ##### 4.4 Update prior distribution
 
 # Update prior dataframe
 df_priors <- readRDS(prior_file)
-df_priors[df_priors$var_id == "d_time_H_P.shape", c("min", "max")] <- as.list(shape_H_P_ci)
-df_priors[df_priors$var_id == "d_time_H_P.scale", c("min", "max")] <- as.list(scale_H_P_ci)
+df_priors[df_priors$var_id == "d_time_H_P.shape", c("min", "max")] <- as.list(shape_H_P_bounds)
+df_priors[df_priors$var_id == "d_time_H_P.scale", c("min", "max")] <- as.list(scale_H_P_bounds)
 
 saveRDS(df_priors, prior_file)

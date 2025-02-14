@@ -1,0 +1,54 @@
+# Configurations for decision model and calibration
+
+# File paths
+paths:
+  data: "data"
+  output: "output"
+  figures: "figures"
+  tables: "tables"
+  model: "model"
+  calibration: "calibration"
+  
+# Model parameters (inputs to load_model_params() in R/01_load_model_inputs.R)
+params_model:
+  n_cohort: 100000         # Number to simulate per cohort
+  lesion_state: TRUE      # Indicator to include precancerous lesion state
+  v_cancer: [1, 2, 3, 4]   # Cancer stages in order
+
+# Calibration parameters
+params_calib:
+  l_outcome_params: # Parameters for calculating calibration outcomes
+    prevalence:
+      file_path: "data/prevalence_preclinical_cancer.csv"
+      outcome_type: "prevalence"
+      m_patients: "m_patients"
+      start_var: "time_H_P"
+      end_var: "time_H_C"
+      censor_var: "time_screen_censor"
+      v_ages: [30, 40, 50, 60, 70, 80]
+    incidence:
+      file_path: "data/incidence_clinical_cancer.csv"
+      outcome_type: "incidence"
+      m_patients: "m_patients"
+      time_var: "time_H_C"
+      censor_var: "time_H_D"
+      v_ages: [30, 40, 50, 60, 70, 80, 90]
+    stage_distr:
+      file_path: "data/stage_distr_clinical_cancer.csv"
+      outcome_type: "distr"
+      m_patients: "m_patients"
+      grouping_var: "stage_dx"
+      event_var: "time_H_C"
+      censor_var: "time_H_D"
+      groups_expected: [1, 2, 3, 4] # Should be same as v_cancer unless using different stage classification for targets from simulated stages
+  l_outcome_params_lesion: # Parameters for calculating lesion-model-specific calibration outcomes
+    prevalence_lesion:
+      file_path: "data/prevalence_lesion.csv"
+      outcome_type: "prevalence"
+      m_patients: "m_patients"
+      start_var: "time_H_L"
+      end_var: "time_H_P"
+      censor_var: "time_screen_censor"
+      v_ages: [30, 40, 50, 60, 70, 80]
+  l_censor_vars:
+    time_screen_censor: ["time_H_C", "time_H_D"]

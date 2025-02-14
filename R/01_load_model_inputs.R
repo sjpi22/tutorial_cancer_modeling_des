@@ -14,10 +14,11 @@ load_model_params <- function(
     sex           = c("male", "female"),   # Determines which mortality table(s) to use - male only, female only, or male and female
     p_male        = 0.5,                   # Proportion of males born in population - only used if sex is c("male", "female")
     lesion_state  = FALSE,                 # Indicator to include precancerous lesion state
-    n_lesions_max = 20,                   # Maximum number of precancerous lesions
+    n_lesions_max = 20,                    # Maximum number of precancerous lesions
     v_cancer      = seq(4),                # Cancer stages in order
     v_death       = c("o", "c"),           # Death causes
-    file.mort     = "data/background_mortality.xlsx",   # Path to background mortality data
+    file.distr    = NULL,                  # Path to distribution file if loading from file
+    file.mort     = "data/background_mortality.xlsx",     # Path to background mortality data
     file.surv     = "data/relative_survival_cancer.csv"){ # Path to relative survival data
   
   #### General setup ####
@@ -159,6 +160,48 @@ load_model_params <- function(
   # Add updated variables to l_params_all
   l_params_all <- c(l_params_all, rev(l_params_update))
   
+  # Load distribution file if given
+  if (!is.null(file.distr)) {
+    # Determine file extension
+    file_distr_ext <- tools::file_ext(file.distr)
+    
+    # Read file based on extension
+    if (file_distr_ext == "csv") {
+      df_distr <- read.csv(file.distr)
+    } else if (file_distr_ext %in% c("xls", "xlsx")) {
+      df_distr <- read_excel(file.distr, sheet = 1)  # Read first sheet by default
+    } else {
+      stop("Unsupported file type: ", file_ext)
+    }
+    
+    # Group parameters by variable name and index
+    df_distr_grouped <- df_distr %>%
+      group_by(var_name, idx) %>%
+      summarise(
+        distr = first(var_distr),  # Get the distribution type
+        params = list(setNames(param_val, param_name)),  # Create a named list for params
+        .groups = "drop"
+      ) 
+    
+    # Loop over grouped parameters and update l_params_all for variables in the list
+    for (i in seq(nrow(df_distr_grouped))) {
+      if (df_distr_grouped$var_name[i] %in% names(l_params_all)) {
+        # Get list of of values to update
+        l_distr_updates <- list(distr = df_distr_grouped$distr[i],
+                                params = as.list(df_distr_grouped$params[[i]]))
+        
+        # Check if distribution has an index within a nested list and update the distribution
+        if (is.na(df_distr_grouped$idx[i])) {
+          l_params_all[[df_distr_grouped$var_name[i]]]$distr <- l_distr_updates$distr
+          l_params_all[[df_distr_grouped$var_name[i]]]$params <- l_distr_updates$params
+        } else {
+          l_params_all[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$distr <- l_distr_updates$distr
+          l_params_all[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$params <- l_distr_updates$params
+        }
+      }
+    }
+  }
+  
   return(l_params_all)
 }
 
@@ -210,9 +253,12 @@ update_param_from_map <- function(l_params_all, v_params_update, param_map) {
     # Get value to update variable to
     val <- unlist(v_params_update)[i]
     
-    # Get parameter to update
-    var_info <- unlist(param_map[i,])
-    l_params_update[[var_info['var_name']]]$params[[var_info['param_name']]] <- val
+    # Update parameter
+    if (is.na(param_map$idx[i])) {
+      l_params_update[[param_map$var_name[i]]]$params[[param_map$param_name[i]]] <- val
+    } else {
+      l_params_update[[param_map$var_name[i]]][[param_map$idx[i]]]$params[[param_map$param_name[i]]] <- val
+    }
   }
   
   return(l_params_update)
@@ -226,7 +272,7 @@ make_param_map <- function(l_params_all, src = 'unknown') {
     var <- l_params_all[[x]]
     if ('params' %in% names(var)) {
       # Only keep distributions that are unknown (not from data or assumption)
-      if (var$src == src) {
+      if (var$src %in% src) {
         # Get params
         par <- var$params
         
