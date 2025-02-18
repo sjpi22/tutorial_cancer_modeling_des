@@ -1,99 +1,220 @@
-# Sample patient cohort for screening if 'idx_screen_sample' or 
-# 'n_screen_sample" is populated
-screen_sample <- function(m_patients, n_screen_sample = NULL, idx_screen_sample = NULL) {
-  if (!is.null(idx_screen_sample)) {
-    return(m_patients[idx_screen_sample])
-  } else if (!is.null(n_screen_sample)) {
-    if (n_screen_sample < nrow(m_patients)) return(m_patients[sample(.N, n_screen_sample)])
-  }
-  return(m_patients)
-}
-
-# Calculate age-specific prevalence
-calc_prevalence <- function(m_patients, start_var, end_var, censor_var, v_ages, 
-                            n_screen_sample = NULL,
-                            idx_screen_sample = NULL,
-                            conf_level = 0.95) {
+# Calculate age-specific prevalence from longitudinal data
+calc_prevalence <- function(m_patients, start_var, end_var, censor_var, v_ages) {
   # Create age range data frame
   res <- data.frame(
     age_start = v_ages[-length(v_ages)],
     age_end = v_ages[-1]
   )
   
-  # Sample patient cohort for screening if applicable
-  m_screen_sample <- screen_sample(m_patients, n_screen_sample, idx_screen_sample)
-  
   # Calculate prevalence in the given age ranges
   res <- cbind(res, t(mapply(
     function(age_start, age_end) {
-      denom <- unname(unlist(m_screen_sample[, sum(pmax(pmin(get(censor_var), age_end) - age_start, 0))]))
-      num <- unname(unlist(m_screen_sample[, sum(pmax(pmin(get(end_var), get(censor_var), age_end, na.rm = TRUE) - pmax(pmin(get(start_var), Inf, na.rm = T), age_start, na.rm = TRUE), 0))]))
+      denom <- unname(unlist(m_patients[, sum(pmax(pmin(get(censor_var), age_end) - age_start, 0))]))
+      num <- unname(unlist(m_patients[, sum(pmax(pmin(get(end_var), get(censor_var), age_end, na.rm = TRUE) - pmax(pmin(get(start_var), Inf, na.rm = T), age_start, na.rm = TRUE), 0))]))
       return(c(
         person_years_cases = num, 
         person_years_total = denom, 
         value = num/denom)
       )
     }, res$age_start, res$age_end))) %>%
-    mutate(
-      se = sqrt(value * (1-value) / person_years_total),
-      ci_lb = qbinom((1-conf_level)/2, size = round(person_years_total), prob = value) / round(person_years_total),
-      ci_ub = qbinom((1+conf_level)/2, size = round(person_years_total), prob = value) / round(person_years_total)
-    ) %>%
-    mutate_all(~replace(., is.na(.), 0))
+    mutate_all(~replace(., is.na(.), 0)) %>%
+    setDT()
   
   return(res)
 }
 
+# Calculate age-specific prevalence cross-sectionally
+# Caution: Overwrites and deletes columns named 'sample_age' or 'fl_case' in m_patients
+# If populated, dt_sample_ages should be a data.table with columns 'pt_id' and 'sample_age'
+calc_prevalence_cs <- function(m_patients, start_var, end_var, censor_var, v_ages, 
+                               sample_distr = NULL,
+                               dt_sample_ages = NULL,
+                               conf_level = 0.95) {
+  # Create age range data frame
+  dt_ages <- data.table(
+    age_start = v_ages[-length(v_ages)],
+    age_end = v_ages[-1]
+  )
+  
+  # Sample age of study
+  if (is.null(dt_sample_ages)) {
+    if (is.null(sample_distr)) {
+      # If no sample distribution is provided, sample uniformly from the age range
+      sample_distr <- list(
+        distr = "unif",
+        params = list(min = min(v_ages), max = max(v_ages))
+      )
+    }
+    dt_sample_ages <- data.table(
+      pt_id = m_patients$pt_id,
+      sample_age = query_distr("r", nrow(m_patients), sample_distr$distr, sample_distr$params)
+    )
+  }
+  
+  # Get age range of sample age
+  dt_sample_ages[, age_idx := findInterval(sample_age, v_ages)]
+  dt_sample_ages[, age_start := v_ages[age_idx], by = age_idx]
+  
+  # Set patient ID as key of sample age data table
+  setkey(dt_sample_ages, pt_id)
+  
+  # Merge sample age to patient data table
+  m_patients[dt_sample_ages, `:=` (sample_age = i.sample_age,
+                                   age_start = i.age_start)]
+  
+  # Calculate cross-sectional prevalence by age group among people not censored by sample age
+  m_patients[get(censor_var) > sample_age, fl_case := (get(start_var) <= sample_age & get(end_var) > sample_age)]
+  m_patients[get(censor_var) > sample_age & is.na(fl_case), fl_case := F] # Reset NA to FALSE
+  summ_prevalence <- m_patients[get(censor_var) > sample_age, .(
+    n_total = .N,
+    n_cases = sum(fl_case),
+    value = mean(fl_case)), by = age_start]
+  summ_prevalence <- merge(dt_ages, summ_prevalence, by = "age_start", all.x = T)
+  
+  # Calculate confidence intervals and merge to summary table
+  df_confint <- data.frame(t(mapply(function(x, y) prop.test(x, y, conf.level = conf_level)$conf.int, summ_prevalence$n_cases, summ_prevalence$n_total)))
+  summ_prevalence[, c("ci_lb", "ci_ub") := df_confint]
+  
+  # Estimate SE from CI
+  summ_prevalence[, se := (ci_ub - ci_lb) / (2 * qnorm((1 + conf_level)/2))]
+  
+  # Remove added variables from m_patients
+  m_patients[, c("sample_age", "age_start", "fl_case") := NULL]
+  return(summ_prevalence)
+}
 
-# Calculate number of lesions
-calc_nlesions <- function(m_lesion, start_var, end_var, censor_var, age, n_max = 3) {
+
+# Calculate number of lesions from longitudinal data (assuming uniform weighting of times during which lesion is present)
+calc_nlesions <- function(m_lesions, start_var, end_var, censor_var, 
+                          start_age, end_age, n_max = 3) {
   # Account for case of null data
-  if (!is.null(m_lesion)) {
-    # Filter to lesions existing at age and uncensored, and get distribution of lesion frequency
-    lesion_cts <- m_lesion[
-      get(start_var) <= age & get(end_var) > age & get(censor_var) > age, 
-      .(num_lesion = .N), by = pt_id
-    ][, .(ct_per_num = .N), by = num_lesion]
+  if (!is.null(m_lesions)) {
+    # Convert data to lesion start and end events
+    dt_events <- rbindlist(list(
+      m_lesions[get(start_var) < pmin(get(censor_var), end_age), .(pt_id, event_time = pmax(get(start_var), start_age), delta = 1)],  # Start of lesion or eligible screening period
+      m_lesions[get(start_var) < pmin(get(censor_var), end_age), .(pt_id, event_time = pmin(get(end_var), get(censor_var), end_age), delta = -1)] # End of lesion or eligible screening period
+    ))
+    
+    # Sort by patient and event time
+    setorder(dt_events, pt_id, event_time)
+    
+    # Compute cumulative lesion count
+    dt_events[, lesion_count := cumsum(delta), by = pt_id]
+    
+    # Generate mutually exclusive intervals with >0 lesions
+    dt_events[, next_time := shift(event_time, type = "lead"), by = pt_id]
+    dt_intervals <- dt_events[!is.na(next_time) & lesion_count > 0, .(pt_id, start_time = event_time, end_time = next_time, lesion_count)]
+    
+    # Get duration of time intervals
+    dt_intervals[, duration := end_time - start_time]
     
     # Collapse together any number of lesions larger than n_max (e.g., if n_max is 3, 3+ is grouped together)
-    lesion_cts[num_lesion > n_max, num_lesion := n_max]
+    dt_intervals[, n_lesions := ifelse(lesion_count > n_max, n_max, lesion_count)]
     
-    # Sum number of patients for each category for number of lesions
-    lesion_cts <- lesion_cts[, .(ct = sum(ct_per_num)), by = num_lesion]
+    # Sum amount of time per lesion count
+    lesion_cts <- dt_intervals[, .(person_years_total = sum(duration)), by = n_lesions]
     
-    # Get percentage of patients with each lesion count
-    lesion_cts[, value := ct / sum(ct)]
-    
-    # Calculate standard error
-    lesion_cts[, se := sqrt(value * (1-value) / sum(ct))]
+    # Get percentage of time with each lesion count
+    lesion_cts[, person_years_cases := sum(person_years_total)]
+    lesion_cts[, value := person_years_total / person_years_cases]
     
     # Ensure that all numbers from 0 to n_max are represented with count of 0 if necessary
     if (nrow(lesion_cts) < n_max) {
-      lesion_cts <- data.frame(num_lesion = seq(n_max)) %>%
-        left_join(lesion_cts, by = "num_lesion") %>%
-        mutate_all(~replace(., is.na(.), 0))
+      lesion_cts <- data.frame(n_lesions = seq(n_max)) %>%
+        left_join(lesion_cts, by = "n_lesions") %>%
+        mutate_all(~replace(., is.na(.), 0)) %>%
+        setDT()
     } else {
       # Sort
-      lesion_cts <- lesion_cts[order(num_lesion)]
+      lesion_cts <- lesion_cts[order(n_lesions)]
     }
   } else {
-    lesion_cts <- data.frame(num_lesion = seq(n_max),
+    lesion_cts <- data.table(n_lesions = seq(n_max),
                              value = 0)
   }
+  
+  # Make categorical variable for lesion count
+  lesion_cts[, n_lesions_cat := as.factor(ifelse(n_lesions == n_max, paste0(n_max, "+"), as.character(n_lesions)))]
   return(lesion_cts)
 }
 
 
-# Calculate annual incidence
+# Calculate number of lesions cross-sectionally
+calc_nlesions_cs <- function(m_lesions, start_var, end_var, censor_var, 
+                             start_age, end_age, n_max = 3, 
+                             sample_distr = NULL, dt_sample_ages = NULL, 
+                             conf_level = 0.95) {
+  # Account for case of null data
+  if (!is.null(m_lesions)) {
+    # Sample age of study
+    if (is.null(dt_sample_ages)) {
+      if (is.null(sample_distr)) {
+        # If no sample distribution is provided, sample uniformly from the age range
+        sample_distr <- list(
+          distr = "unif",
+          params = list(min = start_age, max = end_age)
+        )
+      }
+      dt_sample_ages <- data.table(
+        pt_id = unique(m_lesions$pt_id)
+      )
+      dt_sample_ages[, sample_age := query_distr("r", nrow(dt_sample_ages), sample_distr$distr, sample_distr$params)]
+    }
+    
+    # Set patient ID as key of sample age data table
+    setkey(dt_sample_ages, pt_id)
+    
+    # Merge sample age to lesion data table
+    m_lesions[dt_sample_ages, `:=` (sample_age = i.sample_age)]
+    
+    # Filter to lesions existing at age and uncensored, and get distribution of lesion frequency
+    lesion_cts <- m_lesions[
+      get(start_var) <= sample_age & get(end_var) > sample_age & get(censor_var) > sample_age, 
+      .(lesion_count = .N), by = pt_id
+    ][, .(n_cases = .N), by = lesion_count]
+    
+    # Collapse together any number of lesions larger than n_max (e.g., if n_max is 3, 3+ is grouped together)
+    lesion_cts[, n_lesions := ifelse(lesion_count > n_max, n_max, lesion_count)]
+    
+    # Sum number of patients for each category for number of lesions
+    lesion_cts <- lesion_cts[, .(n_cases = sum(n_cases)), by = n_lesions]
+    
+    # Get percentage of patients with each lesion count
+    lesion_cts[, n_total := sum(n_cases)]
+    lesion_cts[, value := n_cases / n_total]
+    
+    # Calculate confidence intervals and merge to summary table
+    df_confint <- data.frame(t(mapply(function(x, y) prop.test(x, y, conf.level = conf_level)$conf.int, lesion_cts$n_cases, lesion_cts$n_total)))
+    lesion_cts[, c("ci_lb", "ci_ub") := df_confint]
+    
+    # Estimate SE from CI
+    lesion_cts[, se := (ci_ub - ci_lb) / (2 * qnorm((1 + conf_level)/2))]
+    
+    # Ensure that all numbers from 0 to n_max are represented with count of 0 if necessary
+    if (nrow(lesion_cts) < n_max) {
+      lesion_cts <- data.frame(n_lesions = seq(n_max)) %>%
+        left_join(lesion_cts, by = "n_lesions") %>%
+        mutate_all(~replace(., is.na(.), 0)) %>%
+        setDT()
+    } else {
+      # Sort
+      lesion_cts <- lesion_cts[order(n_lesions)]
+    }
+  } else {
+    lesion_cts <- data.table(n_lesions = seq(n_max),
+                             value = 0)
+  }
+  
+  # Make categorical variable for lesion count
+  lesion_cts[, n_lesions_cat := as.factor(ifelse(n_lesions == n_max, paste0(n_max, "+"), as.character(n_lesions)))]
+  return(lesion_cts)
+}
+
+
+# Calculate annual incidence from longitudinal data
 calc_incidence <- function(m_patients, time_var, censor_var, v_ages,
                            strat_var = NULL,
-                           rate_unit = 100000,
-                           n_screen_sample = NULL,
-                           idx_screen_sample = NULL) {
-  
-  # Sample patient cohort for screening if applicable
-  m_screen_sample <- screen_sample(m_patients, n_screen_sample, idx_screen_sample)
-  
+                           rate_unit = 100000) {
   # Create age category labels
   age_bounds <- unique(c(0, v_ages)) # Add 0 as lower bound if necessary
   age_ranges <- paste(age_bounds[-length(age_bounds)], 
@@ -105,11 +226,11 @@ calc_incidence <- function(m_patients, time_var, censor_var, v_ages,
   # Exposure time by age range
   person_years_at_risk <- data.frame(
     age_df, 
-    total_atrisk = mapply(
+    person_years_total = mapply(
       function(age_start, age_end) {
-        total_atrisk = m_screen_sample[, sum(pmax(pmin(get(censor_var), age_end) - age_start, 0))]
-      }, age_df$age_start, age_df$age_end),
-    age_diff = age_df$age_end - age_df$age_start) %>%
+        person_years_total = m_patients[, sum(pmax(pmin(get(censor_var), age_end) - age_start, 0))]
+      }, age_df$age_start, age_df$age_end)
+    ) %>%
     filter(age_range %in% age_df$age_range[age_df$age_start %in% v_ages[-length(v_ages)]])
   
   # Set grouping variables
@@ -120,7 +241,7 @@ calc_incidence <- function(m_patients, time_var, censor_var, v_ages,
   if(is.null(rate_unit)) rate_unit <- 1
   
   # Number of events by category
-  event_counts <- m_screen_sample[get(time_var) <= pmin(get(censor_var), max(age_bounds))][
+  event_counts <- m_patients[get(time_var) <= pmin(get(censor_var), max(age_bounds))][
     , age_range := age_ranges[findInterval(get(time_var), age_bounds)]
   ][, .N, by = grouping_vars]
   setnames(event_counts, "N", "n_events")
@@ -128,7 +249,7 @@ calc_incidence <- function(m_patients, time_var, censor_var, v_ages,
   # Make sure all values of stratifying variables are represented
   if(!is.null(strat_var)) {
     # Get sorted values of stratifying variable
-    strat_var_vals <- sort(unique(m_screen_sample[[strat_var]]))
+    strat_var_vals <- sort(unique(m_patients[[strat_var]]))
     
     # Initialize dataframe with all combinations of age range and stratifying variables
     all_var_vals <- data.frame(
@@ -149,15 +270,17 @@ calc_incidence <- function(m_patients, time_var, censor_var, v_ages,
       mutate(n_events = replace_na(n_events, 0)) %>%
       mutate(
         unit = rate_unit,
-        value = n_events / total_atrisk * rate_unit,
-        se = sqrt(n_events) / total_atrisk * rate_unit
-      )
+        value = n_events / person_years_total * rate_unit,
+        se = sqrt(n_events) / person_years_total * rate_unit
+      ) %>%
+      setDT()
   } else {
     event_counts <- person_years_at_risk %>%
       mutate(n_events = 0,
              unit = rate_unit,
              value = 0,
-             se = 0)
+             se = 0) %>%
+      setDT()
   }
   
   return(event_counts)
@@ -166,16 +289,10 @@ calc_incidence <- function(m_patients, time_var, censor_var, v_ages,
 
 # Calculate distribution (such as cancer stage or lesion type) from patient-level data
 calc_distr <- function(m_patients, grouping_var, event_var, censor_var, 
-                       groups_expected, min_age = 0, n_screen_sample = NULL, 
-                       idx_screen_sample = NULL,
-                       conf_level = 0.95) {
-  
-  # Sample patient cohort for screening if applicable
-  m_screen_sample <- screen_sample(m_patients, n_screen_sample, idx_screen_sample)
-  
+                       groups_expected, min_age = 0, conf_level = 0.95) {
   # Count patients diagnosed at each stage
-  cts <- m_screen_sample[get(event_var) >= min_age & get(event_var) < get(censor_var), 
-                         .(ct = .N), by = grouping_var]
+  cts <- m_patients[get(event_var) >= min_age & get(event_var) < get(censor_var), 
+                    .(n_cases = .N), by = grouping_var]
   
   # Create dataframe of expected stages if necessary
   if (nrow(cts) < length(groups_expected)) {
@@ -184,7 +301,7 @@ calc_distr <- function(m_patients, grouping_var, event_var, censor_var,
     # If no patients diagnosed at any stage, create dataframe of zeros
     if (nrow(cts) == 0) {
       cts <- df_groups_expected %>%
-        mutate(ct = 0) %>%
+        mutate(n_cases = 0) %>%
         setDT()
     } else {
       # Ensure that all stages are represented with count of 0 if necessary
@@ -198,21 +315,20 @@ calc_distr <- function(m_patients, grouping_var, event_var, censor_var,
     cts <- cts[order(get(grouping_var))]
   }
   
-  if (sum(cts$ct) == 0) {
-    cts[, value := 0]
+  if (sum(cts$n_cases) == 0) {
+    cts[, c("n_total", "value", "ci_lb", "ci_ub", "se") := 0]
   } else {
     # Get percentage of patients at each stage
-    cts[, value := ct / sum(ct)]
+    cts[, n_total := sum(n_cases)]
+    cts[, value := n_cases / n_total]
+    
+    # Calculate confidence intervals and merge to summary table
+    df_confint <- data.frame(t(mapply(function(x, y) prop.test(x, y, conf.level = conf_level)$conf.int, cts$n_cases, cts$n_total)))
+    cts[, c("ci_lb", "ci_ub") := df_confint]
+    
+    # Estimate SE from CI
+    cts[, se := (ci_ub - ci_lb) / (2 * qnorm((1 + conf_level)/2))]
   }
-  
-  # Add SE and confidence intervals
-  cts <- cts %>%
-    mutate(
-      se = sqrt(value * (1-value) / sum(ct)),
-      ci_lb = qbinom((1-conf_level)/2, size = sum(ct), prob = value) / sum(ct),
-      ci_ub = qbinom((1+conf_level)/2, size = sum(ct), prob = value) / sum(ct)
-    ) %>%
-    mutate_all(~replace(., is.na(.), 0))
   
   return(cts)
 }

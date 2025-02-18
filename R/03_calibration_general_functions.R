@@ -1,9 +1,8 @@
 # Load general parameters for calibration
 load_calib_params <- function(l_params_model, # Model parameters to update
-                              target_files, # List of file paths with targets
-                              l_outcome_params, # Path to file with outcome parameters
+                              l_outcome_params, # List of outcome parameters
                               l_censor_vars, # List of variables to combine for censor variables
-                              prior_file, # Path to parameter mapping as .rds file
+                              file_priors, # Path to parameter mapping as .rds file
                               outpath = 'output', # Path for output
                               n_cores_reserved_local = 2, # Number of cores to remove when running in parallel locally; all other detected cores will be used for parallel processing
                               n_cohort_calib = NULL, # Number of individuals to simulate for calibration simulations
@@ -26,7 +25,7 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   )
   
   # Load targets
-  l_true_targets <- load_calibration_targets(target_files)
+  l_true_targets <- load_calibration_targets(l_outcome_params)
   
   # Further process target data
   for (label in names(l_outcome_params)) {
@@ -63,12 +62,13 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   }
   
   # Load parameter mapping
-  prior_map <- readRDS(prior_file)
+  prior_map <- read.csv(file_priors)
+  prior_map$param_val = rowMeans(prior_map[, c("min", "max")])
   
   # Update default parameters with  mean of priors
   l_params_model <- update_param_from_map(l_params_model, 
-                                        v_params_update = rowMeans(prior_map[, c("min", "max")]), 
-                                        param_map = prior_map)
+                                          param_map = prior_map,
+                                          update_distr = T)
   
   # Return list of calibration parameters
   l_params_calib <- list(
@@ -87,15 +87,25 @@ load_calib_params <- function(l_params_model, # Model parameters to update
 
 # Run model and generate calibration target outputs
 # l_censor_vars: list of lists of variables to use to create new variables for censoring outcomes
-calc_calib_outputs <- function(m_patients,
+calc_calib_outputs <- function(m_cohort,
                                l_outcome_params,
-                               l_censor_vars = NULL,
-                               m_lesions = NULL) {
+                               l_censor_vars = NULL) {
+  
+  # Separate patient and lesion data as necessary
+  if (is.data.table(m_cohort)) {
+    m_patients <- m_cohort
+  } else {
+    m_patients <- m_cohort$patient_level
+    m_lesions <- m_cohort$lesion_level
+  }
+  
   # Create censor variables
   if (!is.null(l_censor_vars)) {
-    for (varname in names(l_censor_vars)) {
-      m_patients[, (varname) := do.call("pmin", c(.SD, na.rm = TRUE)),
-                 .SDcols = l_censor_vars[[varname]]]
+    for (dt in names(l_censor_vars)) {
+      for (varname in names(l_censor_vars[[dt]])) {
+        get(dt)[, (varname) := do.call("pmin", c(.SD, na.rm = TRUE)),
+                .SDcols = l_censor_vars[[dt]][[varname]]]
+      }
     }
   }
   

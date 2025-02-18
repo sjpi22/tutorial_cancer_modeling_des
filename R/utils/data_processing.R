@@ -131,6 +131,18 @@ load_distr <- function(filepath, target_groups = NULL) {
   return(filedata)
 }
 
+# Load lesion multiplicity data
+load_nlesions <- function(filepath, target_groups = NULL) {
+  if (is.null(target_groups)) {
+    target_groups <- "nlesions"
+  }
+  filedata <- read.csv(filepath) %>%
+    rename(target_index = n_lesions) %>% 
+    mutate(target_groups = target_groups,
+           target_names = paste(target_groups, target_index, sep="_"))
+  return(filedata)
+}
+
 #' Load calibration targets
 #'
 #' @param filepath String with the location and name of the file with data

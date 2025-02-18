@@ -40,8 +40,13 @@ dir.create(file.path(path_data), showWarnings = FALSE)
 ###### 2.3 Other parameters
 # Simulation parameters and outcome reporting
 seed <- 2025 # Random seed for generating ground truth data
-n_screen_sample <- 20000 # Subset of cohort for prevalence outputs
 v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
+l_outcomes_cs <- c("prevalence", "nlesions") # Outcome types to calculate cross-sectionally
+n_cohort <- c(screen = 10000, pop = 100000) # Number to simulate for screen vs. population samples
+l_outcome_grps <- list( # Outcomes to calculate together for screen vs. population samples
+  screen = list("prevalence_lesion", "n_lesions", "prevalence"),
+  pop = list("incidence", "stage_distr")
+)
 
 # Prior generation
 prior_pct_width_init <- 0.8 # Percentage width of initial randomly generated prior bounds
@@ -58,7 +63,7 @@ l_params_model <- do.call(load_model_params, c(
   modifyList(params_model,
              list(file.surv = NULL),
              keep.null = T),
-  list(seed = seed,
+  list(seed = NULL,
        file.distr = file_distr)
 ))
 
@@ -75,11 +80,16 @@ prior_map <- param_map %>%
          max = round(max * (1 + prior_pct_multiplier), 2)) %>%
   dplyr::select(-c("param_val", "shift"))
 
-# Update screening sample for prevalence
-for (target in names(params_calib$l_outcome_params)) {
-  if (params_calib$l_outcome_params[[target]]["outcome_type"] == "prevalence") {
-    params_calib$l_outcome_params[[target]] <- c(params_calib$l_outcome_params[[target]], 
-                                                 list(n_screen_sample = n_screen_sample))
+# Extract and process outcome parameters
+l_outcome_params <- params_calib$l_outcome_params
+l_censor_vars <- params_calib$l_censor_vars
+
+# Update cross-sectional outcome types
+for (target in names(l_outcome_params)) {
+  # Modify outcome list to change to cross-sectional functions
+  if (l_outcome_params[[target]]["outcome_type"] %in% l_outcomes_cs) {
+    l_outcome_params[[target]]["outcome_type"] <- paste0(l_outcome_params[[target]]["outcome_type"], 
+                                                         "_cs")
   }
 }
 
@@ -87,25 +97,51 @@ for (target in names(params_calib$l_outcome_params)) {
 #### 4. Generate population data and outputs ========================================================
 
 ###### 4.1 Simulate data and outputs
-# Simulate cohort
-m_cohort <- run_base_model(l_params_model)
-
-# Separate patient and lesion data as necessary
-if (params_model$lesion_state == T) {
-  m_patients <- m_cohort$patient_level
-  m_lesions <- m_cohort$lesion_level
-} else {
-  m_patients <- m_cohort$patient_level
-  m_lesions <- NULL
+# Calculate outcomes from different simulated cohorts
+l_results <- list()
+for (grp in names(l_outcome_grps)) {
+  # Update cohort size
+  l_params_model$n_cohort <- n_cohort[grp]
+  
+  # Simulate cohort
+  m_cohort <- run_base_model(l_params_model)
+  
+  # Separate patient and lesion data as necessary
+  if (is.data.table(m_cohort)) {
+    m_patients <- m_cohort
+  } else {
+    m_patients <- m_cohort$patient_level
+    m_lesions <- m_cohort$lesion_level
+  }
+  
+  # Create censor variables
+  if (!is.null(l_censor_vars)) {
+    for (dt in names(l_censor_vars)) {
+      for (varname in names(l_censor_vars[[dt]])) {
+        get(dt)[, (varname) := do.call("pmin", c(.SD, na.rm = TRUE)),
+                .SDcols = l_censor_vars[[dt]][[varname]]]
+      }
+    }
+  }
+  
+  # Calculate outcomes
+  for (outcome in l_outcome_grps[[grp]]) {
+    # Calculate outcome
+    l_results[[outcome]] <- do.call(
+      paste0("calc_", l_outcome_params[[outcome]][[2]]), 
+      c(list(get(l_outcome_params[[outcome]][[3]])), tail(l_outcome_params[[outcome]], -3)))
+  }
 }
 
-# Get calibration outputs
-l_outputs <- calc_calib_outputs(m_patients, 
-                                l_outcome_params = params_calib$l_outcome_params,
-                                l_censor_vars = params_calib$l_censor_vars,
-                                m_lesions = m_lesions)
 
 ###### 4.2 Calculate relative survival by stage and years from diagnosis
+# Set patient-level data
+if (is.data.table(m_cohort)) {
+  m_patients <- m_cohort
+} else {
+  m_patients <- m_cohort$patient_level
+}
+
 # Filter to individuals diagnosed with cancer in lifetime
 m_cohort_cancer_dx <- m_patients[time_H_C < time_H_D] 
 
@@ -129,22 +165,14 @@ output_surv <- with(summary(cancer_surv_fit, times = v_time_surv),
 #### 5. Save outputs ========================================================
 
 # Save calibration targets
-for (target in names(l_outputs)) {
+for (target in names(l_results)) {
   # Process data based on target type
-  df_target <- l_outputs[[target]] %>%
+  df_target <- l_results[[target]] %>%
     rename(targets = value) 
-  
-  if (params_calib$l_outcome_params[[target]][["outcome_type"]] == "prevalence") {
-    df_target <- df_target %>%
-      dplyr::select(-c("person_years_cases", "person_years_total"))
-  } else if (params_calib$l_outcome_params[[target]][["outcome_type"]] == "incidence") {
-    df_target <- df_target %>%
-      dplyr::select(-c("total_atrisk", "n_events"))
-  }
   
   # Save data to file path
   write.csv(df_target,
-            params_calib$l_outcome_params[[target]][["file_path"]],
+            l_outcome_params[[target]][["file_path"]],
             row.names = FALSE)
 }
 

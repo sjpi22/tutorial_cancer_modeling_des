@@ -1,50 +1,226 @@
-# Cross-sectional versus longitudinal prevalence
+###########################  Unit test: Epi functions   ################
+#
+#  Objective: Run unit tests for calculating epidemiological summary statistics
+########################### <<<<<>>>>> ##############################################
 
-df_true_params <- readRDS("ground_truth/true_param_map.rds")
-l_params <- load_model_params()
-l_params <- update_param_from_map(l_params,
-                                  df_true_params$param_val,
-                                  df_true_params)
-l_params$seed <- NULL
-set.seed(123)
+rm(list = ls()) # Clean environment
+options(scipen = 999) # View data without scientific notation
 
-l_res_long <- list()
-l_res_cs <- list()
-n_sim <- 30
-v_ages <- seq(20, 80, 10)
-for (n_cohort in c(10000, 100000, 500000)) {
-  # Create matrix placeholders
-  m_long <- matrix(nrow = n_sim, ncol = length(v_ages) - 1)
-  m_cs <- matrix(nrow = n_sim, ncol = length(v_ages) - 1)
-  for (sim in 1:n_sim) {
-    # Run model
-    res <- run_base_model(l_params)
-    
-    # Calculate longitudinal prevalence
-    temp_prev_long <- calc_prevalence(res, "time_H_P", "time_H_C", "time_H_D",
-                                      v_ages = v_ages)
-    
-    # Append to matrix
-    m_long[sim, ] <- temp_prev_long$value
-    
-    
-    # Calculate cross-sectional prevalence by age group, uniform sample
-    res[, sample_age := runif(.N, min = 20, max = 80)]
-    res[, sample_grp := floor(sample_age/10)*10]
-    res[, flg_case := (time_H_P <= sample_age & time_H_C > sample_age)]
-    temp_prev_cs <- res[time_H_D > sample_age, mean(flg_case), by = sample_grp]
-    temp_prev_cs <- temp_prev_cs[order(sample_grp)]
-    m_cs[sim, ] <- temp_prev_cs$V1
-  }
-  l_res_long <- c(l_res_long, list(m_long))
-  l_res_cs <- c(l_res_cs, list(m_cs))
+#### 1.Libraries and functions  ==================================================
+
+###### 1.1 Load packages
+library(testthat)
+library(tidyverse)
+library(readxl)
+library(data.table)
+
+###### 1.1 Load functions
+
+# Load functions
+distr.sources <- list.files("R", 
+                            pattern="*.R$", full.names=TRUE, 
+                            ignore.case=TRUE, recursive = TRUE)
+sapply(distr.sources, source, .GlobalEnv)
+
+# Function to get expected value of a distribution
+get_ev <- function(distr, lb, ub) {
+  ev <- integrate(function(u) u*query_distr("d", u, distr$distr, distr$params),
+                  lb, ub)$value
+  return(ev)
 }
 
-# Plot the results
-colMeans(l_res_long[[3]])
-apply(l_res_long[[3]], 2, sd)
-colMeans(l_res_cs[[3]])
-apply(l_res_cs[[3]], 2, sd)
+# Function to get expected location of a distribution
+get_el <- function(distr, lb, ub) {
+  ev <- get_ev(distr, lb, ub)
+  cdf_diff <- query_distr("p", ub, distr$distr, distr$params) - query_distr("p", lb, distr$distr, distr$params)
+  return(ev / cdf_diff)
+}
 
 
+#### 2. General parameters ========================================================
 
+###### 2.1 Configurations
+# Run file to process configurations
+source("configs/process_configs.R")
+
+###### 2.2 File paths
+path_truth <- "_ground_truth"
+path_data <- paths$data
+file_distr <- file.path(path_truth, "true_params.xlsx")
+
+###### 2.3 Other parameters
+seed <- 2025 # Random seed
+conf_level <- 0.95
+n_sim <- 20
+time_1_2 <- 5 # Artificial time from disease onset to next state
+l_outcomes_cs <- c("prevalence", "num_lesions") # Outcome types to calculate cross-sectionally
+
+
+#### 3. Pre-processing  ===========================================
+
+# Set seed
+set.seed(seed)
+
+# Load ground truth model parameters
+l_params_model <- do.call(load_model_params, c(
+  modifyList(params_model,
+             list(file.surv = NULL),
+             keep.null = T),
+  list(seed = NULL,
+       file.distr = file_distr)
+))
+
+# Get distribution for disease onset
+var_onset <- paste0("time_H_", l_params_model$v_states[2])
+d_var_onset <- l_params_model[[paste0("d_", var_onset)]]
+
+# Get distribution for end of first disease state
+var_end <- paste0("time_H_", l_params_model$v_states[3])
+d_var_end <- l_params_model[[paste0("d_", var_end)]]
+
+
+#### 4. Prevalence  ===========================================
+
+full_summ_prevalence <- data.table()
+full_summ_prevalence_bounded <- data.table()
+full_summ_nlesions <- data.table()
+for (i in 1:n_sim) {
+  # Simulate cohort
+  m_cohort <- run_base_model(l_params_model)
+  
+  # Separate patient and lesion data as necessary
+  if (is.data.table(m_cohort)) {
+    m_patients <- m_cohort
+  } else {
+    m_patients <- m_cohort$patient_level
+    m_lesions <- m_cohort$lesion_level
+  }
+  
+  # Add artificial upper bounds for tests
+  m_patients[, `:=` (time_H_Inf = Inf,
+                     time_H_2 = get(var_onset) + time_1_2)]
+  
+  # Create censor variables
+  if (!is.null(params_calib$l_censor_vars)) {
+    for (dt in names(params_calib$l_censor_vars)) {
+      for (varname in names(params_calib$l_censor_vars[[dt]])) {
+        get(dt)[, (varname) := do.call("pmin", c(.SD, na.rm = TRUE)),
+                .SDcols = params_calib$l_censor_vars[[dt]][[varname]]]
+      }
+    }
+  }
+  
+  ###### 4.1 Test that prevalence with unbounded disease duration is close to distribution of disease onset
+  # Calculate prevalence (longitudinal)
+  summ_prevalence <- calc_prevalence(
+    m_patients, 
+    var_onset, 
+    "time_H_Inf", 
+    "time_H_Inf", 
+    v_ages = params_calib$l_outcome_params$prevalence$v_ages)
+  
+  # Calculate prevalence (cross-sectional)
+  summ_prevalence_cs <- calc_prevalence_cs(
+    m_patients, 
+    var_onset, 
+    "time_H_Inf", 
+    "time_H_Inf",
+    v_ages = params_calib$l_outcome_params$prevalence$v_ages)
+  
+  # Merge longitudinal and cross-sectional
+  summ_prevalence <- merge(summ_prevalence,
+                           summ_prevalence_cs, 
+                           by = c("age_start", "age_end"),
+                           suffixes = c("_long", "_cs"))
+  
+  # Calculate true prevalence
+  summ_prevalence[, pct_true := mapply(function(lb, ub) {
+    integrate(function(u) query_distr("p", u, d_var_onset$distr, d_var_onset$params), lb, ub)$value / (ub - lb)
+  }, age_start, age_end)]
+  
+  # Append to full data table
+  full_summ_prevalence <- rbind(full_summ_prevalence, summ_prevalence)
+  
+  ###### 4.2 Test prevalence with bounded disease duration
+  # Calculate prevalence (longitudinal)
+  summ_prevalence_bounded <- calc_prevalence(
+    m_patients, 
+    var_onset, 
+    "time_H_2", 
+    "time_H_Inf", 
+    v_ages = params_calib$l_outcome_params$prevalence$v_ages)
+  
+  # Calculate prevalence (cross-sectional)
+  summ_prevalence_cs_bounded <- calc_prevalence_cs(
+    m_patients, 
+    var_onset, 
+    "time_H_2",
+    "time_H_Inf",
+    v_ages = params_calib$l_outcome_params$prevalence$v_ages)
+  
+  # Merge longitudinal and cross-sectional
+  summ_prevalence_bounded <- merge(summ_prevalence_bounded,
+                                   summ_prevalence_cs_bounded, 
+                                   by = c("age_start", "age_end"),
+                                   suffixes = c("_long", "_cs"))
+  
+  # Calculate theoretical prevalence within age range
+  summ_prevalence_bounded[, pct_true := mapply(function(lb, ub) {
+    integrate(function(u) (pmin(u + time_1_2, ub) - u)*query_distr("d", u, d_var_onset$distr, d_var_onset$params), lb, ub)$value
+  }, age_start, age_end) +
+    mapply(function(lb, ub) {
+      integrate(function(u) (u + time_1_2 - ub)*query_distr("d", u, d_var_onset$distr, d_var_onset$params), lb, ub)$value
+    }, age_start - time_1_2, age_start)]
+  summ_prevalence_bounded[, pct_true := pct_true/(age_end - age_start)]
+  
+  # Append to full data table
+  full_summ_prevalence_bounded <- rbind(full_summ_prevalence_bounded, summ_prevalence_bounded)
+  
+  ###### 4.3 Compare longitudinal and cross-sectional lesion count
+  if (params_model$lesion_state == T) {
+    # Calculate lesion count (longitudinal)
+    summ_nlesions <- do.call(calc_nlesions, c(
+      list(get(params_calib$l_outcome_params$n_lesions[[3]])),
+      tail(params_calib$l_outcome_params$n_lesions, -3)))
+    
+    # Calculate lesion count (cross-sectional)
+    summ_nlesions_cs <- do.call(calc_nlesions_cs, c(
+      list(get(params_calib$l_outcome_params$n_lesions[[3]])),
+      tail(params_calib$l_outcome_params$n_lesions, -3)))
+    
+    # Merge longitudinal and cross-sectional
+    summ_nlesions <- merge(summ_nlesions,
+                           summ_nlesions_cs, 
+                           by = "n_lesions",
+                           suffixes = c("_long", "_cs"))
+    
+    # Append to full data table
+    full_summ_nlesions <- rbind(full_summ_nlesions, summ_nlesions)
+    
+  }
+}
+
+# (4.1) Check whether unbounded cross-sectional CI contains longitudinal and true prevalence
+full_summ_prevalence[, `:=` (contained_long = value_long >= ci_lb & value_long <= ci_ub,
+                             contained_true = pct_true >= ci_lb & pct_true <= ci_ub)]
+
+test_that("Unbounded prevalence is close to distribution of disease onset", {
+  expect_true(mean(full_summ_prevalence$contained_long) >= conf_level)
+  expect_true(mean(full_summ_prevalence$contained_true) >= conf_level)
+})
+
+# (4.2) Check whether cross-sectional CI contains longitudinal and expected prevalence
+full_summ_prevalence_bounded[, `:=` (contained_long = value_long >= ci_lb & value_long <= ci_ub,
+                                     contained_true = pct_true >= ci_lb & pct_true <= ci_ub)]
+
+test_that("Prevalence is close to incidence x duration", {
+  expect_true(mean(full_summ_prevalence_bounded$contained_long) >= conf_level)
+  expect_true(mean(full_summ_prevalence_bounded$contained_true)  >= conf_level)
+})
+
+# (4.3) Check whether cross-sectional lesion count is close to longitudinal
+full_summ_nlesions[, `:=` (contained_long = value_long >= ci_lb & value_long <= ci_ub)]
+
+test_that("Longitudinal and cross-sectional lesion count are close", {
+  expect_true(mean(full_summ_nlesions$contained_long) >= conf_level)
+})

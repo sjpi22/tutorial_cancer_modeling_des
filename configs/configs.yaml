@@ -45,14 +45,27 @@ params_calib:
       event_var: "time_H_C"
       censor_var: "time_H_D"
       groups_expected: [1, 2, 3, 4] # Should be same as v_cancer unless using different stage classification for targets from simulated stages
-  l_outcome_params_lesion: # Parameters for calculating lesion-model-specific calibration outcomes
-    prevalence_lesion:
-      file_path: "data/prevalence_lesion.csv"
-      outcome_type: "prevalence"
-      m_patients: "m_patients"
-      start_var: "time_H_L"
-      end_var: "time_H_P"
-      censor_var: "time_screen_censor"
-      v_ages: [30, 40, 50, 60, 70, 80]
   l_censor_vars:
-    time_screen_censor: ["time_H_C", "time_H_D"]
+    m_patients:
+      time_screen_censor: ["time_H_C", "time_H_D"]
+    m_lesions:
+      time_screen_censor: ["time_H_P", "time_H_Do"]
+  lesion_state_true:
+    l_outcome_params: # Parameters for calculating lesion-model-specific calibration outcomes
+      prevalence_lesion:
+        file_path: "data/prevalence_lesion.csv"
+        outcome_type: "prevalence"
+        m_patients: "m_patients"
+        start_var: "time_H_L"
+        end_var: "time_H_P"
+        censor_var: "time_screen_censor"
+        v_ages: [30, 40, 50, 60, 70, 80]
+      n_lesions:
+        file_path: "data/n_lesions.csv"
+        outcome_type: "nlesions"
+        m_lesions: "m_lesions"
+        start_var: "time_H_Lj"
+        end_var: "time_H_P"
+        censor_var: "time_screen_censor"
+        start_age: 50
+        end_age: 80

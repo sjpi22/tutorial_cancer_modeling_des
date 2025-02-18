@@ -62,19 +62,19 @@ load_model_params <- function(
   # If survival data filepath is given, load disease-specific relative survival 
   # and create distributions
   if (!is.null(file.surv)) {
-    surv_data <- load_surv_data(file.surv)
+    df_surv <- load_surv_data(file.surv)
     d_time_C_Dc <- list()
     for (i in v_cancer) {
       # Filter survival data to stage at diagnosis
-      temp_surv_data <- surv_data[surv_data$stage == i, ]
+      temp_df_surv <- df_surv[df_surv$stage == i, ]
       
       # Calculate probability mass function from CDF
-      probs <- diff(temp_surv_data$pct_died)
+      probs <- diff(temp_df_surv$pct_died)
       probs <- c(probs, 1 - sum(probs))
       
       # Create distribution data
       d_time_C_Dc[[i]] <- list(distr = "empirical", 
-                               params = list(xs = temp_surv_data$years_from_dx, 
+                               params = list(xs = temp_df_surv$years_from_dx, 
                                              probs = probs, 
                                              max_x = max_age), 
                                src = "known")
@@ -174,32 +174,8 @@ load_model_params <- function(
       stop("Unsupported file type: ", file_ext)
     }
     
-    # Group parameters by variable name and index
-    df_distr_grouped <- df_distr %>%
-      group_by(var_name, idx) %>%
-      summarise(
-        distr = first(var_distr),  # Get the distribution type
-        params = list(setNames(param_val, param_name)),  # Create a named list for params
-        .groups = "drop"
-      ) 
-    
-    # Loop over grouped parameters and update l_params_model for variables in the list
-    for (i in seq(nrow(df_distr_grouped))) {
-      if (df_distr_grouped$var_name[i] %in% names(l_params_model)) {
-        # Get list of of values to update
-        l_distr_updates <- list(distr = df_distr_grouped$distr[i],
-                                params = as.list(df_distr_grouped$params[[i]]))
-        
-        # Check if distribution has an index within a nested list and update the distribution
-        if (is.na(df_distr_grouped$idx[i])) {
-          l_params_model[[df_distr_grouped$var_name[i]]]$distr <- l_distr_updates$distr
-          l_params_model[[df_distr_grouped$var_name[i]]]$params <- l_distr_updates$params
-        } else {
-          l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$distr <- l_distr_updates$distr
-          l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$params <- l_distr_updates$params
-        }
-      }
-    }
+    # Update parameters with distributions from file
+    l_params_model <- update_param_from_map(l_params_model, param_map = df_distr, update_distr = T)
   }
   
   return(l_params_model)
@@ -233,35 +209,100 @@ update_param_list <- function(l_params_model, params_updated){
 #' new values for specific parameters using a mapping dataframe
 #'
 #' @param l_params_model List with all parameters of decision model
-#' @param v_params_update Vector of new parameter values
+#' @param v_params_update Vector of new parameter values (not used if 
+#' \code{update_distr} = T)
 #' @param param_map Dataframe as created by make_param_map below with columns 
 #' var_name (parameter label in l_params_model), var_distr (distribution of 
 #' parameter), param_name (name of parameter in distribution function), 
 #' param_index (index of parameter if a vector, otherwise 1), param_val 
 #' (old saved value of parameter), and var_id (unique variable ID consisting of
-#' var_name, param_name, and param_index concatenated)
+#' var_name, param_name, and param_index concatenated). If \code{update_distr} 
+#' = T, should also include a column param_val with the updated parameter values
+#' @param update_distr Logical indicating whether to update distribution type as well
 #' 
 #' @return A list with all parameters updated
 #' @export
-update_param_from_map <- function(l_params_model, v_params_update, param_map) {
-  # Make copy of parameter list
-  l_params_update <- copy(l_params_model)
-  
-  # Update parameters based on mapping
-  assertthat::are_equal(length(v_params_update), nrow(param_map))
-  for (i in seq(length(v_params_update))) {
-    # Get value to update variable to
-    val <- unlist(v_params_update)[i]
-    
-    # Update parameter
-    if (is.na(param_map$idx[i])) {
-      l_params_update[[param_map$var_name[i]]]$params[[param_map$param_name[i]]] <- val
+update_param_from_map <- function(l_params_model, v_params_update, param_map, 
+                                  update_distr = F) {
+  # Update parameter values but not distributions
+  if (update_distr == F) {
+    # Update parameters based on mapping
+    assertthat::are_equal(length(v_params_update), nrow(param_map))
+    if ("idx" %in% names(param_map)) { # Check if distribution variable has nested distributions
+      for (i in seq(length(v_params_update))) {
+        # Get value to update variable to
+        val <- unlist(v_params_update)[i]
+        
+        # Update parameter
+        if (is.na(param_map$idx[i])) {
+          l_params_model[[param_map$var_name[i]]]$params[[param_map$param_name[i]]] <- val
+        } else {
+          l_params_model[[param_map$var_name[i]]][[param_map$idx[i]]]$params[[param_map$param_name[i]]] <- val
+        }
+      }
+    } else { # If no nested distributions, run same updating code without extra checks
+      for (i in seq(length(v_params_update))) {
+        # Get value to update variable to
+        val <- unlist(v_params_update)[i]
+        
+        # Update parameter
+        l_params_model[[param_map$var_name[i]]]$params[[param_map$param_name[i]]] <- val
+      }
+    }
+  } else { # Update parameter values and distributions
+    if ("idx" %in% names(param_map)) { # Check if distribution variable has nested distributions
+      # Group parameters by variable name and index
+      df_distr_grouped <- param_map %>%
+        group_by(var_name, idx) %>%
+        summarise(
+          distr = first(var_distr),  # Get the distribution type
+          params = list(setNames(param_val, param_name)),  # Create a named list for params
+          .groups = "drop"
+        ) 
+      
+      # Loop over grouped parameters and update l_params_model for variables in the list
+      for (i in seq(nrow(df_distr_grouped))) {
+        if (df_distr_grouped$var_name[i] %in% names(l_params_model)) {
+          # Get list of of values to update
+          l_distr_updates <- list(distr = df_distr_grouped$distr[i],
+                                  params = as.list(df_distr_grouped$params[[i]]))
+          
+          # Check if distribution has an index within a nested list and update the distribution
+          if (is.na(df_distr_grouped$idx[i])) {
+            l_params_model[[df_distr_grouped$var_name[i]]]$distr <- l_distr_updates$distr
+            l_params_model[[df_distr_grouped$var_name[i]]]$params <- l_distr_updates$params
+          } else {
+            l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$distr <- l_distr_updates$distr
+            l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$params <- l_distr_updates$params
+          }
+        }
+      }
     } else {
-      l_params_update[[param_map$var_name[i]]][[param_map$idx[i]]]$params[[param_map$param_name[i]]] <- val
+      # Group parameters by variable name
+      df_distr_grouped <- param_map %>%
+        group_by(var_name) %>%
+        summarise(
+          distr = first(var_distr),  # Get the distribution type
+          params = list(setNames(param_val, param_name)),  # Create a named list for params
+          .groups = "drop"
+        ) 
+      
+      # Loop over grouped parameters and update l_params_model for variables in the list
+      for (i in seq(nrow(df_distr_grouped))) { # If no nested distributions, run same updating code without extra checks
+        if (df_distr_grouped$var_name[i] %in% names(l_params_model)) {
+          # Get list of of values to update
+          l_distr_updates <- list(distr = df_distr_grouped$distr[i],
+                                  params = as.list(df_distr_grouped$params[[i]]))
+          
+          # Check if distribution has an index within a nested list and update the distribution
+          l_params_model[[df_distr_grouped$var_name[i]]]$distr <- l_distr_updates$distr
+          l_params_model[[df_distr_grouped$var_name[i]]]$params <- l_distr_updates$params
+        }
+      }
     }
   }
   
-  return(l_params_update)
+  return(l_params_model)
 }
 
 

@@ -13,6 +13,11 @@ list2env(configs, envir = .GlobalEnv) # Assign items within configs to global en
 # Make updates for lesion model if necessary
 if ("lesion_state" %in% names(params_model)) {
   if (params_model$lesion_state == T) {
-    params_calib$l_outcome_params <- c(params_calib$l_outcome_params_lesion, params_calib$l_outcome_params)
+    for (item_name in names(params_calib$lesion_state_true)) {
+      params_calib[[item_name]] <- c(params_calib$lesion_state_true[[item_name]], params_calib[[item_name]])
+    }
   }
 }
+
+# Remove calibration parameters specific to lesion model
+params_calib$lesion_state_true <- NULL

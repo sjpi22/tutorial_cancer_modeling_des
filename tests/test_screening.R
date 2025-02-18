@@ -3,17 +3,16 @@
 #  Objective: Run unit tests for screening evaluation
 ########################### <<<<<>>>>> ##############################################
 
+rm(list = ls()) # Clean environment
+options(scipen = 999) # View data without scientific notation
 
 #### 1.Libraries and functions  ==================================================
-#* Clean environment
-rm(list = ls())
 
+###### 1.1 Load packages
 library(tidyverse)
 library(testthat)
 
-###### 1.1 Load functions =================================================
-
-# Load functions
+###### 1.2 Load functions
 distr.sources <- list.files("R", 
                             pattern="*.R$", full.names=TRUE, 
                             ignore.case=TRUE, recursive = TRUE)
@@ -32,7 +31,7 @@ age_screen_end <- 75
 test_interval <- 10
 p_spec <- 0.8
 
-#### 3. Pre-processing actions  ===========================================
+#### 3. Pre-processing  ===========================================
 
 # Test expected number of screens and false positives in healthy state
 v_time_H_L <- seq(age_screen_start - test_interval, age_screen_end + 2 * test_interval, test_interval / 2) + eps_pct
