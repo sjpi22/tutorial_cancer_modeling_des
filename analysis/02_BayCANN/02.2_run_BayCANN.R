@@ -14,12 +14,13 @@
 # medRxiv [Preprint]. 2024 Feb 5:2023.02.27.23286525. doi: 
 #   10.1101/2023.02.27.23286525. PMID: 36909607; PMCID: PMC10002763.
 
+rm(list = ls()) # Clean environment
+options(scipen = 999) # View data without scientific notation
 
 #### 1.Libraries and functions  ==================================================
-# Clean environment
-rm(list = ls())
 
-library(keras3)   # Install tensorflow
+###### 1.1 Load packages
+library(keras3)   # Install tensorflow beforehand
 library(tfruns)
 library(rstan)
 library(reshape2)
@@ -33,10 +34,7 @@ library(data.table)
 library(assertthat)
 rstan_options(auto_write = TRUE)
 
-
-###### 1.1 Load  functions =================================================
-
-# Load functions
+###### 1.2 Load functions
 distr.sources <- list.files("R", 
                             pattern="*.R$", full.names=TRUE, 
                             ignore.case=TRUE, recursive = TRUE)
@@ -92,7 +90,7 @@ patience         <- 100
 init_W = NULL
 
 # Other options to initialize weights
-#init_W=initializer_random_uniform(minval = -0.7, maxval = 0.7,seed = 2312)   ###initialization of weights with uniform distribution
+#init_W=initializer_random_uniform(minval = -0.7, maxval = 0.7, seed = 2312)   ###initialization of weights with uniform distribution
 #init_W=initializer_random_normal(mean = 0, stddev = 0.1, seed = 2312)  ###initialization of weights with normal distribution
 
 ###### 2.4 parameters for ANN hyperparameter tuning

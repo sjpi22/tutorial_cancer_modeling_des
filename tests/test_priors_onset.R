@@ -447,117 +447,119 @@ lines(0:10, pweibull(0:10, shape_onset, scale_onset), col = "red")
 lines(0:10, pweibull(0:10, shape_onset_ci[1], scale_onset_ci[1]), col = "red", lty = 2)
 lines(0:10, pweibull(0:10, shape_onset_ci[2], scale_onset_ci[2]), col = "red", lty = 2)
 
-
-##### 4.4 Fit exponential distribution to time from preclinical to clinical cancer
-# Create initial exponential distribution estimate for time from preclinical to clinical cancer
-# with rate = 1 / age difference between the clinical and preclinical distribution quantiles
-# at the maximum probability observed in the clinical distribution
-age_P_max_C <- query_distr("q", max(l_p_clinical[[v_cols[1]]]), d_time_onset_est$distr, d_time_onset_est$params)
-rate_P_C_init <- 1/(max(df_prevalence[[idx_preclinical]][[var_index]]) - age_P_max_C)
-d_time_P_C_est <- list(distr = "exp", params = list(rate = rate_P_C_init))
-
-# Create objective function for difference between predicted and observed clinical cancer CDF
-obj_fn_clinical <- function(rate_P_C, val) {
-  # Update distribution for time from preclinical to clinical
-  d_time_P_C_est$params$rate <- rate_P_C
+# The following sections have only been tested on the no-lesion model
+if (params_model$lesion_state == F) {
+  ##### 4.4 Fit exponential distribution to time from preclinical to clinical cancer
+  # Create initial exponential distribution estimate for time from preclinical to clinical cancer
+  # with rate = 1 / age difference between the clinical and preclinical distribution quantiles
+  # at the maximum probability observed in the clinical distribution
+  age_P_max_C <- query_distr("q", max(l_p_clinical[[v_cols[1]]]), d_time_onset_est$distr, d_time_onset_est$params)
+  rate_P_C_init <- 1/(max(df_prevalence[[idx_preclinical]][[var_index]]) - age_P_max_C)
+  d_time_P_C_est <- list(distr = "exp", params = list(rate = rate_P_C_init))
   
-  # Calculate difference between observed and estimated clinical cancer CDF
-  diff_cdf <- l_p_clinical[[val]] - sapply(df_prevalence[[idx_preclinical]][[var_index]], function(t) {
-    # Calculates sum of the two distributions
-    integrate(function(u)
-      query_distr("p", t - u, d_time_onset_est$distr, d_time_onset_est$params) * 
-        query_distr("d", u, d_time_P_C_est$distr, d_time_P_C_est$params),
-      lower = 0, upper = t)[["value"]]
-  })
-  
-  # Return sum of squared differences
-  return(sum(diff_cdf^2))
-}
-
-# Perform quick optimization to refine parameter estimate for time from preclinical to clinical cancer
-l_rate_P_C_est <- list()
-for (val in v_cols) {
-  l_rate_P_C_est[[val]] <- optimize(function(x) obj_fn_clinical(x, val = val), 
-                                    interval = c(d_time_P_C_est$params$rate / 4, d_time_P_C_est$params$rate * 4))$minimum
-}
-
-##### 4.5 Check coverage of targets
-# Create dataframe of parameter priors
-df_prior_vals <- data.frame(rbind(
-  unname(c(shape_onset, shape_onset_ci, d_time_onset$params$shape)),
-  unname(c(scale_onset, scale_onset_ci, d_time_onset$params$scale)),
-  unname(c(unlist(l_rate_P_C_est), d_time_P_C$params$rate))
-))
-colnames(df_prior_vals) <- c("init", "min", "max", "truth")
-
-# Create map of prior distributions
-df_priors <- data.frame(
-  var_name = c("d_time_H_P", "d_time_H_P", "d_time_P_C"),
-  param_name = c("shape", "scale", "rate"),
-  df_prior_vals
-)
-df_priors$var_id <- paste(df_priors$var_name, df_priors$param_name, sep = ".")
-
-# Get number of params to calibrate and number of samples
-n_param <- nrow(df_priors)
-
-# Sample unit Latin Hypercube
-m_lhs_unit <- randomLHS(n_samp, n_param)
-
-# Rescale to min/max of each parameter
-m_param_samp <- matrix(nrow = n_samp, ncol = n_param)
-for (i in 1:n_param) {
-  m_param_samp[, i] <- qunif(
-    m_lhs_unit[, i],
-    min = df_priors$min[i],
-    max = df_priors$max[i])
-}
-colnames(m_param_samp) <- df_priors$var_id
-
-# Set estimated model parameters
-l_params_est <- update_param_from_map(l_params_model, df_prior_vals$init, df_priors)
-
-# Simulate model with updated parameters and check coverage of targets
-l_outputs_est <- list(params_to_targets(l_params_est, NULL, df_priors, var_censor, v_ages, alpha, ir_unit = 1))
-v_target_max <- c(prevalence = 0, incidence = 0)
-for (i in 1:n_samp) {
-  # Calculate targets for parameter set
-  l_targets_temp <- params_to_targets(l_params_est, m_param_samp[i, ], df_priors, var_censor, v_ages, alpha, ir_unit = 1)
-  
-  # Add targets to list
-  l_outputs_est <- c(l_outputs_est,
-                     list(l_targets_temp))
-  
-  # Keep track of maximum value for plotting
-  v_target_max <- pmax(v_target_max, c(
-    max(l_targets_temp$prevalence[[v_cols[1]]]),
-    max(l_targets_temp$incidence[[v_cols[1]]])))
-}
-
-# Plot coverage of targets and visually verify
-par(mfrow = c(1, 2))
-for (target in c("prevalence", "incidence")) {
-  # Plot main estimate
-  plot(l_outputs_est[[1]][[target]][[var_index]], l_outputs_est[[1]][[target]][[v_cols[1]]], type = "l", col = "blue", lwd = 2,
-       ylim = c(0, v_target_max[target]),
-       xlab = "Age", ylab = toTitleCase(target))
-  
-  # Plot LHS estimates
-  for (i in 1:n_samp) {
-    lines(l_outputs_est[[i + 1]][[target]][[var_index]], l_outputs_est[[i + 1]][[target]][[v_cols[1]]], col = "gray", lty = 2)
+  # Create objective function for difference between predicted and observed clinical cancer CDF
+  obj_fn_clinical <- function(rate_P_C, val) {
+    # Update distribution for time from preclinical to clinical
+    d_time_P_C_est$params$rate <- rate_P_C
+    
+    # Calculate difference between observed and estimated clinical cancer CDF
+    diff_cdf <- l_p_clinical[[val]] - sapply(df_prevalence[[idx_preclinical]][[var_index]], function(t) {
+      # Calculates sum of the two distributions
+      integrate(function(u)
+        query_distr("p", t - u, d_time_onset_est$distr, d_time_onset_est$params) * 
+          query_distr("d", u, d_time_P_C_est$distr, d_time_P_C_est$params),
+        lower = 0, upper = t)[["value"]]
+    })
+    
+    # Return sum of squared differences
+    return(sum(diff_cdf^2))
   }
   
-  # Plot truth on top
-  points(l_targets[[target]][[var_index]], l_targets[[target]][[v_cols[1]]])
-  arrows(l_targets[[target]][[var_index]], l_targets[[target]]$ci_lb, 
-         l_targets[[target]][[var_index]], l_targets[[target]]$ci_ub, length = 0.05, angle = 90, code = 3)
-}
-
-# Verify that prior bounds cover the truth
-df_priors <- df_priors %>%
-  mutate(coverage = (truth >= min & truth <= max))
-if (sum(df_priors$coverage == FALSE) > 0) {
-  stop("Prior bounds do not cover the truth")
-} else {
-  print("Prior bounds cover the truth")
+  # Perform quick optimization to refine parameter estimate for time from preclinical to clinical cancer
+  l_rate_P_C_est <- list()
+  for (val in v_cols) {
+    l_rate_P_C_est[[val]] <- optimize(function(x) obj_fn_clinical(x, val = val), 
+                                      interval = c(d_time_P_C_est$params$rate / 4, d_time_P_C_est$params$rate * 4))$minimum
+  }
+  
+  ##### 4.5 Check coverage of targets
+  # Create dataframe of parameter priors
+  df_prior_vals <- data.frame(rbind(
+    unname(c(shape_onset, shape_onset_ci, d_time_onset$params$shape)),
+    unname(c(scale_onset, scale_onset_ci, d_time_onset$params$scale)),
+    unname(c(unlist(l_rate_P_C_est), d_time_P_C$params$rate))
+  ))
+  colnames(df_prior_vals) <- c("init", "min", "max", "truth")
+  
+  # Create map of prior distributions
+  df_priors <- data.frame(
+    var_name = c("d_time_H_P", "d_time_H_P", "d_time_P_C"),
+    param_name = c("shape", "scale", "rate"),
+    df_prior_vals
+  )
+  df_priors$var_id <- paste(df_priors$var_name, df_priors$param_name, sep = ".")
+  
+  # Get number of params to calibrate and number of samples
+  n_param <- nrow(df_priors)
+  
+  # Sample unit Latin Hypercube
+  m_lhs_unit <- randomLHS(n_samp, n_param)
+  
+  # Rescale to min/max of each parameter
+  m_param_samp <- matrix(nrow = n_samp, ncol = n_param)
+  for (i in 1:n_param) {
+    m_param_samp[, i] <- qunif(
+      m_lhs_unit[, i],
+      min = df_priors$min[i],
+      max = df_priors$max[i])
+  }
+  colnames(m_param_samp) <- df_priors$var_id
+  
+  # Set estimated model parameters
+  l_params_est <- update_param_from_map(l_params_model, df_prior_vals$init, df_priors)
+  
+  # Simulate model with updated parameters and check coverage of targets
+  l_outputs_est <- list(params_to_targets(l_params_est, NULL, df_priors, var_censor, v_ages, alpha, ir_unit = 1))
+  v_target_max <- c(prevalence = 0, incidence = 0)
+  for (i in 1:n_samp) {
+    # Calculate targets for parameter set
+    l_targets_temp <- params_to_targets(l_params_est, m_param_samp[i, ], df_priors, var_censor, v_ages, alpha, ir_unit = 1)
+    
+    # Add targets to list
+    l_outputs_est <- c(l_outputs_est,
+                       list(l_targets_temp))
+    
+    # Keep track of maximum value for plotting
+    v_target_max <- pmax(v_target_max, c(
+      max(l_targets_temp$prevalence[[v_cols[1]]]),
+      max(l_targets_temp$incidence[[v_cols[1]]])))
+  }
+  
+  # Plot coverage of targets and visually verify
+  par(mfrow = c(1, 2))
+  for (target in c("prevalence", "incidence")) {
+    # Plot main estimate
+    plot(l_outputs_est[[1]][[target]][[var_index]], l_outputs_est[[1]][[target]][[v_cols[1]]], type = "l", col = "blue", lwd = 2,
+         ylim = c(0, v_target_max[target]),
+         xlab = "Age", ylab = toTitleCase(target))
+    
+    # Plot LHS estimates
+    for (i in 1:n_samp) {
+      lines(l_outputs_est[[i + 1]][[target]][[var_index]], l_outputs_est[[i + 1]][[target]][[v_cols[1]]], col = "gray", lty = 2)
+    }
+    
+    # Plot truth on top
+    points(l_targets[[target]][[var_index]], l_targets[[target]][[v_cols[1]]])
+    arrows(l_targets[[target]][[var_index]], l_targets[[target]]$ci_lb, 
+           l_targets[[target]][[var_index]], l_targets[[target]]$ci_ub, length = 0.05, angle = 90, code = 3)
+  }
+  
+  # Verify that prior bounds cover the truth
+  df_priors <- df_priors %>%
+    mutate(coverage = (truth >= min & truth <= max))
+  if (sum(df_priors$coverage == FALSE) > 0) {
+    stop("Prior bounds do not cover the truth")
+  } else {
+    print("Prior bounds cover the truth")
+  }
 }

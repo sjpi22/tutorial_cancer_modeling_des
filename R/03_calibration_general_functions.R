@@ -73,7 +73,7 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   # Return list of calibration parameters
   l_params_calib <- list(
     l_params_model = l_params_model,
-    df_true_targets = df_targets_flattened,
+    df_targets = df_targets_flattened,
     l_outcome_params = l_outcome_params,
     l_censor_vars = l_censor_vars,
     prior_map = prior_map,

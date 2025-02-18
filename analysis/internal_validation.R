@@ -32,6 +32,7 @@ outpath <- "output/calibration/BayCANN"
 file_posterior <- file.path(outpath, "calibrated_posteriors_BayCANN.csv")
 file_outputs <- file.path(outpath, "calibration_outputs_BayCANN.rds")
 file_fig_validation <- file.path(outpath, "plots/fig_internal_validation.png")
+file_fig_prior <- file.path(outpath, "plots/fig_param_calibration.png")
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -39,6 +40,9 @@ file_fig_validation <- file.path(outpath, "plots/fig_internal_validation.png")
 # # Load model and calibration parameters
 # l_params_calib <- readRDS(file_params)
 # 
+# Load true parameters
+df_true_params <- readRDS(file_truth)
+
 # # Generate sample data
 # m_times <- run_base_model(l_params_calib$l_params_all)
 # 
@@ -431,3 +435,16 @@ plot_targets_baycann_cat
 
 plot_all <- plot_targets_baycann / plot_targets_baycann_cat
 ggsave(path_fig_validation, plot_all, width = 10, height = 4*ceiling(n_grp/3))
+
+
+# Plot parameters against true parameters and priors
+plot_params <- ggplot(df_params_long, aes(value)) + 
+  geom_histogram() + 
+  geom_vline(data = df_true_params %>%
+               rename(name = var_id), aes(xintercept=param_val), color = 'red') +
+  geom_vline(data = l_params_calib$prior_map %>%
+               rename(name = var_id), aes(xintercept=min), color = 'blue') +
+  geom_vline(data = l_params_calib$prior_map %>%
+               rename(name = var_id), aes(xintercept=max), color = 'blue') +
+  facet_wrap(~name, scales = "free")
+ggsave(file_fig_prior, plot_params, width = 10, height = 8)

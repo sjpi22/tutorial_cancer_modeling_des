@@ -1,6 +1,6 @@
 "var_name","var_distr","param_name","var_id","distr","min","max"
-"d_time_H_L","weibull","shape","d_time_H_L.shape","unif",1.26,3.81
-"d_time_H_L","weibull","scale","d_time_H_L.scale","unif",46.45,165.67
+"d_time_H_L","weibull","shape","d_time_H_L.shape","unif",1.28849478040976,2.70401215170358
+"d_time_H_L","weibull","scale","d_time_H_L.scale","unif",75.7618915779844,136.359307409077
 "d_time_L_P","weibull","shape","d_time_L_P.shape","unif",1.47,5.08
 "d_time_L_P","weibull","scale","d_time_L_P.scale","unif",23.95,83.92
 "d_n_L","pois","lambda","d_n_L.lambda","unif",0.04,0.12

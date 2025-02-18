@@ -34,8 +34,12 @@ ir_clinical <- function(x) {
 # Run file to process configurations
 source("configs/process_configs.R")
 
+# Extract relevant parameters from configs
+params_model <- configs$params_model
+params_calib <- configs$params_calib
+
 ###### 2.2 Other parameters
-conf_level <- 0.99 # For generating bounds
+conf_level <- 0.95 # For generating bounds
 multiplier_bounds <- 0.2
 age_interval <- 0.25
 v_cols <- c("targets", "ci_lb", "ci_ub")
@@ -344,6 +348,16 @@ coefs_onset_lb <- coefs_onset - qnorm((1 + conf_level)/2) * stderrorHC
 coefs_onset_ub <- coefs_onset + qnorm((1 + conf_level)/2) * stderrorHC
 coefs_onset_ci <- cbind(coefs_onset_lb, coefs_onset_ub)
 
+# Convert CIs to shape and scale - note, dividing min intercept by max slope 
+# and vice versa for more accurate coverage of line
+shape_onset_ci <- coefs_onset_ci[2, ]
+scale_onset_ci <- rev(exp(-rev(coefs_onset_ci[1,])/shape_onset_ci))
+
+# Expand bounds by multiplier
+v_multipliers <- c(1 - multiplier_bounds, 1 + multiplier_bounds)
+shape_onset_bounds <- shape_onset_ci * v_multipliers
+scale_onset_bounds <- scale_onset_ci * v_multipliers
+
 # Plot transformations to validate Weibull fit - should be linear
 for (val in v_cols) {
   if (val == v_cols[1]) {
@@ -358,26 +372,29 @@ abline(coefs_onset[1], coefs_onset[2], col = "red")
 abline(coefs_onset_lb[1], coefs_onset_ub[2], col = "red", lty = 2)
 abline(coefs_onset_ub[1], coefs_onset_lb[2], col = "red", lty = 2)
 
-# Convert CIs to shape and scale - note, dividing min intercept by max slope 
-# and vice versa for more accurate coverage of line
-shape_onset_ci <- coefs_onset_ci[2, ]
-scale_onset_ci <- rev(exp(-rev(coefs_onset_ci[1,])/shape_onset_ci))
+# Plot fitted Weibull distribution of disease onset
+plot(v_ages, pweibull(v_ages, shape_onset, scale_onset), type = "l",
+     xlab = "Age", ylab = "Probability", main = "Fitted Weibull distribution")
+lines(v_ages, pweibull(v_ages, shape_onset_ci[1], scale_onset_ci[1]), lty = 2)
+lines(v_ages, pweibull(v_ages, shape_onset_ci[2], scale_onset_ci[2]), lty = 2)
 
-# Plot fitted Weibull parameters
-curve(pweibull(x, l_params_model[[paste0("d_", var_onset)]]$params$shape, l_params_model[[paste0("d_", var_onset)]]$params$scale), from = 0, to = 10,
-      xlab = "Time to disease onset", ylab = "Density", main = "Weibull fit to disease onset data")
-plot(0:10, pweibull(0:10, shape_onset, scale_onset), col = "red")
-lines(0:10, pweibull(0:10, shape_onset_ci[1], scale_onset_ci[1]), col = "red", lty = 2)
-lines(0:10, pweibull(0:10, shape_onset_ci[2], scale_onset_ci[2]), col = "red", lty = 2)
+# Plot against estimated distribution of disease onset
+points(df_prevalence[[1]][[var_index]], df_prevalence[[1]][[paste0("p_", v_cols[1])]])
+arrows(df_prevalence[[1]][[var_index]], df_prevalence[[1]][[paste0("p_", v_cols[2])]], 
+       df_prevalence[[1]][[var_index]], df_prevalence[[1]][[paste0("p_", v_cols[3])]], 
+       length = 0.05, angle = 90, code = 3)
 
-
+# Plot against prevalence targets
+points(df_prevalence[[1]][[var_index]], df_prevalence[[1]][[v_cols[1]]], col = "blue")
+arrows(df_prevalence[[1]][[var_index]], df_prevalence[[1]][[v_cols[2]]], 
+       df_prevalence[[1]][[var_index]], df_prevalence[[1]][[v_cols[3]]], 
+       length = 0.05, angle = 90, code = 3, col = "blue")
 
 ##### 4.4 Update prior distribution
-
 # Update prior dataframe
 df_priors <- read.csv(params_calib$file_prior)
-df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".shape"), c("min", "max")] <- as.list(shape_H_P_bounds)
-df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".scale"), c("min", "max")] <- as.list(scale_H_P_bounds)
+df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".shape"), c("min", "max")] <- as.list(shape_onset_bounds)
+df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".scale"), c("min", "max")] <- as.list(scale_onset_bounds)
 
 # Overwrite prior file
 write.csv(df_priors, file = params_calib$file_priors, row.names = FALSE)

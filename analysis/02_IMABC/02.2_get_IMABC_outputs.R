@@ -1,22 +1,21 @@
-###########################  IMABC outputs   ###################################
+###########################  Generate IMABC outputs   ##########################
 #
-#  Objective: Script to regenerate calibration target outputs for IMABC 
-# calibrated parameters with cohort size consistent with targets
+#  Objective: Script to generate calibration target outputs for parameter 
+#  posterior distributions calibrated with IMABC
 ########################### <<<<<>>>>> #########################################
 
+rm(list = ls()) # Clean environment
+options(scipen = 999) # View data without scientific notation
 
 #### 1.Libraries and functions  ==================================================
-#* Clean environment
-rm(list = ls())
 
+###### 1.1 Load packages
 library(tidyverse)
 library(dplyr)
 library(doBy)
 library(patchwork)
 
-###### 1.1 Load functions =================================================
-
-# Load functions
+###### 1.2 Load functions
 distr.sources <- list.files("R", 
                             pattern="*.R$", full.names=TRUE, 
                             ignore.case=TRUE, recursive = TRUE)
@@ -25,28 +24,30 @@ sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
 
-###### 2.1 file paths
-file_truth <- "ground_truth/true_param_map.rds" 
-file_params <- "data/calibration_params.rds"
-outpath <- "output/calibration/IMABC"
-file_imabc_params <- file.path(outpath, "params_IMABC.rds")
-file_posterior <- file.path(outpath, "calibrated_posteriors_IMABC.rds")
-file_fig_validation <- file.path(outpath, "plots/fig_internal_validation.png")
-file_fig_prior <- file.path(outpath, "plots/fig_param_calibration.png")
+###### 2.1 Configurations
+# Run file to process configurations
+source("configs/process_configs.R")
+
+# Extract relevant parameters from configs
+file_params_calib <- configs$paths$file_params_calib
+
+# Get list of relevant output file paths and load to global environment
+l_filepaths <- update_config_paths("files_imabc", configs$paths)
+list2env(l_filepaths, envir = .GlobalEnv)
+
+# Load IMABC parameters from configs file
+list2env(configs$params_imabc, envir = .GlobalEnv)
 
 
 #### 3. Pre-processing actions  ===========================================
 
 # Load model parameters
-l_params_calib <- readRDS(file_params)
+l_params_calib <- readRDS(file_params_calib)
 
 # Load IMABC outputs and extract parameter samples
 calibration_outputs <- readRDS(file_posterior)
 m_param_samp <- calibration_outputs$good_parm_draws %>%
   dplyr::select(l_params_calib$prior_map$var_id)
-
-# Load true parameters
-df_true_params <- readRDS(file_truth)
 
 
 #### 4. Internal validation  ===========================================
@@ -80,7 +81,7 @@ collapse_UB_50 <- apply(m_outputs, 2, FUN=quantile, probs = 0.75, simplify = TRU
 collapse_LB_50 <- apply(m_outputs, 2, FUN=quantile, probs = 0.25, simplify = TRUE)
 
 out_summary <-  data.frame(
-  l_params_calib$df_true_targets,
+  l_params_calib$df_targets,
   model_mean = collapse_mean,
   model_UB_95 = collapse_UB_95,
   model_LB_95 = collapse_LB_95,
@@ -99,10 +100,10 @@ out_summary_cont <- out_summary %>%
   filter(categorical == 0)
 
 plot_targets_cont <- ggplot(data = out_summary_cont, 
-                               aes(x    = target_index, 
-                                   y    = true_val, 
-                                   ymin = true_val - true_se, 
-                                   ymax = true_val + true_se))+ 
+                            aes(x    = target_index, 
+                                y    = true_val, 
+                                ymin = true_val - true_se, 
+                                ymax = true_val + true_se))+ 
   geom_errorbar(width=.4, linewidth=0.9, color="red") +
   theme(legend.position="none") +
   geom_ribbon(data = out_summary_cont,
@@ -185,15 +186,3 @@ plot_targets_cat <- ggplot(data = out_summary_cat) +
 
 plot_all <- plot_targets_cont / plot_targets_cat
 ggsave(file_fig_validation, plot_all, width = 10, height = 8)
-
-# Plot IMABC parameters against true parameters and priors
-plot_params <- ggplot(df_params_long, aes(value)) + 
-  geom_histogram() + 
-  geom_vline(data = df_true_params %>%
-               rename(name = var_id), aes(xintercept=param_val), color = 'red') +
-  geom_vline(data = l_params_calib$prior_map %>%
-               rename(name = var_id), aes(xintercept=min), color = 'blue') +
-  geom_vline(data = l_params_calib$prior_map %>%
-               rename(name = var_id), aes(xintercept=max), color = 'blue') +
-  facet_wrap(~name, scales = "free")
-ggsave(file_fig_prior, plot_params, width = 10, height = 8)

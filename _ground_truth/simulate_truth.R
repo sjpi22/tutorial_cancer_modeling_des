@@ -29,13 +29,12 @@ sapply(distr.sources, source, .GlobalEnv)
 # Run file to process configurations
 source("configs/process_configs.R")
 
-###### 2.2 File paths
-path_truth <- "_ground_truth"
-path_data <- paths$data
-file_distr <- file.path(path_truth, "true_params.xlsx")
+# Extract relevant parameters from configs
+params_model <- configs$params_model
+params_calib <- configs$params_calib
 
-# Check if data directory exists, make if not
-dir.create(file.path(path_data), showWarnings = FALSE)
+###### 2.2 File paths
+file_true_params <- file.path("_ground_truth", "true_params.xlsx")
 
 ###### 2.3 Other parameters
 # Simulation parameters and outcome reporting
@@ -64,7 +63,7 @@ l_params_model <- do.call(load_model_params, c(
              list(file.surv = NULL),
              keep.null = T),
   list(seed = NULL,
-       file.distr = file_distr)
+       file.distr = file_true_params)
 ))
 
 # Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
@@ -92,6 +91,9 @@ for (target in names(l_outcome_params)) {
                                                          "_cs")
   }
 }
+
+# Check if data directory exists, make if not
+dir.create(dirname(params_calib$l_outcome_params[[1]]$file_path), showWarnings = FALSE)
 
 
 #### 4. Generate population data and outputs ========================================================

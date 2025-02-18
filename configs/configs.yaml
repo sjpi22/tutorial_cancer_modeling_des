@@ -1,23 +1,39 @@
 # Configurations for decision model and calibration
 
-# File paths
+# General file paths
 paths:
-  data: "data"
-  output: "output"
-  figures: "figures"
-  tables: "tables"
-  model: "model"
-  calibration: "calibration"
-  
+  root_dir: # Root directories
+    data: "data"
+    output: "output"
+    figs: "figs"
+  file_params_calib: "output/params_calib_updated.rds" # File to save list of calibration parameters updated with cohort size
+  file_plot_labels: "data/target_plot_labels.csv" # File path with plot labels for calibration targets and outcomes
+  files_coverage: # File names for coverage analysis outputs
+    output:
+      coverage: "coverage_initial.rds"
+    figs:
+      coverage: "coverage_initial.png"
+  files_imabc: # File names for IMABC outputs
+    output:
+      posterior: "imabc_posterior.rds"
+      runtime: "imabc_runtime.csv"
+    figs:
+      validation: "imabc_validation.png"
+  files_baycann: # File names for BayCANN outputs
+    output:
+      sample: "baycann_sample.rds"
+      posterior: "baycann_posterior.rds"
+    figs:
+      coverage: "baycann_coverage.png"
+      
 # Model parameters (inputs to load_model_params() in R/01_load_model_inputs.R)
 params_model:
-  n_cohort: 100000         # Number to simulate per cohort
   lesion_state: TRUE      # Indicator to include precancerous lesion state
   v_cancer: [1, 2, 3, 4]   # Cancer stages in order
   file.mort: "data/background_mortality.xlsx" # File path for background mortality data
   file.surv: "data/relative_survival_cancer.csv" # File path for relative survival from cancer diagnosis data
 
-# Calibration parameters
+# Calibration parameters (inputs to load_calib_params() in R/03_calibration_general_functions.R after modifications in configs/process_configs.R for lesion model)
 params_calib:
   seed_calib: 42
   file_priors: "data/priors.csv" # File path for prior distributions for calibration parameters
@@ -50,7 +66,7 @@ params_calib:
       time_screen_censor: ["time_H_C", "time_H_D"]
     m_lesions:
       time_screen_censor: ["time_H_P", "time_H_Do"]
-  lesion_state_true:
+  lesion_state_true: # Parameters to add for lesion model
     l_outcome_params: # Parameters for calculating lesion-model-specific calibration outcomes
       prevalence_lesion:
         file_path: "data/prevalence_lesion.csv"
@@ -69,3 +85,33 @@ params_calib:
         censor_var: "time_screen_censor"
         start_age: 50
         end_age: 80
+        
+# Parameters for Monte Carlo analysis to set sample size
+params_montecarlo:
+  n_init: 10000
+  n_mc_reps: 50
+  mc_multiplier: 2
+  
+# Parameters for initial coverage analysis
+params_coverage:
+  check_coverage: TRUE # Indicator to (re)run coverage analysis
+  n_samp_coverage: 50
+  plt_size_text: 18
+
+# Parameters specific to IMABC
+params_imabc:
+  alpha_current: 0.000001
+  alpha_stop: 0.05
+  fn_use_seed: FALSE
+  N_start_multiplier: 1000
+  optional_args:
+    N_centers: 1
+    Center_n: 100
+    N_post: 2000
+    max_iter: 1000
+
+# Parameters specific to BayCANN
+params_baycann:
+  n_samp_per_param: 1000
+
+      

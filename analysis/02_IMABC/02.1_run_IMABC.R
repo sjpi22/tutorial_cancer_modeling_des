@@ -1,9 +1,18 @@
-# Run IMABC: Vignette at https://github.com/c-rutter/imabc
+###########################  Run IMABC  ##########################
+#
+#  Objective: Program to run IMABC based on vignette at 
+#  https://github.com/c-rutter/imabc
+########################### <<<<<>>>>> #########################################
 
+rm(list = ls()) # Clean environment
+options(scipen = 999) # View data without scientific notation
+
+#### 1.Libraries and functions  ==================================================
+
+###### 1.1 Load packages
 # Run once
 # install.packages("imabc")
 
-# Load packages
 library(imabc)
 library(MASS)
 library(data.table)
@@ -12,46 +21,38 @@ library(parallel)
 library(truncnorm)
 library(lhs)
 library(methods)
-library(stats)
-library(utils)
 library(tidyverse)
 library(doParallel)
 library(assertthat)
 
-#* Clean environment
-rm(list = ls())
-
-# Load functions
+###### 1.2 Load functions
 distr.sources <- list.files("R", 
                             pattern="*.R$", full.names=TRUE, 
                             ignore.case=TRUE, recursive = TRUE)
 sapply(distr.sources, source, .GlobalEnv)
 
+
 #### 2. General parameters ========================================================
 
-###### 2.1 file paths
-file_params <- "data/calibration_params.rds"
-outpath <- "output/calibration/IMABC"
-file_imabc_params <- file.path(outpath, "params_IMABC.rds")
-file_posterior <- file.path(outpath, "calibrated_posteriors_IMABC.rds")
+###### 2.1 Configurations
+# Run file to process configurations
+source("configs/process_configs.R")
 
-###### 2.2 IMABC parameters 
-alpha_current <- 1e-15
-alpha_stop <- 0.05
-fn_use_seed <- FALSE
-N_start_multiplier = 1000
-optional_args = list(
-  N_centers = 1,
-  Center_n = 100,
-  N_post = 2000,
-  max_iter = 1000
-)
+# Extract relevant parameters from configs
+file_params_calib <- configs$paths$file_params_calib
+
+# Get list of relevant output file paths and load to global environment
+l_filepaths <- update_config_paths("files_imabc", configs$paths)
+list2env(l_filepaths, envir = .GlobalEnv)
+
+# Load IMABC parameters from configs file
+list2env(configs$params_imabc, envir = .GlobalEnv)
 
 
 #### 3. Pre-processing actions  ===========================================
 
 # Load model and calibration parameters
-l_params_calib <- readRDS(file_params)
+l_params_calib <- readRDS(file_params_calib)
 
 # Define priors
 param_df <- with(l_params_calib, {
@@ -69,13 +70,13 @@ priors <- as.priors(
 )
 
 # Calculate current and stopping bounds for targets given alpha values
-target_map <- l_params_calib$df_true_targets %>%
-  mutate(current_lower_bounds = targets - se*qnorm(1-alpha_current/2),
-         current_upper_bounds = targets + se*qnorm(1-alpha_current/2),
-         stopping_lower_bounds = targets - se*qnorm(1-alpha_stop/2),
-         stopping_upper_bounds = targets + se*qnorm(1-alpha_stop/2))
+target_map <- l_params_calib$df_targets %>%
+  mutate(current_lower_bounds = targets - se*qnorm(1 - alpha_current/2),
+         current_upper_bounds = targets + se*qnorm(1 - alpha_current/2),
+         stopping_lower_bounds = ifelse(is.na(ci_lb), targets - se*qnorm(1 - alpha_stop/2), ci_lb),
+         stopping_upper_bounds = ifelse(is.na(ci_ub), targets + se*qnorm(1 - alpha_stop/2), ci_ub))
 
-# Define targets values
+# Define target values
 target_df <- target_map %>%
   dplyr::select(target_groups, target_names, targets,
                 current_lower_bounds, current_upper_bounds,
@@ -83,11 +84,11 @@ target_df <- target_map %>%
 
 targets <- as.targets(target_df)
 
-# Define targets function
+# Define target function
 fn <- function(v_params_update) {
   v_targets <- with(l_params_calib, {
     params_to_calib_outputs(
-      l_params_all = l_params_all,
+      l_params_model = l_params_model,
       v_params_update = v_params_update,
       param_map = prior_map,
       l_outcome_params = l_outcome_params,
@@ -107,14 +108,14 @@ imabc_inputs <- list(
   priors = priors,
   targets = targets,
   N_start = N_start_multiplier * length(priors),
-  seed = l_params_calib$l_params_all$seed)
+  seed = l_params_calib$l_params_model$seed)
 
 # Add optional args
 imabc_inputs <- c(imabc_inputs,
                   optional_args)
 
 # Set number of cores to use
-registerDoParallel(cores=detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
+registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
 
 
 #### 4. Run IMABC  ===========================================
@@ -123,10 +124,8 @@ registerDoParallel(cores=detectCores(logical = TRUE) - l_params_calib$n_cores_re
 start_time <- Sys.time()
 calibration_results <- do.call(imabc, imabc_inputs)
 end_time <- Sys.time()
-print(end_time - start_time)
+runtime <- end_time - start_time
+print(runtime)
 
-print('Saving output')
 saveRDS(calibration_results, file = file_posterior)
-saveRDS(list(imabc_inputs = imabc_inputs,
-             runtime = end_time - start_time), file = file_imabc_params)
-
+write.csv(data.frame(runtime = runtime), file = file_runtime, row.names = F)

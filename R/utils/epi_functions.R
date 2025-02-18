@@ -98,11 +98,12 @@ calc_nlesions <- function(m_lesions, start_var, end_var, censor_var,
     # Sort by patient and event time
     setorder(dt_events, pt_id, event_time)
     
-    # Compute cumulative lesion count
-    dt_events[, lesion_count := cumsum(delta), by = pt_id]
+    # Compute cumulative lesion count and time intervals
+    dt_events[, `:=` (lesion_count = cumsum(delta),
+                      next_time = shift(event_time, type = "lead")),
+              by = pt_id]
     
-    # Generate mutually exclusive intervals with >0 lesions
-    dt_events[, next_time := shift(event_time, type = "lead"), by = pt_id]
+    # Filter to time intervals with > 0 lesions
     dt_intervals <- dt_events[!is.na(next_time) & lesion_count > 0, .(pt_id, start_time = event_time, end_time = next_time, lesion_count)]
     
     # Get duration of time intervals
