@@ -20,11 +20,25 @@ paths:
     figs:
       validation: "imabc_validation.png"
   files_baycann: # File names for BayCANN outputs
+    none:
+      model: "analysis/02_BayCANN/model.R"
+      stan: "stan/post_multi_perceptron_flex.stan"
     output:
       sample: "baycann_sample.rds"
-      posterior: "baycann_posterior.rds"
+      runs: "baycann_runs"
+      run_best: "baycann_run_best"
+      keras_model: "baycann_keras_model.keras"
+      test_outputs: "baycann_test_outputs.rds"
+      stan_model: "baycann_stan_model.rds"
+      posterior: "baycann_posterior.csv"
+      baycann_stats: "baycann_stats.rds"
     figs:
       coverage: "baycann_coverage.png"
+      history: "baycann_ann_history.png"
+      ann_valid: "baycann_ann_validation.png"
+      chains: "baycann_chains.png"
+      corr: "baycann_corr.png"
+      prior_post: "baycann_prior_post.png"
       
 # Model parameters (inputs to load_model_params() in R/01_load_model_inputs.R)
 params_model:
@@ -103,15 +117,65 @@ params_imabc:
   alpha_current: 0.000001
   alpha_stop: 0.05
   fn_use_seed: FALSE
-  N_start_multiplier: 1000
+  N_start_multiplier: 100 # Number of initial samples per parameter; try 100 on desktop or 1000 if you can run on a computing cluster
   optional_args:
-    N_centers: 1
+    N_centers: 2
     Center_n: 100
     N_post: 2000
     max_iter: 1000
 
 # Parameters specific to BayCANN
 params_baycann:
-  n_samp_per_param: 1000
-
+  params_sampling: # Parameters for sampling from priors
+    n_samp_per_param: 100 # Number of samples per parameter; try 100 on desktop or 1000 if you can run on a computing cluster
+  params_data: # Parameters for data preparation
+    v_groups_categorical: ["stage_distr", "n_lesions"] # Target groups that are categorical (percentages should sum to 1)
+    scale_type: 3 # 1: scale from -1 to 1; 2: standardization; 3: scale from 0 to 1
+    train_split: 0.8 # Train vs. test split
+    valid_split: 0.8 # Train vs. validation within train set for hyperparameter tuning
+    Normalize_outputs: FALSE  # TRUE if we want to normalize outputs 
+    Scale_inputs: TRUE   # TRUE if we want to scale inputs
+    Scale_outputs: TRUE   # TRUE if we want to scale outputs 
+    Remove_outliers: FALSE  # TRUE if we want to remove outliers
+    Standardize_targets: FALSE  # TRUE if we want to standardize targets
+    Saved_data: FALSE  # TRUE if we want to saved the data
+    Selected_targets: FALSE  # TRUE if we want to use an specific list of calibration targets
+  params_ann: # Parameters for training ANN
+    verbose: 0
+    n_batch_size: 128
+    n_epochs: 1000
+    patience: 100
+    init_W_type: 0
+  params_hyperparameters: # Parameters for ANN hyperparameter tuning
+    confirm_hp: FALSE # Indicator to show confirmation prompt when hyperparameter tuning
+    v_hidden_layers: [1, 2, 3, 4]
+    v_hidden_nodes: [32, 64, 128]
+    v_dropout: [TRUE, FALSE]
+    v_dropout_rate: [0.25]
+    v_activation_fun: ["relu", "tanh", "sigmoid"]
+    p_hp_sample: 0.3 # Proportion of hyperparameter possibilities to sample
+  params_stan: # Parameters for Bayesian calibration with Stan
+    n_iter: 300000
+    n_thin: 100
+    n_chains: 4
+    validate_stan_model: TRUE
+    eps_stan: 0.0001
+  
+# Parameters for screening strategy evaluation
+params_screen:
+  test_chars: # Test characteristics
+    modality1:
+      p_sens: 0.9
+      p_spec: 0.8
+  strategies: # Strategies for administering test
+    strategy1:
+      mod: "modality1"
+      age_screen_start: 50
+      age_screen_end: 80
+      int_screen: 10
+    strategy2:
+      mod: "modality1"
+      age_screen_start: 50
+      age_screen_end: 80
+      int_screen: 5
       

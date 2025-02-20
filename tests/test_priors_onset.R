@@ -38,6 +38,7 @@ ir_clinical <- function(x) {
 ###### 2.1 Configurations
 # Run file to process configurations
 source("configs/process_configs.R")
+list2env(configs, envir = .GlobalEnv)
 
 ###### 2.2 File paths
 path_truth <- "_ground_truth"
@@ -70,7 +71,7 @@ l_params_model <- do.call(load_model_params, c(
 ))
 
 # Load survival data
-df_surv <- load_surv_data(file.surv)
+df_surv <- load_surv_data(params_model$file.surv)
 
 # Load targets
 l_targets <- load_calibration_targets(params_calib$l_outcome_params)

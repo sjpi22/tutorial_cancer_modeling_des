@@ -37,13 +37,14 @@ output <- list()
 loss_list <- list()
 loss_weights <- list()
 metrics_list <- list()
-for (i in 1:nrow(df_fn_grps)) {
+for (i in df_fn_grp_chars$fn_grp) {
+  temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == i, ]
   output[[i]] <- layer_dense(x, 
                              units = max(1, ncol(ytrain_scaled_reshape[[i]])), 
-                             activation = df_fn_grps$activation[i])
-  loss_list[[i]] <- df_fn_grps$loss_fn[i]
-  loss_weights[[i]] <- df_fn_grps$loss_weight[i]
-  metrics_list[[i]] <- df_fn_grps$metric[i]
+                             activation = temp_df_fn_grps$activation[1])
+  loss_list[[i]] <- temp_df_fn_grps$loss_fn[1]
+  loss_weights[[i]] <- temp_df_fn_grps$loss_weight[1]
+  metrics_list[[i]] <- temp_df_fn_grps$metric[1]
 }
 
 # Define the model
@@ -52,12 +53,7 @@ model <- keras_model(inputs = input, outputs = output)
 # View the model summary
 summary(model)
 
-# Compile the model with both MSE and Categorical Cross-Entropy losses
-# loss_list <- list(loss_mean_squared_error(), loss_mean_squared_error())
-# for (i in unique(data_true_targets$fn_grp[data_true_targets$fn_grp != 0])) {
-#   loss_list <- c(loss_list, loss_categorical_crossentropy())
-# }
-
+# Compile the model
 model %>% compile(
   loss = loss_list,
   loss_weights = loss_weights, 

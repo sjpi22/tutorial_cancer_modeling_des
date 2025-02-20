@@ -1,0 +1,165 @@
+# Configurations for decision model and calibration
+
+# General file paths
+paths:
+  root_dir: # Root directories
+    data: "data"
+    output: "output"
+    figs: "figs"
+  file_params_calib: "output/params_calib_updated.rds" # File to save list of calibration parameters updated with cohort size
+  file_plot_labels: "data/target_plot_labels.csv" # File path with plot labels for calibration targets and outcomes
+  files_coverage: # File names for coverage analysis outputs
+    output:
+      coverage: "coverage_initial.rds"
+    figs:
+      coverage: "coverage_initial.png"
+  files_imabc: # File names for IMABC outputs
+    output:
+      posterior: "imabc_posterior.rds"
+      runtime: "imabc_runtime.csv"
+    figs:
+      validation: "imabc_validation.png"
+  files_baycann: # File names for BayCANN outputs
+    none:
+      model: "analysis/02_BayCANN/model.R"
+      stan: "stan/post_multi_perceptron_flex.stan"
+    output:
+      sample: "baycann_sample.rds"
+      runs: "baycann_runs"
+      run_best: "baycann_run_best"
+      keras_model: "baycann_keras_model.keras"
+      test_outputs: "baycann_test_outputs.rds"
+      stan_model: "baycann_stan_model.rds"
+      posterior: "baycann_posterior.rds"
+      baycann_stats: "baycann_stats.rds"
+    figs:
+      coverage: "baycann_coverage.png"
+      history: "baycann_ann_history.png"
+      ann_valid: "baycann_ann_validation.png"
+      chains: "baycann_chains.png"
+      corr: "baycann_corr.png"
+      prior_post: "baycann_prior_post.png"
+      
+# Model parameters (inputs to load_model_params() in R/01_load_model_inputs.R)
+params_model:
+  lesion_state: TRUE      # Indicator to include precancerous lesion state
+  v_cancer: [1, 2, 3, 4]   # Cancer stages in order
+  file.mort: "data/background_mortality.xlsx" # File path for background mortality data
+  file.surv: "data/relative_survival_cancer.csv" # File path for relative survival from cancer diagnosis data
+
+# Calibration parameters (inputs to load_calib_params() in R/03_calibration_general_functions.R after modifications in configs/process_configs.R for lesion model)
+params_calib:
+  seed_calib: 42
+  file_priors: "data/priors.csv" # File path for prior distributions for calibration parameters
+  l_outcome_params: # Parameters for calculating calibration outcomes
+    prevalence:
+      file_path: "data/prevalence_preclinical_cancer.csv"
+      outcome_type: "prevalence"
+      m_patients: "m_patients"
+      start_var: "time_H_P"
+      end_var: "time_H_C"
+      censor_var: "time_screen_censor"
+      v_ages: [30, 40, 50, 60, 70, 80]
+    incidence:
+      file_path: "data/incidence_clinical_cancer.csv"
+      outcome_type: "incidence"
+      m_patients: "m_patients"
+      time_var: "time_H_C"
+      censor_var: "time_H_D"
+      v_ages: [30, 40, 50, 60, 70, 80, 90]
+    stage_distr:
+      file_path: "data/stage_distr_clinical_cancer.csv"
+      outcome_type: "distr"
+      m_patients: "m_patients"
+      grouping_var: "stage_dx"
+      event_var: "time_H_C"
+      censor_var: "time_H_D"
+      groups_expected: [1, 2, 3, 4] # Should be same as v_cancer unless using different stage classification for targets from simulated stages
+  l_censor_vars:
+    m_patients:
+      time_screen_censor: ["time_H_C", "time_H_D"]
+    m_lesions:
+      time_screen_censor: ["time_H_P", "time_H_Do"]
+  lesion_state_true: # Parameters to add for lesion model
+    l_outcome_params: # Parameters for calculating lesion-model-specific calibration outcomes
+      prevalence_lesion:
+        file_path: "data/prevalence_lesion.csv"
+        outcome_type: "prevalence"
+        m_patients: "m_patients"
+        start_var: "time_H_L"
+        end_var: "time_H_P"
+        censor_var: "time_screen_censor"
+        v_ages: [30, 40, 50, 60, 70, 80]
+      n_lesions:
+        file_path: "data/n_lesions.csv"
+        outcome_type: "nlesions"
+        m_lesions: "m_lesions"
+        start_var: "time_H_Lj"
+        end_var: "time_H_P"
+        censor_var: "time_screen_censor"
+        start_age: 50
+        end_age: 80
+        
+# Parameters for Monte Carlo analysis to set sample size
+params_montecarlo:
+  n_init: 10000
+  n_mc_reps: 50
+  mc_multiplier: 2
+  
+# Parameters for initial coverage analysis
+params_coverage:
+  check_coverage: TRUE # Indicator to (re)run coverage analysis
+  n_samp_coverage: 50
+  plt_size_text: 18
+
+# Parameters specific to IMABC
+params_imabc:
+  alpha_current: 0.000001
+  alpha_stop: 0.05
+  fn_use_seed: FALSE
+  N_start_multiplier: 1000
+  optional_args:
+    N_centers: 1
+    Center_n: 100
+    N_post: 2000
+    max_iter: 1000
+
+# Parameters specific to BayCANN
+params_baycann:
+  params_sampling: # Parameters for sampling from priors
+    n_samp_per_param: 100 # Number of samples per parameter; try 100 on desktop or 1000 if you can run on a computing cluster
+  params_data: # Parameters for data preparation
+    v_groups_categorical: ["stage_distr", "n_lesions"] # Target groups that are categorical (percentages should sum to 1)
+    scale_type: 3 # 1: scale from -1 to 1; 2: standardization; 3: scale from 0 to 1
+    train_split: 0.8 # Train vs. test split
+    valid_split: 0.8 # Train vs. validation within train set for hyperparameter tuning
+    Normalize_outputs: FALSE  # TRUE if we want to normalize outputs 
+    Scale_inputs: TRUE   # TRUE if we want to scale inputs
+    Scale_outputs: TRUE   # TRUE if we want to scale outputs 
+    Remove_outliers: FALSE  # TRUE if we want to remove outliers
+    Standardize_targets: FALSE  # TRUE if we want to standardize targets
+    Saved_data: FALSE  # TRUE if we want to saved the data
+    Selected_targets: FALSE  # TRUE if we want to use an specific list of calibration targets
+  params_ann: # Parameters for training ANN
+    verbose: 0
+    n_batch_size: 128
+    n_epochs: 1000
+    patience: 100
+    init_W_type: 0
+  params_hyperparameters: # Parameters for ANN hyperparameter tuning
+    confirm_hp: FALSE # Indicator to show confirmation prompt when hyperparameter tuning
+    v_hidden_layers: [1, 2, 3, 4]
+    v_hidden_nodes: [32, 64, 128]
+    v_dropout: [TRUE, FALSE]
+    v_dropout_rate: [0.25]
+    v_activation_fun: ["relu", "tanh", "sigmoid"]
+    p_hp_sample: 0.3 # Proportion of hyperparameter possibilities to sample
+  params_stan: # Parameters for Bayesian calibration with Stan
+    n_iter: 300000
+    n_thin: 100
+    n_chains: 4
+    validate_stan_model: TRUE
+    eps_stan: 0.0001
+  
+
+      

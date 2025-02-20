@@ -32,7 +32,7 @@ update_config_paths <- function(label, paths) {
     root_dir <- paths$root_dir[[i]]
     
     # Get prefix for file variable
-    if (i == "output") {
+    if (i %in% c("none", "output")) {
       file_prefix <- "file_"
     } else if (i == "figs") {
       file_prefix <- "file_fig_"
@@ -43,7 +43,11 @@ update_config_paths <- function(label, paths) {
     # Iterate over file names j
     for (j in names(paths[[label]][[i]])) {
       # Create full file path
-      filepath <- file.path(root_dir, paths[[label]][[i]][[j]])
+      if (i == "none") {
+        filepath <- paths[[label]][[i]][[j]]
+      } else {
+        filepath <- file.path(root_dir, paths[[label]][[i]][[j]])
+      }
       
       # Append to list of file paths
       l_filepaths[[paste0(file_prefix, j)]] <- filepath

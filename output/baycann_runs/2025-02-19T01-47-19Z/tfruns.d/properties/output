@@ -1,0 +1,68 @@
+
+> # library(keras3)
+> 
+> # Hyperparameter flags ---------------------------------------------------
+> 
+> FLAGS <- flags(
++   flag_integer("n_hidden_la ..." ... [TRUNCATED] 
+
+> # Data Preparation ---------------------------------------------------
+> 
+> # --- Assumes data already loaded in global environment
+> 
+> 
+> # Define .... [TRUNCATED] 
+
+> # Add hidden layers and dropout if specified
+> for (i in 1:FLAGS$n_hidden_layers) {
++   if (i==1) {
++     x <- layer_dense(input, units = FLAGS$n_hi .... [TRUNCATED] 
+
+> # Create output branches and loss
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in unique(df_fn_grps$fn_grp)) {
++   temp_df_fn_grps <- df_fn_grps[df_fn_grps$fn_grp == i, ]
++   output[[i]] <- layer_dense(x, 
++              .... [TRUNCATED] 
+
+> # Define the model
+> model <- keras_model(inputs = input, outputs = output)
+
+> # View the model summary
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                ┃ Output Shape            ┃        Param # ┃ Connected to            ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer (InputLayer)    │ (None, 12)              │              0 │ -                       │
+├─────────────────────────────┼─────────────────────────┼────────────────┼─────────────────────────┤
+│ dense (Dense)               │ (None, 128)             │          1,664 │ input_layer[0][0]       │
+├─────────────────────────────┼─────────────────────────┼────────────────┼─────────────────────────┤
+│ dropout (Dropout)           │ (None, 128)             │              0 │ dense[0][0]             │
+├─────────────────────────────┼─────────────────────────┼────────────────┼─────────────────────────┤
+│ dense_1 (Dense)             │ (None, 16)              │          2,064 │ dropout[0][0]           │
+├─────────────────────────────┼─────────────────────────┼────────────────┼─────────────────────────┤
+│ dense_2 (Dense)             │ (None, 3)               │            387 │ dropout[0][0]           │
+├─────────────────────────────┼─────────────────────────┼────────────────┼─────────────────────────┤
+│ dense_3 (Dense)             │ (None, 4)               │            516 │ dropout[0][0]           │
+└─────────────────────────────┴─────────────────────────┴────────────────┴─────────────────────────┘
+ Total params: 4,631 (18.09 KB)
+ Trainable params: 4,631 (18.09 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> # Compile the model with both MSE and Categorical Cross-Entropy losses
+> # loss_list <- list(loss_mean_squared_error(), loss_mean_squared_error())
+> .... [TRUNCATED] 
+
+> # Training & Evaluation ----------------------------------------------------
+> 
+> history <- model %>% fit(
++   x = xtrain_scaled, 
++   y = ytrain_s .... [TRUNCATED] 

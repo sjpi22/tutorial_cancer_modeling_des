@@ -38,16 +38,13 @@ l_filepaths <- update_config_paths("files_baycann", configs$paths)
 list2env(l_filepaths, envir = .GlobalEnv)
 
 # Load BayCANN parameters from configs file
-list2env(configs$params_baycann, envir = .GlobalEnv)
+list2env(configs$params_baycann$params_sampling, envir = .GlobalEnv)
 
 
 #### 3. Pre-processing  ===========================================
 
 # Load model and calibration parameters
 l_params_calib <- readRDS(file_params_calib)
-
-# Load plot labels
-df_plot_labels <- read.csv(file_plot_labels)
 
 # Set seed
 set.seed(l_params_calib$seed_calib)

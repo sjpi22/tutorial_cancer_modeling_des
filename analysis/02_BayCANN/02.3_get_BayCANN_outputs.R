@@ -1,19 +1,21 @@
 ###########################  BayCANN outputs   #########################################
 #
-#  Objective: Script to generate calibration target outputs for BayCANN calibrated parameters
+#  Objective: Script to generate calibration target and decision outputs for 
+#  BayCANN calibrated parameters
 ########################### <<<<<>>>>> ##############################################
 
+rm(list = ls()) # Clean environment
+options(scipen = 999) # View data without scientific notation
 
 #### 1.Libraries and functions  ==================================================
-#* Clean environment
-rm(list = ls())
 
+###### 1.1 Load packages
 library(tidyverse)
 library(doParallel)
 library(foreach)
 library(data.table)
 
-###### 1.1 Load functions =================================================
+###### 1.2 Load functions
 distr.sources <- list.files("R", 
                             pattern="*.R$", full.names=TRUE, 
                             ignore.case=TRUE, recursive = TRUE)
@@ -22,25 +24,30 @@ sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
 
-###### 2.1 file paths
-file_params <- "data/calibration_params.rds"
-outpath <- "output/calibration/BayCANN"
-file_posterior <- file.path(outpath, "calibrated_posteriors_BayCANN.csv")
-file_outputs <- file.path(outpath, "calibration_outputs_BayCANN.rds")
+###### 2.1 Configurations
+# Run file to process configurations
+source("configs/process_configs.R")
+
+# Extract calibration parameters from configs
+file_params_calib <- configs$paths$file_params_calib
+
+# Get list of BayCANN output file paths and load to global environment
+l_filepaths <- update_config_paths("files_baycann", configs$paths)
+list2env(l_filepaths, envir = .GlobalEnv)
 
 
 #### 3. Pre-processing actions  ===========================================
 
 # Load model and calibration parameters
-l_params_calib <- readRDS(file_params)
+l_params_calib <- readRDS(file_params_calib)
 
 # Load BayCANN calibrated parameters
-calibrated_params_baycann <- read_csv(file_posterior) %>%
+calibrated_params_baycann <- read.csv(file_posterior) %>%
   dplyr::select(-lp) %>% # Remove last non-parameter column
   as.matrix()
 
 # Set number of cores to use
-registerDoParallel(cores=detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
+registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
 
 
 ################################################################################
