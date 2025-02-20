@@ -117,7 +117,7 @@ params_imabc:
   alpha_current: 0.000001
   alpha_stop: 0.05
   fn_use_seed: FALSE
-  N_start_multiplier: 100 # Number of initial samples per parameter; try 100 on desktop or 1000 if you can run on a computing cluster
+  N_start_multiplier: 1000 # Number of initial samples per parameter
   optional_args:
     N_centers: 2
     Center_n: 100

@@ -2,6 +2,7 @@
 #
 #  Objective: Program to run IMABC based on vignette at 
 #  https://github.com/c-rutter/imabc
+#  See here for documentation: https://github.com/c-rutter/imabc/tree/a58a3b7c8db18948ff87fb6be55c6175399f41a2
 ########################### <<<<<>>>>> #########################################
 
 rm(list = ls()) # Clean environment
@@ -120,7 +121,7 @@ registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_
 
 #### 4. Run IMABC  ===========================================
 
-# Calibrate model - see here for documentation: https://github.com/c-rutter/imabc/tree/a58a3b7c8db18948ff87fb6be55c6175399f41a2
+# Calibrate model with IMABC
 start_time <- Sys.time()
 calibration_results <- do.call(imabc, imabc_inputs)
 end_time <- Sys.time()
