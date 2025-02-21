@@ -49,10 +49,45 @@ calibrated_params_baycann <- read.csv(file_posterior) %>%
 # Set number of cores to use
 registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
 
+# Unit for LYG 
+unit_lyg <- 1000
+age_min <- 40
 
-################################################################################
-###  Generate BayCANN outputs                                          ###
-################################################################################
+# Run base case model
+m_cohort <- run_base_model(l_params_calib$l_params_model)
+
+# Create censor variables
+m_cohort$patient_level[, time_screen_censor := pmin(time_H_C, time_H_D, na.rm=T)]
+
+# Calculate base case life years
+res_base <- calc_lifeyears(m_cohort$patient_level, 
+                           sum_var = "time_H_D",
+                           censor_var = "time_screen_censor",
+                           age_min = age_min)
+
+# Calculate base case diagnostic tests
+ct_tests_base <- m_cohort$patient_level[time_screen_censor > age_min & time_H_C < time_H_D, .(N_diag = .N)]
+
+# Run screening scenario
+run_screening_counterfactual(m_cohort, l_params_calib$l_params_model,
+                             50, 80, 10, c(L = 0.6, P = 0.9), 0.85,
+                             overwrite = TRUE)
+
+# Calculate screening scenario outcomes
+res_screen <- calc_lifeyears(m_cohort$patient_level, 
+                             sum_var = "time_H_D",
+                             censor_var = "time_screen_censor",
+                             age_min = age_min)
+
+# Calculate screening and diagnostic tests
+ct_tests_screen <- colSums(m_cohort$patient_level[, .SD, .SDcols = patterns("ct_")], na.rm = T)
+
+# Calculate LYG
+lyg <- (res_screen$time_total - res_base$time_total) / res_base$N * unit_lyg
+print(lyg)
+
+
+#### 4. Generate BayCANN outputs  ===========================================
 # Run model for each input parameter sample and get corresponding targets
 stime <- system.time({
   m_outputs <- foreach(

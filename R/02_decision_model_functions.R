@@ -255,7 +255,7 @@ simulate_cancer_progression <- function(m_patients, l_params_model) {
       # Otherwise if not detected yet, add time to detection to running total 
       # of time from cancer onset to detection
       m_patients[time_H_P < time_H_Do & is.na(stage_dx), 
-              time_P_C := time_P_C + get(var_progress)]
+                 time_P_C := time_P_C + get(var_progress)]
     }
     
     # If not detected yet by second to last stage, set last stage as stage at detection
@@ -290,7 +290,7 @@ simulate_cancer_mortality <- function(m_patients, l_params_model) {
     m_patients[idx, time_H_Dc := time_H_C + time_C_Dc]
   } else {
     m_patients[, `:=`(time_C_Dc = NA,
-                   time_H_Dc = NA)]
+                      time_H_Dc = NA)]
   }
   return(NULL)
 }
@@ -309,18 +309,30 @@ calc_mortality_outcomes <- function(m_patients) {
 }
 
 
-# Rerun version for screening (note: overwrites data by updating by reference)
+# Rerun version for screening
 run_screening_counterfactual <- function(
+    m_cohort,
+    l_params_model,
     age_screen_start,
     age_screen_end,
     int_screen,
     p_sens,
     p_spec,
-    l_params_model,
-    m_patients,
-    m_lesions = NULL,
+    overwrite = FALSE, # If TRUE, allows data in m_cohort to be overwritten; otherwise saves and returns a copy of original data
     verbose = FALSE
 ) {
+  # Save original data if overwrite = FALSE
+  if (!overwrite) {
+    m_cohort_orig <- copy(m_cohort)
+  }
+  
+  # Separate patient and lesion data as necessary
+  if (is.data.table(m_cohort)) {
+    m_patients <- m_cohort
+  } else {
+    m_patients <- m_cohort$patient_level
+    m_lesions <- m_cohort$lesion_level
+  }
   
   #### Case 1: Simulate screening before disease ####
   # Set variable for time to disease onset
@@ -334,7 +346,6 @@ run_screening_counterfactual <- function(
                        int_screen = int_screen,
                        p_spec = p_spec)
   
-  
   #### Case 2: Lesions developed by screen age, but no preclinical cancer ####
   if ('L' %in% l_params_model$v_states) {
     # Simulate lesion progression to cancer
@@ -343,7 +354,7 @@ run_screening_counterfactual <- function(
                          l_params_model = l_params_model,
                          age_screen_end = age_screen_end,
                          int_screen = int_screen,
-                         p_sens = p_sens[["L"]],
+                         p_sens = p_sens["L"],
                          p_spec = p_spec,
                          verbose = verbose)
   }
@@ -353,13 +364,21 @@ run_screening_counterfactual <- function(
                        l_params_model = l_params_model,
                        age_screen_end = age_screen_end,
                        int_screen = int_screen,
-                       p_sens = p_sens[["P"]],
+                       p_sens = p_sens["P"],
                        verbose = verbose)
-
+  
   # Recalculate mortality outcomes
   calc_mortality_outcomes(m_patients)
   
-  return(NULL)
+  # Sum tests requiring diagnostic workup
+  m_patients[, ct_diag_total := rowSums(.SD, na.rm = T), .SDcols = patterns("ct_diag_")]
+  
+  # Save original data if overwrite = FALSE
+  if (!overwrite) {
+    return(list(m_cohort = m_cohort, m_cohort_base = m_cohort_orig))
+  } else {
+    return(NULL)
+  }
 }
 
 
@@ -377,9 +396,9 @@ simulate_screening_H <- function(m_patients,
   # Get number of tests during healthy state before earliest of death or disease onset
   m_patients[, ct_screen := findInterval(pmin(time_H_D, get(var_onset)), v_screen_ages, left.open = T)]
   
-  # Simulate number of false positives during healthy state
+  # Simulate number of false positives during healthy state, leading to diagnostic workup
   m_patients[, `:=` (
-    ct_FP = rbinom(
+    ct_diag_FP = rbinom(
       .N,
       size = ct_screen,
       prob = 1 - p_spec
@@ -408,23 +427,22 @@ simulate_screening_L <- function(m_patients,
                                  p_spec,
                                  verbose = verbose
 ) {
-  browser()
   # Merge first screen age within lesion state and minimum of cancer 
   # onset and death as lesion screening censor date (to be updated after every screening)
-  m_lesions[m_patients[screen_age < time_H_P], `:=` (time_lesion_censor = pmin(i.time_H_P, time_H_Do, na.rm = T),
-                                                 screen_age = i.screen_age)]
+  m_lesions[m_patients[screen_age < time_H_P], `:=` (time_lesion_censor = pmin(time_H_P, time_H_Do, na.rm = T),
+                                                     screen_age = i.screen_age)]
   
   # Among patients who will receive screening during the lesion state,
   # initialize count for number of screens and flag whether lesion was removed
   m_lesions[!is.na(screen_age), `:=` (ct_screen = 0,
-                                     fl_removed = 0)]
+                                      fl_removed = 0)]
   
   # Get number of lesions available for screening
   n_lesion_screen <- m_lesions[!is.na(screen_age), .N]
   
   # Initialize patient-level variables to track number of positive screens and lesions detected
-  m_patients[, `:=` (ct_TP_lesion = 0,
-                  ct_lesion_detected = 0)]
+  m_patients[, `:=` (ct_diag_TP_L = 0,
+                     ct_lesion_detected = 0)]
   
   # Loop through screening tests until there are no more lesions to screen
   if (verbose) print("Number of lesions remaining to screen:")
@@ -434,7 +452,7 @@ simulate_screening_L <- function(m_patients,
     ###### 2.1 Flag whether eligible lesions would be detected
     # Initialize flag for eligible screeners and lesions
     m_lesions[, `:=` (fl_screen = NA,
-                     fl_eligible = NA)]
+                      fl_eligible = NA)]
     
     # Flag individuals eligible for screening - 
     # Defined as patient having not developed preclinical cancer yet
@@ -443,7 +461,7 @@ simulate_screening_L <- function(m_patients,
     # Flag lesions that are eligible to be detected at current screen time - 
     # Onset occurred before screen age and not removed yet
     m_lesions[time_H_L + time_L_Lj <= screen_age & fl_removed == 0,
-             fl_eligible := 1]
+              fl_eligible := 1]
     
     # Sample whether eligible lesions produce positive test result
     m_lesions[fl_eligible == 1, `:=` (
@@ -457,16 +475,16 @@ simulate_screening_L <- function(m_patients,
     # Assume that lesions with positive result are removed,
     # reset time to cancer onset reset to Inf, and set detection time
     m_lesions[fl_eligible == 1 & fl_positive == 1, `:=` (fl_removed = 1,
-                                                        time_H_Pj = Inf,
-                                                        time_detected = screen_age)]
+                                                         time_H_Pj = Inf,
+                                                         time_detected = screen_age)]
     
     # Check number of eligible lesions and removed lesions among individuals screened at this round
     # and update time to onset of preclinical cancer
     m_lesions_summary <- m_lesions[fl_screen == 1, 
-                                 .(ct_eligible = sum(fl_eligible, na.rm = T),
-                                   ct_removed = sum(fl_eligible == 1 & fl_removed == 1, na.rm = T),
-                                   time_H_P = min(time_H_Pj, na.rm = T)), 
-                                 by = pt_id]
+                                   .(ct_eligible = sum(fl_eligible, na.rm = T),
+                                     ct_removed = sum(fl_eligible == 1 & fl_removed == 1, na.rm = T),
+                                     time_H_P = min(time_H_Pj, na.rm = T)), 
+                                   by = pt_id]
     
     # Sample false positives among people in lesion state without any active lesions
     m_lesions_summary[ct_eligible == 0, fl_FP := rbinom(
@@ -477,18 +495,22 @@ simulate_screening_L <- function(m_patients,
     # Update time to preclinical cancer and following times;
     # increment number of screens, positive screens, removed lesions, false positives, and screen age
     m_patients[m_lesions_summary, `:=` (time_H_P = i.time_H_P,
-                                    ct_screen = ct_screen + 1,
-                                    ct_TP_lesion = ct_TP_lesion + (i.ct_removed > 0),
-                                    ct_lesion_detected = ct_lesion_detected + i.ct_removed,
-                                    ct_FP = ct_FP + i.fl_FP,
-                                    screen_age = screen_age + int_screen)]
+                                        ct_screen = ct_screen + 1,
+                                        ct_diag_TP_L = ct_diag_TP_L + (i.ct_removed > 0),
+                                        ct_lesion_detected = ct_lesion_detected + i.ct_removed,
+                                        ct_diag_FP = ct_diag_FP + pmax(0, i.fl_FP, na.rm = T),
+                                        screen_age = screen_age + int_screen)]
+    
+    # Reset first screening age to NA if after censor date or end age
+    m_patients[screen_age >= time_screen_censor | screen_age > age_screen_end, screen_age := NA]
     
     # Merge first screen age within lesion state and minimum of cancer 
     # onset and death as lesion screening censor date (to be updated after every screening)
     m_lesions[, `:=` (time_lesion_censor = NULL,
-                     screen_age = NULL)]
-    m_lesions[m_patients[screen_age < time_H_P], `:=` (time_lesion_censor = pmin(i.time_H_P, time_H_Do, na.rm = T),
-                                                   screen_age = i.screen_age)]
+                      screen_age = NULL)]
+    m_lesions[m_patients[screen_age < time_H_P], `:=` (time_H_P = i.time_H_P,
+                                                       time_lesion_censor = pmin(i.time_H_P, time_H_Do, na.rm = T),
+                                                       screen_age = i.screen_age)]
     
     # Update number of lesions available for screening
     n_lesion_screen <- m_lesions[!is.na(screen_age), .N]
@@ -496,7 +518,7 @@ simulate_screening_L <- function(m_patients,
   
   # Update mortality outcomes
   m_patients[, `:=` (time_H_C = time_H_P + time_P_C,
-                  time_H_Dc = time_H_P + time_P_C + time_C_Dc)]
+                     time_H_Dc = time_H_P + time_P_C + time_C_Dc)]
   calc_mortality_outcomes(m_patients)
   return(NULL)
 }
@@ -512,65 +534,52 @@ simulate_screening_P <- function(m_patients,
                                  p_sens,
                                  verbose = FALSE
 ) {
-  
   if (verbose) print("Number of individuals with preclinical cancer remaining to screen:")
   while (m_patients[!is.na(screen_age), .N] > 0) {
     if (verbose) print(m_patients[!is.na(screen_age), .N])
-    
     # Increment number of screening tests and sample whether cancer leads to positive screen
-    m_patients[time_H_P < screen_age, `:=` (ct_screen = ct_screen + 1,
-                                         fl_detected = rbinom(
-                                           .N,
-                                           size = 1,
-                                           prob = p_sens
-                                         ))]
+    m_patients[time_H_P <= screen_age, `:=` (ct_screen = ct_screen + 1,
+                                             fl_detected = rbinom(
+                                               .N,
+                                               size = 1,
+                                               prob = p_sens
+                                             ))]
     
-    # Convert detected cases to clinical cancer, get stage at diagnosis, set next screen age to NA
-    # m_patients[!is.na(screen_age) & fl_detected == 1, `:=` (
-    #   time_H_C = screen_age,
-    #   stage_dx = fcase(
-    #     time_H_C - get(paste0("time_P", stage_dx, "_C")) <= screen_age, as.double(stage_dx),
-    #     time_H_C - get(paste0("time_P", stage_dx, "_C")) -
-    #       get(paste0("time_P", stage_dx-1, "_P", stage_dx)) <= screen_age, as.double(stage_dx-1),
-    #     time_H_C - get(paste0("time_P", stage_dx, "_C")) -
-    #       get(paste0("time_P", stage_dx-1, "_P", stage_dx)) -
-    #       get(paste0("time_P", stage_dx-2, "_P", stage_dx-1)) <= screen_age, as.double(stage_dx-2),
-    #     time_H_C - get(paste0("time_P", stage_dx, "_C")) -
-    #       get(paste0("time_P", stage_dx-1, "_P", stage_dx)) -
-    #       get(paste0("time_P", stage_dx-2, "_P", stage_dx-1)) -
-    #       get(paste0("time_P", stage_dx-3, "_P", stage_dx-2)) <= screen_age, as.double(stage_dx-3)
-    #   ),
-    #   screen_age = NA),
-    #   by = stage_dx]
+    # Reset clinical cancer age and set next screen age to NA for detected cases
     m_patients[!is.na(screen_age) & fl_detected == 1, `:=` (
       time_H_C = screen_age,
       time_P_C = screen_age - time_H_P,
       screen_age = NA)]
     
-    # Update screen age
+    # Update screen age and set to NA if beyond censor age or maximum screen age
     m_patients[!is.na(screen_age), screen_age := screen_age + int_screen]
     m_patients[screen_age >= time_screen_censor | screen_age > age_screen_end, screen_age := NA]
   }
   
-  ##### For patients with detected cancer, recalculate stage at diagnosis and resimulate progression to clinical cancer and mortality outcomes
+  # For patients with detected cancer, recalculate stage at diagnosis
   # Note: Assumes at least 2 stages of cancer
   m_patients[fl_detected == 1, `:=` (stage_dx = 1,
-                                  time_P_C_running = time_P1_P2)]
+                                     time_P_C_running = time_P1_P2)]
   
-  for (stg in 2:length(l_params_model$v_cancer)) {
-    m_patients[fl_detected == 1 & time_P_C > time_P_C_running, `:=` (stage_dx = stage_dx + 1,
-                                                                  time_P_C_running = time_P_C_running + get(paste0("time_P", stg, "_P", stg + 1)))]
+  for (stg in 2:(length(l_params_model$v_cancer) - 1)) {
+    m_patients[fl_detected == 1 & time_P_C > time_P_C_running, `:=` (
+      stage_dx = stage_dx + 1,
+      time_P_C_running = time_P_C_running + get(paste0("time_P", stg, "_P", stg + 1)))]
   }
+  m_patients[fl_detected == 1 & time_P_C > time_P_C_running, stage_dx := stage_dx + 1]
   
   # Recalculate time to death from cancer among people with screen-detected cancer
   with(l_params_model, {
     m_patients[fl_detected == 1, time_C_Dc := query_distr(
       "r", .N,
-      d_time_C_Dc[[v_surv[stage_dx]]]$distr,
-      d_time_C_Dc[[v_surv[stage_dx]]]$params,
-      d_time_C_Dc[[v_surv[stage_dx]]]$src
+      d_time_C_Dc[[stage_dx]]$distr,
+      d_time_C_Dc[[stage_dx]]$params
     ), by = stage_dx]
   })
+  
+  # Flag cancers diagnosed with screening vs symptoms
+  m_patients[fl_detected == 1, ct_diag_TP_P := 1]
+  m_patients[!fl_detected %in% 1 & time_H_C < time_H_D, ct_diag_C := 1]
   
   return(NULL)
 }

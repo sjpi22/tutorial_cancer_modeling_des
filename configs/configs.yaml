@@ -114,7 +114,7 @@ params_coverage:
 
 # Parameters specific to IMABC
 params_imabc:
-  alpha_current: 0.000001
+  alpha_current: 0.000000001
   alpha_stop: 0.05
   fn_use_seed: FALSE
   N_start_multiplier: 1000 # Number of initial samples per parameter
@@ -163,6 +163,8 @@ params_baycann:
   
 # Parameters for screening strategy evaluation
 params_screen:
+  unit_lyg: 1000
+  age_min: 40
   test_chars: # Test characteristics
     modality1:
       p_sens: 0.9

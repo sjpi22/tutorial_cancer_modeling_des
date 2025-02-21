@@ -335,19 +335,28 @@ calc_distr <- function(m_patients, grouping_var, event_var, censor_var,
 }
 
 
-# Life years in intervention scenario vs. baseline
+# Calculate total life years in cohort among those who are alive and disease-free above a minimum age
 calc_lifeyears <- function(
     m_patients, 
-    sum_var,
-    censor_var = NULL,
+    sum_var = "time_H_D",
+    censor_var = "time_screen_censor",
     age_min = NULL,
     unit = 1
 ) {
   # Sum life years among people above the age cutoff
   if (!is.null(age_min)) {
-    res <- m_patients[get(censor_var) >= age_min, .(sum(get(sum_var)))]
+    res <- m_patients[get(censor_var) >= age_min, .(time_total = sum(get(sum_var)),
+                                                    N = .N)]
   } else {
-    res <- m_patients[, .(sum(get(sum_var)))]
+    res <- m_patients[, .(time_total = sum(get(sum_var)),
+                          N = .N)]
   }
-  return(res / unit)
+  
+  # Scale to unit if necessary
+  if (unit == 1) {
+    return(res)
+  } else {
+    res[, time_total := time_total / unit]
+    return(res)
+  }
 }
