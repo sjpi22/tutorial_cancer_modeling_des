@@ -360,3 +360,10 @@ calc_lifeyears <- function(
     return(res)
   }
 }
+
+
+# Calculate life years gained (LYG) from screening
+calc_lyg <- function(res_base, res_screen, unit = 1) {
+  lyg <- (res_screen$time_total - res_base$time_total) / res_base$N * unit
+  return(lyg)
+}

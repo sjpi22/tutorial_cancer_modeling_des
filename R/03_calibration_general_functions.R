@@ -147,7 +147,7 @@ params_to_calib_outputs <- function(l_params_model, v_params_update = NULL,
                                     param_map = NULL,
                                     l_outcome_params, l_censor_vars,
                                     reshape_output = TRUE, 
-                                    output_map = FALSE, 
+                                    individual_data = FALSE, # Output individual-level data
                                     conf_level = 0.95) {
   # Update parameters
   if (!is.null(v_params_update)) {
@@ -167,11 +167,26 @@ params_to_calib_outputs <- function(l_params_model, v_params_update = NULL,
                                   l_outcome_params = l_outcome_params,
                                   l_censor_vars = l_censor_vars)
   
-  if (reshape_output) {
-    v_calib_outputs <- reshape_calib_outputs(l_outputs)
-    return(v_calib_outputs)
+  # Add individual-level data to results list if necessary
+  if (individual_data) {
+    res <- list(m_cohort = m_cohort)
   } else {
-    return(v_calib_outputs)
+    res <- list()
   }
+  
+  # Reshape calibration outputs if necessary and add to results
+  if (reshape_output) {
+    res <- c(res, outputs = list(reshape_calib_outputs(l_outputs)))
+  } else {
+    res <- c(res, outputs = l_outputs)
+  }
+  
+  # Return single item or list of results if >1 items
+  if (length(res) == 1) {
+    return(res[[1]])
+  } else {
+    return(res)
+  }
+  
 }
 

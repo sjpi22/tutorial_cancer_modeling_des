@@ -93,13 +93,13 @@ stime <- system.time({
   m_outputs <- foreach(
     i=1:nrow(calibrated_params_baycann), 
     .combine=rbind, 
-    .inorder=FALSE, 
+    .inorder=TRUE, 
     .packages=c("data.table","tidyverse")) %dopar% {
       # Get row of parameters and calculate outputs
       v_params_update <- calibrated_params_baycann[i,]
       v_calib_outputs <- with(l_params_calib, {
         params_to_calib_outputs(
-          l_params_all = l_params_all,
+          l_params_model = l_params_model,
           v_params_update = v_params_update,
           param_map = prior_map,
           l_outcome_params = l_outcome_params,
