@@ -340,11 +340,11 @@ calc_lifeyears <- function(
     m_patients, 
     sum_var = "time_H_D",
     censor_var = "time_screen_censor",
-    age_min = NULL,
+    age_min = 0,
     unit = 1
 ) {
   # Sum life years among people above the age cutoff
-  if (!is.null(age_min)) {
+  if (age_min > 0 | !is.null(age_min)) {
     res <- m_patients[get(censor_var) >= age_min, .(time_total = sum(get(sum_var)),
                                                     N = .N)]
   } else {
@@ -354,16 +354,9 @@ calc_lifeyears <- function(
   
   # Scale to unit if necessary
   if (unit == 1) {
-    return(res)
+    return(unlist(res))
   } else {
-    res[, time_total := time_total / unit]
-    return(res)
+    res[, time_total := time_total / N * unit]
+    return(unlist(res))
   }
-}
-
-
-# Calculate life years gained (LYG) from screening
-calc_lyg <- function(res_base, res_screen, unit = 1) {
-  lyg <- (res_screen$time_total - res_base$time_total) / res_base$N * unit
-  return(lyg)
 }

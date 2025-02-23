@@ -88,7 +88,7 @@ targets <- as.targets(target_df)
 # Define target function
 fn <- function(v_params_update) {
   v_targets <- with(l_params_calib, {
-    params_to_calib_outputs(
+    params_to_outputs(
       l_params_model = l_params_model,
       v_params_update = v_params_update,
       param_map = prior_map,

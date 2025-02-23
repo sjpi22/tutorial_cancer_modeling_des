@@ -42,6 +42,9 @@ list2env(l_filepaths, envir = .GlobalEnv)
 # Load model and calibration parameters
 l_params_calib <- readRDS(file_params_calib)
 
+# Set flag to count diagnostic tests in base case scenario
+l_params_calib$l_params_model$fl_count_tests <- TRUE
+
 # Load BayCANN calibrated parameters
 calibrated_params_baycann <- read.csv(file_posterior) %>%
   dplyr::select(-lp) %>% # Remove last non-parameter column
@@ -51,57 +54,52 @@ calibrated_params_baycann <- read.csv(file_posterior) %>%
 l_outcome_params_base <- c(l_params_calib$l_outcome_params,
                            params_screen$l_outcome_base)
 
+# Set screening test and strategy parameters
+l_screen_params <- list(test_chars = params_screen$test_chars,
+                        strats = params_screen$strats)
+
 # Set screening outcome parameters
-l_outcome_params_screen <- c(params_screen$l_outcome_screen)
+l_outcome_params_screen <- params_screen$l_outcome_base
+
+# Set seed
+set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG")
 
 # Set number of cores to use
 registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
 
 
-
-# Calculate base case diagnostic tests
-ct_tests_base <- m_cohort$patient_level[time_screen_censor > age_min & time_H_C < time_H_D, .(N_diag = .N)]
-
-
-# Calculate screening and diagnostic tests
-ct_tests_screen <- colSums(m_cohort$patient_level[, .SD, .SDcols = patterns("ct_")], na.rm = T)
-
-# Calculate LYG
-calc_lyg <- function(res_base, res_screen, unit) {
-  lyg <- (res_screen$time_total - res_base$time_total) / res_base$N * unit
-  return(lyg)
-}
-
-# Baseline parameters
-
-
-
 #### 4. Generate BayCANN outputs  ===========================================
+  
 # Run model for each input parameter sample and get corresponding targets
 stime <- system.time({
   m_outputs <- foreach(
     i=1:nrow(calibrated_params_baycann), 
-    .combine=rbind, 
+    .combine=c, 
     .inorder=TRUE, 
     .packages=c("data.table","tidyverse")) %dopar% {
       # Get row of parameters and calculate outputs
       v_params_update <- calibrated_params_baycann[i,]
-      v_calib_outputs <- with(l_params_calib, {
-        params_to_calib_outputs(
+      l_calib_outputs <- with(l_params_calib, {
+        params_to_outputs(
           l_params_model = l_params_model,
           v_params_update = v_params_update,
           param_map = prior_map,
-          l_outcome_params = l_outcome_params,
-          l_censor_vars = l_censor_vars
+          l_outcome_params = l_outcome_params_base,
+          l_screen_params = l_screen_params,
+          l_outcome_params_screen = l_outcome_params_screen,
+          l_outcome_params_counter = params_screen$l_outcome_counterfactual,
+          l_censor_vars = l_censor_vars,
+          reshape_output = FALSE
         )
       })
       # Call item to save
-      t(v_calib_outputs)
+      list(l_calib_outputs)
     }
 })
 print(stime)
 closeAllConnections()
 
 # Save model outputs
-saveRDS(m_outputs, file = file_outputs)
+saveRDS(list(m_outputs = m_outputs,
+             runtime = stime), file = file_outputs)
 

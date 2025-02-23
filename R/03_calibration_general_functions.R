@@ -129,71 +129,137 @@ lhs_param_samp <- function(prior_map, # Map of uniform parameter priors with min
 }
 
 
-# Plot coverage (i.e., simulated outputs against targets) and save (requires ggplot2 package)
+# Plot coverage (i.e., simulated outputs against targets) and save
+# Note: requires ggplot2
 plot_coverage <- function(
-    df_targets, # Dataframe of targets with columns target_index (factor) for x axis, plot_grps for groups of targets to plot in the same graph, targets (target values), and se (standard error)
-    m_outputs, # Matrix of outputs with columns corresponding to target_names
+    df_targets, # Dataframe of targets with columns target_index (factor) for x axis, plot_grps for groups of targets to plot in the same graph, targets (target values), se (standard error), and optional categorical indicator variable
+    m_outputs = NULL, # Matrix of outputs with columns corresponding to target_names; if NULL, assumes that df_targets already contains summary statistics
     file_fig_coverage = NULL, # File path to save coverage figure
     v_quantiles = c(50, 95), # Inner box and whisker quantiles for boxplot
-    plt_size_text = 18 # Size of text in plot
+    plt_size_text = 18, # Size of text in plot
+    n_cols_max = 3 # Maximum number of columns in plot
 ) { 
   # Calculate simulated output mean and box plot quantiles
-  df_targets[["model_mean"]] <- colMeans(m_outputs)
-  for (i in v_quantiles) {
-    df_targets[[paste0("model_LB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 - i/100)/2, simplify = TRUE)
-    df_targets[[paste0("model_UB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 + i/100)/2, simplify = TRUE)
+  if (!is.null(m_outputs)) {
+    df_targets[["model_mean"]] <- colMeans(m_outputs)
+    for (i in v_quantiles) {
+      df_targets[[paste0("model_LB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 - i/100)/2, simplify = TRUE)
+      df_targets[[paste0("model_UB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 + i/100)/2, simplify = TRUE)
+    }
   }
   
-  # Convert outputs from wide to long
-  out_full_bc_cat <- data.frame(m_outputs) %>%
-    pivot_longer(
-      cols = everything(), 
-      names_to = "target_names",
-      values_to = "value"
-    ) %>%
-    mutate(target_index = rep(df_targets$target_index, nrow(m_outputs)),
-           plot_grps = rep(df_targets$plot_grps, nrow(m_outputs)))
+  # Determine whether to plot categorical and/or continuous outputs
+  fl_plt <- c()
+  l_plts <- list()
+  if (!"categorical" %in% colnames(df_targets) | sum(df_targets$categorical, na.rm = T) > 0) {
+    # No categorical column or at least one categorical variables - plot categorical variables
+    fl_plt["cat"] <- T
+    if (!"categorical" %in% colnames(df_targets) | sum(df_targets$categorical, na.rm = T) == nrow(df_targets)) {
+      # No categorical column or no continuous variables - default to plotting only categorical variables
+      fl_plt["cont"] <- F
+      df_targets_cat <- df_targets
+    } else {
+      # Categorical column and at least one continuous variables - plot both categorical and continuous variables
+      fl_plt["cont"] <- T
+      df_targets_cat <- df_targets %>%
+        filter(categorical == T)
+      df_targets_cont <- df_targets %>%
+        filter(categorical == F)
+    }
+    
+    # Factorize target index
+    df_targets_cat$target_index <- factor(df_targets_cat$target_index)
+  } else {
+    # No categorical variables in df_targets - plot continuous only
+    fl_plt["cat"] <- F
+    fl_plt["cont"] <- T
+    df_targets_cont <- df_targets %>%
+      filter(categorical == F)
+  }
   
-  # Plot distribution of outputs against targets
-  plt <- ggplot(data = df_targets, aes(x = target_index)) + 
-    geom_errorbar(
-      aes(y    = targets, 
-          ymin = targets - se, 
-          ymax = targets + se),
-      width = 0.3, linewidth = 0.9, color = "red", 
-      position = position_nudge(x = -0.2)) +
-    theme(legend.position = "none") +
-    geom_boxplot(aes(ymin = model_LB_95, 
-                     lower = model_LB_50, 
-                     middle = model_mean, 
-                     upper = model_UB_50, 
-                     ymax = model_UB_95),
-                 stat = "identity",
-                 alpha = 0.5,
-                 width = 0.3,
-                 position = position_nudge(x = 0.2)) +
-    facet_wrap(~plot_grps, scales="free",
-               labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*1.5))) +
-    theme(strip.background = element_blank(),
-          strip.text.x = element_blank(), legend.position="none") +
-    scale_fill_manual(values = c("grey10", "grey30"))+
-    scale_y_continuous(breaks = number_ticks(5))+
-    theme_bw(base_size = plt_size_text + 5) +
-    theme(plot.title = element_text(size = plt_size_text, face = "bold"),
-          axis.text.x = element_text(size = plt_size_text),
-          axis.text.y = element_text(size = plt_size_text),
-          axis.title = element_text(size = plt_size_text),
-          panel.grid.major = element_blank(),
-          panel.border = element_rect(colour = "black", fill = NA),
-          strip.background = element_blank(),
-          strip.text = element_text(hjust = 0)) +
-    labs(x     = "", y     = "")
+  # Plot distribution of categorical outputs against targets as box plots
+  if (fl_plt["cat"]) {
+    l_plts[["cat"]] <- ggplot(data = df_targets_cat, 
+                              aes(x = target_index)) + 
+      geom_errorbar(aes(y    = targets, 
+                        ymin = targets - se, 
+                        ymax = targets + se),
+                    width = 0.3, linewidth = 0.9, color = "red", 
+                    position = position_nudge(x = -0.2)) +
+      geom_boxplot(aes(ymin = model_LB_95, 
+                       lower = model_LB_50, 
+                       middle = model_mean, 
+                       upper = model_UB_50, 
+                       ymax = model_UB_95),
+                   stat = "identity",
+                   alpha = 0.5,
+                   width = 0.3,
+                   position = position_nudge(x = 0.2)) +
+      facet_wrap(~plot_grps, scales = "free", ncol = n_cols_max,
+                 labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*4/length(unique(df_targets_cat$plot_grps))))) +
+      scale_y_continuous(breaks = number_ticks(5)) +
+      theme_bw(base_size = plt_size_text + 5) +
+      theme(plot.title = element_text(size = plt_size_text, face = "bold"),
+            axis.text.x = element_text(size = plt_size_text),
+            axis.text.y = element_text(size = plt_size_text),
+            axis.title = element_text(size = plt_size_text),
+            panel.grid.major = element_blank(),
+            panel.border = element_rect(colour = "black", fill = NA),
+            strip.background = element_blank(),
+            strip.text = element_text(hjust = 0),
+            legend.position = "none") +
+      labs(x     = "", y     = "")
+  }
+  
+  # Plot distribution of continuous outputs against targets as ribbons
+  if (fl_plt["cont"]) {
+    l_plts[["cont"]] <- ggplot(data = df_targets_cont, 
+                               aes(x = target_index)) + 
+      geom_errorbar(aes(y    = targets, 
+                        ymin = targets - se, 
+                        ymax = targets + se),
+                    width = 0.3, linewidth = 0.9, color = "red") +
+      geom_ribbon(aes(y    = model_mean,
+                      ymin = model_LB_95,
+                      ymax = model_UB_95),
+                  fill = "black",
+                  alpha = 0.3) +
+      geom_ribbon(aes(y    = model_mean,
+                      ymin = model_LB_50,
+                      ymax = model_UB_50),
+                  fill = "black",
+                  alpha = 0.5) +
+      facet_wrap(~plot_grps, scales = "free", ncol = n_cols_max,
+                 labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*4/length(unique(df_targets_cont$plot_grps))))) +
+      scale_y_continuous(breaks = number_ticks(5)) +
+      theme_bw(base_size = plt_size_text + 5) +
+      theme(plot.title = element_text(size = plt_size_text, face = "bold"),
+            axis.text.x = element_text(size = plt_size_text),
+            axis.text.y = element_text(size = plt_size_text),
+            axis.title = element_text(size = plt_size_text),
+            panel.grid.major = element_blank(),
+            panel.border = element_rect(colour = "black", fill = NA),
+            strip.background = element_blank(),
+            strip.text = element_text(hjust = 0),
+            legend.position = "none") +
+      labs(x     = "Age", y     = "")
+  }
+  
+  # Depending on number of plots, create final plot layout
+  if (length(l_plts) == 1) {
+    plt <- l_plts[[1]]
+  } else {
+    plt <- l_plts[["cont"]] / l_plts[["cat"]]
+  }
   
   # Save plot and adjust size based on number of rows and columns
   if (!is.null(file_fig_coverage)) {
+    # Get number of rows and columns of graphs
     n_plot_grps <- length(unique(df_targets$plot_grps))
-    n_plot_rows <- ceiling(n_plot_grps/3)
+    n_plot_rows <- ceiling(n_plot_grps/n_cols_max)
     n_plot_cols <- ceiling(n_plot_grps/n_plot_rows)
+    
+    # Save plot
     ggsave(file_fig_coverage, plot = plt,
            width = n_plot_cols*4, height = 4*n_plot_rows)
   }

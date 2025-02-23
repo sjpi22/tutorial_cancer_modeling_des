@@ -1,0 +1,72 @@
+
+> # library(keras3)
+> 
+> # Hyperparameter flags ---------------------------------------------------
+> 
+> FLAGS <- flags(
++   flag_integer("n_hidden_la ..." ... [TRUNCATED] 
+
+> # Data Preparation ---------------------------------------------------
+> 
+> # --- Assumes data already loaded in global environment
+> 
+> 
+> # Define .... [TRUNCATED] 
+
+> # Add hidden layers and dropout if specified
+> for (i in 1:FLAGS$n_hidden_layers) {
++   if (i==1) {
++     x <- layer_dense(input, units = FLAGS$n_hi .... [TRUNCATED] 
+
+> # Create output branches and loss
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++   temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == i, ]
++   output[[i]] <- layer_dense(x, 
++       .... [TRUNCATED] 
+
+> # Define the model
+> model <- keras_model(inputs = input, outputs = output)
+
+> # View the model summary
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)         ┃ Output Shape      ┃   Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer          │ (None, 12)        │         0 │ -                  │
+│ (InputLayer)         │                   │           │                    │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dense (Dense)        │ (None, 128)       │     1,664 │ input_layer[0][0]  │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dense_1 (Dense)      │ (None, 128)       │    16,512 │ dense[0][0]        │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dense_2 (Dense)      │ (None, 16)        │     2,064 │ dense_1[0][0]      │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dense_3 (Dense)      │ (None, 3)         │       387 │ dense_1[0][0]      │
+├──────────────────────┼───────────────────┼───────────┼────────────────────┤
+│ dense_4 (Dense)      │ (None, 4)         │       516 │ dense_1[0][0]      │
+└──────────────────────┴───────────────────┴───────────┴────────────────────┘
+ Total params: 21,143 (82.59 KB)
+ Trainable params: 21,143 (82.59 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> # Compile the model
+> model %>% compile(
++   loss = loss_list,
++   loss_weights = loss_weights, 
++   optimizer = optimizer_adam(),
++   metrics = met .... [TRUNCATED] 
+
+> # Training & Evaluation ----------------------------------------------------
+> 
+> history <- model %>% fit(
++   x = xtrain_scaled, 
++   y = ytrain_s .... [TRUNCATED] 

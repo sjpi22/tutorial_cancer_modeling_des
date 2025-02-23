@@ -60,6 +60,9 @@ list2env(configs$params_baycann$params_ann, envir = .GlobalEnv)
 list2env(configs$params_baycann$params_hyperparameters, envir = .GlobalEnv)
 list2env(configs$params_baycann$params_stan, envir = .GlobalEnv)
 
+# Set log directory (referenced in model.R)
+log_dir <- file_logs
+
 
 #### 3. Pre-processing actions  ===========================================
 

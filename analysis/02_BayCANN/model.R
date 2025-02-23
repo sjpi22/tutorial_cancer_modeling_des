@@ -72,10 +72,13 @@ history <- model %>% fit(
   validation_split = 0.2,
   validation_data = l_validation_data,
   verbose = verbose,
-  callbacks = callback_early_stopping(
-    monitor = "val_loss",
-    patience = patience,
-    verbose = 0,
-    restore_best_weights = TRUE
+  callbacks = list(
+    callback_early_stopping(
+      monitor = "val_loss",
+      patience = patience,
+      verbose = 0,
+      restore_best_weights = TRUE
+    ),
+    callback_tensorboard(log_dir = log_dir)
   )
 )

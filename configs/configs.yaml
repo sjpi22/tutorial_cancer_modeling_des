@@ -26,12 +26,14 @@ paths:
     output:
       sample: "baycann_sample.rds"
       runs: "baycann_runs"
+      logs: "baycann_logs"
       run_best: "baycann_run_best"
       keras_model: "baycann_keras_model.keras"
       test_outputs: "baycann_test_outputs.rds"
       stan_model: "baycann_stan_model.rds"
       posterior: "baycann_posterior.csv"
       baycann_stats: "baycann_stats.rds"
+      outputs: "baycann_decision_outputs.rds"
     figs:
       coverage: "baycann_coverage.png"
       history: "baycann_ann_history.png"
@@ -117,10 +119,11 @@ params_montecarlo:
   n_mc_reps: 100
   mc_multiplier: 2
   
-# Parameters for initial coverage analysis
+# Parameters for initial coverage analysis and internal validation
 params_coverage:
   check_coverage: TRUE # Indicator to (re)run coverage analysis
   n_samp_coverage: 50
+  v_quantiles: [50, 95]
   plt_size_text: 18
 
 # Parameters specific to IMABC
@@ -182,34 +185,69 @@ params_screen:
         sum_var: "time_H_D"
         censor_var: "time_screen_censor"
         age_min: 40
-    tests:
-      outcome_type: "tests"
+    ntests:
+      outcome_type: "ntests"
       get_params:
         m_patients: "m_patients"
       lit_params:
-        sum_var: "time_H_C"
         censor_var: "time_screen_censor"
         age_min: 40
   l_outcome_counterfactual: # Outcomes comparing screening and no-screening scenarios
     lyg:
       outcome_type: "lyg"
+      input_outcome: "lifeyears"
       lit_params:
-        unit_lyg: 1000
+        unit: 1000
   test_chars: # Test characteristics
     modality1:
       p_sens:
-        - L: 0.6
-        - P: 0.9
-      p_spec: 0.8
+        L: 0.6
+        P: 0.9
+      p_spec: 0.84
   strats: # Screening test strategies 
-    strategy1:
+    strategy1_40:
+      mod: "modality1"
+      age_screen_start: 40
+      age_screen_end: 41
+      int_screen: 10
+    strategy1_50:
+      mod: "modality1"
+      age_screen_start: 50
+      age_screen_end: 51
+      int_screen: 10
+    strategy1_60:
+      mod: "modality1"
+      age_screen_start: 60
+      age_screen_end: 61
+      int_screen: 10
+    strategy1_70:
+      mod: "modality1"
+      age_screen_start: 70
+      age_screen_end: 71
+      int_screen: 10
+    strategy1_80:
+      mod: "modality1"
+      age_screen_start: 80
+      age_screen_end: 81
+      int_screen: 10
+    strategy_int1:
       mod: "modality1"
       age_screen_start: 50
       age_screen_end: 70
       int_screen: 1
-    strategy2:
+    strategy_int3:
+      mod: "modality1"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 3
+    strategy_int5:
       mod: "modality1"
       age_screen_start: 50
       age_screen_end: 70
       int_screen: 5
+    strategy_int10:
+      mod: "modality1"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 10
       

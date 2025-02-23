@@ -14,6 +14,7 @@ library(tidyverse)
 library(dplyr)
 library(doBy)
 library(patchwork)
+library(ggdist)
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 
@@ -36,8 +37,9 @@ file_plot_labels <- configs$paths$file_plot_labels
 l_filepaths <- update_config_paths("files_imabc", configs$paths)
 list2env(l_filepaths, envir = .GlobalEnv)
 
-# Load IMABC parameters from configs file
+# Load IMABC and coverage analysis parameters from configs file
 list2env(configs$params_imabc, envir = .GlobalEnv)
+list2env(configs$params_coverage, envir = .GlobalEnv)
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -45,143 +47,50 @@ list2env(configs$params_imabc, envir = .GlobalEnv)
 # Load model parameters
 l_params_calib <- readRDS(file_params_calib)
 
-# Load IMABC outputs and extract parameter samples
+# Load IMABC outputs and extract posterior parameters and outputs
 calibration_outputs <- readRDS(file_posterior)
 m_param_samp <- calibration_outputs$good_parm_draws %>%
   dplyr::select(l_params_calib$prior_map$var_id)
+imabc_targets_unweighted <- calibration_outputs$good_sim_target %>%
+  dplyr::select(-c("iter", "draw", "step"))
 
 # Load plot labels
 df_plot_labels <- read.csv(file_plot_labels)
 
 # Process target data
 df_targets <- l_params_calib$df_target %>%
-  mutate(target_index = factor(target_index)) %>% # Create plot labels
-  left_join(df_plot_labels, by = "target_groups")
+  left_join(df_plot_labels, by = "target_groups") %>%
+  group_by(target_groups) %>%
+  mutate(categorical = (target_groups %in% c(l_params_calib$v_outcomes_categorical) | n()==1))
 df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
 
 
 #### 4. Internal validation  ===========================================
 
-# Sample with replacement
-n_imabc_sample <- nrow(calibration_outputs$good_parm_draws) * 0.3
-indices_imabc_sample <- sample(1:nrow(calibration_outputs$good_parm_draws), 
-                               n_imabc_sample, 
-                               replace = TRUE, 
-                               prob = calibration_outputs$good_parm_draws$sample_wt)
+# Calculate mean of outputs
+df_targets$model_mean <- apply(imabc_targets_unweighted, 2, weighted.mean, w = calibration_outputs$good_parm_draws$sample_wt)
 
-# IMABC posterior parameters
-imabc_params <- calibration_outputs$good_parm_draws[indices_imabc_sample, ] %>%
-  dplyr::select(all_of(l_params_calib$prior_map$var_id))
+# Calculate quantiles from inner quantile vector
+v_quantiles_lb <- (1 - v_quantiles/100)/2
+names(v_quantiles_lb) <- paste0("model_LB_", v_quantiles)
+v_quantiles_ub <- (1 + v_quantiles/100)/2
+names(v_quantiles_ub) <- paste0("model_UB_", v_quantiles)
+v_quantiles_calc <- sort(c(v_quantiles_lb, v_quantiles_ub))
 
-df_params_long <- imabc_params %>%
-  pivot_longer(everything())
+# Get weighted quantiles of calibration outputs
+m_output_quantiles <- t(apply(imabc_targets_unweighted, 2, function(u) {
+  weighted_quantile(
+    x = u,
+    probs = v_quantiles_calc,
+    weights = calibration_outputs$good_parm_draws$sample_wt
+  )
+}))
+colnames(m_output_quantiles) <- names(v_quantiles_calc)
 
-# Get posterior outputs
-imabc_targets_unweighted <- calibration_outputs$good_sim_target %>%
-  dplyr::select(-c("iter", "draw", "step"))
-
-m_outputs <- as.matrix(imabc_targets_unweighted[indices_imabc_sample, ])
-
+# Append quantiles to df_targets
+df_targets <- cbind(df_targets, m_output_quantiles)
+      
+# Get coverage plot
 plt_coverage <- plot_coverage(df_targets = df_targets,
-                              m_outputs = m_outputs,
-                              file_fig_coverage = NULL)
+                              file_fig_coverage = file_fig_validation)
 plt_coverage
-
-
-# Categorize categorical targets
-df_targets <- df_targets %>%
-  group_by(target_groups) %>%
-  mutate(categorical = (target_groups %in% c(l_params_calib$v_outcomes_categorical) | n()==1))
-  
-# Plot continuous items
-out_summary_cont <- out_summary %>%
-  filter(categorical == 0)
-
-plot_targets_cont <- ggplot(data = out_summary_cont, 
-                            aes(x    = target_index, 
-                                y    = true_val, 
-                                ymin = true_val - true_se, 
-                                ymax = true_val + true_se))+ 
-  geom_errorbar(width=.4, linewidth=0.9, color="red") +
-  theme(legend.position="none") +
-  geom_ribbon(data = out_summary_cont,
-              aes(x    = target_index,
-                  y    = true_val,
-                  ymin = model_LB_95,
-                  ymax = model_UB_95),
-              fill = "black",
-              alpha = 0.3) +
-  geom_ribbon(data = out_summary_cont,
-              aes(x    = target_index,
-                  y    = true_val,
-                  ymin = model_LB_50,
-                  ymax = model_UB_50),
-              fill = "black",
-              alpha = 0.5) +
-  facet_wrap(~ plot_grp, scales="free", ncol = 3,
-             labeller = labeller(plot_grp = label_wrap_gen(12))) +
-  theme(
-    strip.background = element_blank(),
-    strip.text.x = element_blank(), legend.position="none") +
-  scale_fill_manual(values = c("grey10", "grey30"))+
-  scale_y_continuous(breaks = number_ticks(5))+
-  theme_bw(base_size = 23) +
-  theme(plot.title = element_text(size = 22, face = "bold"),
-        axis.text.x = element_text(size = 18, angle = 90),
-        axis.text.y = element_text(size = 18),
-        axis.title = element_text(size = 18),
-        panel.grid.major = element_blank(),
-        panel.border = element_rect(colour = "black", fill = NA),
-        strip.background = element_blank(),
-        strip.text = element_text(hjust = 0)) +
-  labs(x     = "Age", y     = "")
-
-# Categorical items
-out_summary_cat <- out_summary %>%
-  filter(categorical == 1) %>%
-  mutate(target_index = factor(target_index))
-
-# Get full data, filter to categorical, and convert wide to long
-out_full_cat <- data.frame(m_outputs[, out_summary$categorical == TRUE]) %>%
-  pivot_longer(
-    cols = everything(), 
-    names_to = "target_groups",
-    values_to = "value"
-  ) %>%
-  mutate(target_index = rep(out_summary_cat$target_index, nrow(m_outputs)),
-         plot_grp = rep(out_summary_cat$plot_grp, nrow(m_outputs)))
-
-# Single items as violin plots
-plot_targets_cat <- ggplot(data = out_summary_cat) + 
-  geom_errorbar(
-    aes(x    = target_index, 
-        y    = true_val, 
-        ymin = true_val - true_se, 
-        ymax = true_val + true_se),
-    width=.4, linewidth=0.9, color="red") +
-  theme(legend.position="none") +
-  geom_violin(data = out_full_cat,
-              aes(x    = target_index,
-                  y    = value),
-              alpha = 0.4) +
-  facet_wrap(~ plot_grp, scales="free", 
-             ncol = length(unique(out_summary_cat$plot_grp)),
-             labeller = labeller(plot_grp = label_wrap_gen(12))) +
-  theme(strip.background = element_blank(),
-        strip.text.x = element_blank(), legend.position="none") +
-  scale_fill_manual(values = c("grey10", "grey30"))+
-  scale_y_continuous(breaks = number_ticks(5))+
-  theme_bw(base_size = 23) +
-  theme(plot.title = element_text(size = 22, face = "bold"),
-        axis.text.x = element_text(size = 18),
-        axis.text.y = element_text(size = 18),
-        axis.title = element_text(size = 18),
-        panel.grid.major = element_blank(),
-        panel.border = element_rect(colour = "black", fill = NA),
-        strip.background = element_blank(),
-        strip.text = element_text(hjust = 0)) +
-  labs(x     = "", y     = "")
-
-plot_all <- plot_targets_cont / plot_targets_cat
-plot_all
-ggsave(file_fig_validation, plot_all, width = 10, height = 8)
