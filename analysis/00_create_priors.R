@@ -94,7 +94,7 @@ if (params_model$lesion_state == T) {
 var_onset <- paste0("time_H_", l_params_model$v_states[2])
 
 # Get variable for censoring incidence
-var_censor <- params_calib$l_outcome_params$incidence$censor_var
+var_censor <- params_calib$l_outcome_params$incidence$lit_params$censor_var
 
 
 #### 4. Derive prior distribution for time to disease onset  ===========================================

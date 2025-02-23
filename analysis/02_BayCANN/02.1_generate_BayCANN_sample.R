@@ -47,38 +47,17 @@ list2env(configs$params_baycann$params_sampling, envir = .GlobalEnv)
 l_params_calib <- readRDS(file_params_calib)
 
 # Set seed
-set.seed(l_params_calib$seed_calib)
+set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG")
 
 # Set number of cores to use
 registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
 
 
-#### 4. Generate random set of inputs  ===========================================
+#### 4. Generate inputs and outputs  ===========================================
 
-m_param_samp <- with(l_params_calib, {
-  # Get number of params to calibrate and number of samples
-  n_param <- nrow(prior_map)
-  n_samp <- n_samp_per_param * n_param
-    
-  # Sample unit Latin Hypercube
-  m_lhs_unit <- randomLHS(n_samp, n_param)
-  
-  # Rescale to min/max of each parameter
-  m_param_samp <- matrix(nrow = n_samp, ncol = n_param)
-  for (i in 1:n_param) {
-    m_param_samp[, i] <- qunif(
-      m_lhs_unit[, i],
-      min = prior_map$min[i],
-      max = prior_map$max[i])
-  }
-  colnames(m_param_samp) <- prior_map$var_id
-  
-  return(m_param_samp)
-}
-)
-
-
-#### 5. Generate corresponding outputs  ===========================================
+# Generate parameter sample with LHS
+m_param_samp <- lhs_param_samp(prior_map = l_params_calib$prior_map, 
+                               n_samp_per_param = n_samp_per_param)
 
 # Run model for each input parameter sample and get corresponding outputs with parallel processing
 stime <- system.time({
@@ -90,7 +69,7 @@ stime <- system.time({
       # Get row of parameters and calculate outputs
       v_params_update <- m_param_samp[i,]
       v_calib_outputs <- with(l_params_calib, {
-        params_to_calib_outputs(
+        params_to_outputs(
           l_params_model = l_params_model,
           v_params_update = v_params_update,
           param_map = prior_map,

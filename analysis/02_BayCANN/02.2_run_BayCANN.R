@@ -71,7 +71,7 @@ BayCANN_sample <- readRDS(file_sample)
 
 # Set columns to scale (currently only include targets that are not categorical)
 # Select all columns if desired
-scale_cols <- which(!l_params_calib$df_target$target_group %in% v_groups_categorical)
+scale_cols <- which(!l_params_calib$df_target$target_group %in% l_params_calib$v_outcomes_categorical)
 
 # Create data frame mapping targets to output layer activation function groups
 df_fn_grps <- l_params_calib$df_target %>%
@@ -80,7 +80,7 @@ df_fn_grps <- l_params_calib$df_target %>%
   summarize(n_targets = n(), .groups = "drop") %>% # Count number of targets per group
   mutate( # Assign activation functions for output layer
     activation = ifelse(
-      target_groups %in% v_groups_categorical, "softmax", # Categorical targets that sum to 1
+      target_groups %in% l_params_calib$v_outcomes_categorical, "softmax", # Categorical targets that sum to 1
       "sigmoid" # Non-categorical targets that get rescaled from 0 to 1
     )) %>% 
   mutate( # Assign labels to define groups within the same output head

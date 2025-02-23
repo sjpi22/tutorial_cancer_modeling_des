@@ -21,6 +21,9 @@ if ("lesion_state" %in% names(configs$params_model)) {
 # Remove calibration parameters specific to lesion model
 configs$params_calib$lesion_state_true <- NULL
 
+# Set expected groups for stage distribution calibration outcome to be cancer stages
+configs$params_calib$l_outcome_params$stage_distr$lit_params$groups_expected <- configs$params_model$v_cancer
+
 # Define function to update output file paths
 update_config_paths <- function(label, paths) {
   # Initialize list of file paths

@@ -30,6 +30,7 @@ source("configs/process_configs.R")
 
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
+file_plot_labels <- configs$paths$file_plot_labels
 
 # Get list of relevant output file paths and load to global environment
 l_filepaths <- update_config_paths("files_imabc", configs$paths)
@@ -49,11 +50,20 @@ calibration_outputs <- readRDS(file_posterior)
 m_param_samp <- calibration_outputs$good_parm_draws %>%
   dplyr::select(l_params_calib$prior_map$var_id)
 
+# Load plot labels
+df_plot_labels <- read.csv(file_plot_labels)
+
+# Process target data
+df_targets <- l_params_calib$df_target %>%
+  mutate(target_index = factor(target_index)) %>% # Create plot labels
+  left_join(df_plot_labels, by = "target_groups")
+df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
+
 
 #### 4. Internal validation  ===========================================
 
 # Sample with replacement
-n_imabc_sample <- nrow(calibration_outputs$good_parm_draws) * nrow(calibration_outputs$good_parm_draws)
+n_imabc_sample <- nrow(calibration_outputs$good_parm_draws) * 0.3
 indices_imabc_sample <- sample(1:nrow(calibration_outputs$good_parm_draws), 
                                n_imabc_sample, 
                                replace = TRUE, 
@@ -72,29 +82,17 @@ imabc_targets_unweighted <- calibration_outputs$good_sim_target %>%
 
 m_outputs <- as.matrix(imabc_targets_unweighted[indices_imabc_sample, ])
 
-# Summarize targets
-# Note: weight for 50th and 95th with resampling
-collapse_mean  <- t(summaryBy( . ~ index , FUN=c(weighted.mean), w = calibration_outputs$good_parm_draws$sample_wt, data=imabc_targets_unweighted, keep.names=TRUE))
-collapse_UB_95 <- apply(m_outputs, 2, FUN=quantile, probs = 0.975, simplify = TRUE)
-collapse_LB_95 <- apply(m_outputs, 2, FUN=quantile, probs = 0.025, simplify = TRUE)
-collapse_UB_50 <- apply(m_outputs, 2, FUN=quantile, probs = 0.75, simplify = TRUE)
-collapse_LB_50 <- apply(m_outputs, 2, FUN=quantile, probs = 0.25, simplify = TRUE)
+plt_coverage <- plot_coverage(df_targets = df_targets,
+                              m_outputs = m_outputs,
+                              file_fig_coverage = NULL)
+plt_coverage
 
-out_summary <-  data.frame(
-  l_params_calib$df_targets,
-  model_mean = collapse_mean,
-  model_UB_95 = collapse_UB_95,
-  model_LB_95 = collapse_LB_95,
-  model_UB_50 = collapse_UB_50,
-  model_LB_50 = collapse_LB_50) %>%
+
+# Categorize categorical targets
+df_targets <- df_targets %>%
   group_by(target_groups) %>%
-  mutate(categorical = (target_groups %in% c('stage_distr') | n()==1),
-         plot_label = as.character(target_index)) %>%
-  rename(true_val = targets, true_se = se) %>%
-  mutate(plot_grp = case_when(target_groups == 'prevalence' ~ 'Preclinical cancer prevalence',
-                              target_groups == 'incidence' ~ 'CRC incidence per 100k',
-                              target_groups == 'stage_distr' ~ 'CRC stage distribution'))
-
+  mutate(categorical = (target_groups %in% c(l_params_calib$v_outcomes_categorical) | n()==1))
+  
 # Plot continuous items
 out_summary_cont <- out_summary %>%
   filter(categorical == 0)
@@ -185,4 +183,5 @@ plot_targets_cat <- ggplot(data = out_summary_cat) +
   labs(x     = "", y     = "")
 
 plot_all <- plot_targets_cont / plot_targets_cat
+plot_all
 ggsave(file_fig_validation, plot_all, width = 10, height = 8)

@@ -55,26 +55,32 @@ params_calib:
     prevalence:
       file_path: "data/prevalence_preclinical_cancer.csv"
       outcome_type: "prevalence"
-      m_patients: "m_patients"
-      start_var: "time_H_P"
-      end_var: "time_H_C"
-      censor_var: "time_screen_censor"
-      v_ages: [30, 40, 50, 60, 70, 80]
+      categorical: FALSE
+      get_params:
+        m_patients: "m_patients"
+      lit_params:
+        start_var: "time_H_P"
+        end_var: "time_H_C"
+        censor_var: "time_screen_censor"
     incidence:
       file_path: "data/incidence_clinical_cancer.csv"
       outcome_type: "incidence"
-      m_patients: "m_patients"
-      time_var: "time_H_C"
-      censor_var: "time_H_D"
-      v_ages: [30, 40, 50, 60, 70, 80, 90]
+      categorical: FALSE
+      get_params:
+        m_patients: "m_patients"
+      lit_params:
+        time_var: "time_H_C"
+        censor_var: "time_H_D"
     stage_distr:
       file_path: "data/stage_distr_clinical_cancer.csv"
       outcome_type: "distr"
-      m_patients: "m_patients"
-      grouping_var: "stage_dx"
-      event_var: "time_H_C"
-      censor_var: "time_H_D"
-      groups_expected: [1, 2, 3, 4] # Should be same as v_cancer unless using different stage classification for targets from simulated stages
+      categorical: TRUE
+      get_params:
+        m_patients: "m_patients"
+      lit_params:
+        grouping_var: "stage_dx"
+        event_var: "time_H_C"
+        censor_var: "time_H_D"
   l_censor_vars:
     m_patients:
       time_screen_censor: ["time_H_C", "time_H_D"]
@@ -85,25 +91,30 @@ params_calib:
       prevalence_lesion:
         file_path: "data/prevalence_lesion.csv"
         outcome_type: "prevalence"
-        m_patients: "m_patients"
-        start_var: "time_H_L"
-        end_var: "time_H_P"
-        censor_var: "time_screen_censor"
-        v_ages: [30, 40, 50, 60, 70, 80]
+        categorical: FALSE
+        get_params:
+          m_patients: "m_patients"
+        lit_params:
+          start_var: "time_H_L"
+          end_var: "time_H_P"
+          censor_var: "time_screen_censor"
       n_lesions:
         file_path: "data/n_lesions.csv"
         outcome_type: "nlesions"
-        m_lesions: "m_lesions"
-        start_var: "time_H_Lj"
-        end_var: "time_H_P"
-        censor_var: "time_screen_censor"
-        start_age: 50
-        end_age: 80
+        categorical: TRUE
+        get_params:
+          m_lesions: "m_lesions"
+        lit_params:
+          start_var: "time_H_Lj"
+          end_var: "time_H_P"
+          censor_var: "time_screen_censor"
+          start_age: 50
+          end_age: 80
         
 # Parameters for Monte Carlo analysis to set sample size
 params_montecarlo:
   n_init: 10000
-  n_mc_reps: 50
+  n_mc_reps: 100
   mc_multiplier: 2
   
 # Parameters for initial coverage analysis
@@ -114,7 +125,7 @@ params_coverage:
 
 # Parameters specific to IMABC
 params_imabc:
-  alpha_current: 0.00000000000001
+  alpha_current: 0.000000000000001
   alpha_stop: 0.05
   fn_use_seed: FALSE
   N_start_multiplier: 1000 # Number of initial samples per parameter
@@ -129,7 +140,6 @@ params_baycann:
   params_sampling: # Parameters for sampling from priors
     n_samp_per_param: 100 # Number of samples per parameter; try 100 on desktop or 1000 if you can run on a computing cluster
   params_data: # Parameters for data preparation
-    v_groups_categorical: ["stage_distr", "n_lesions"] # Target groups that are categorical (percentages should sum to 1)
     scale_type: 3 # 1: scale from -1 to 1; 2: standardization; 3: scale from 0 to 1
     train_split: 0.8 # Train vs. test split
     valid_split: 0.8 # Train vs. validation within train set for hyperparameter tuning
@@ -163,31 +173,43 @@ params_baycann:
   
 # Parameters for screening strategy evaluation
 params_screen:
-  l_outcome_params:
+  l_outcome_base: # Outcomes to add for base and screening scenario
     lifeyears:
       outcome_type: "lifeyears"
-      m_patients: "m_patients"
-      sum_var: "time_H_D"
-      censor_var: "time_screen_censor"
-      age_min: 40
+      get_params:
+        m_patients: "m_patients"
+      lit_params:
+        sum_var: "time_H_D"
+        censor_var: "time_screen_censor"
+        age_min: 40
+    tests:
+      outcome_type: "tests"
+      get_params:
+        m_patients: "m_patients"
+      lit_params:
+        sum_var: "time_H_C"
+        censor_var: "time_screen_censor"
+        age_min: 40
+  l_outcome_counterfactual: # Outcomes comparing screening and no-screening scenarios
     lyg:
       outcome_type: "lyg"
-      unit_lyg: 1000
+      lit_params:
+        unit_lyg: 1000
   test_chars: # Test characteristics
     modality1:
       p_sens:
         - L: 0.6
         - P: 0.9
       p_spec: 0.8
-  strategies: # Strategies for administering test
+  strats: # Screening test strategies 
     strategy1:
       mod: "modality1"
       age_screen_start: 50
-      age_screen_end: 80
-      int_screen: 10
+      age_screen_end: 70
+      int_screen: 1
     strategy2:
       mod: "modality1"
       age_screen_start: 50
-      age_screen_end: 80
+      age_screen_end: 70
       int_screen: 5
       

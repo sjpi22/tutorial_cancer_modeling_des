@@ -62,6 +62,9 @@ l_params_calib <- do.call(load_calib_params, c(
 # Load plot labels
 df_plot_labels <- read.csv(file_plot_labels)
 
+# Set number of cores to use
+registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
+
 
 #### 4. Monte Carlo error analysis  ===========================================
 
@@ -69,14 +72,25 @@ df_plot_labels <- read.csv(file_plot_labels)
 l_params_mc <- l_params_calib$l_params_model
 l_params_mc$n_cohort <- n_init
 l_params_mc$seed <- NULL # Remove seed that is reset every time model is run
-set.seed(l_params_calib$l_params_model$seed) # Set seed externally
+set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG") # Set seed externally; kind set for parallel package
 
-df_res_mc <- matrix(nrow = n_mc_reps, ncol = nrow(l_params_calib$df_targets))
-for (i in 1:n_mc_reps) {
-  df_res_mc[i, ] <- params_to_calib_outputs(l_params_mc, 
-                                            l_outcome_params = l_params_calib$l_outcome_params,
-                                            l_censor_vars = l_params_calib$l_censor_vars)
-}
+# Run model for each input parameter sample and get corresponding outputs with parallel processing
+stime_mc <- system.time({
+  df_res_mc <- foreach(
+    i=1:n_mc_reps, 
+    .combine=rbind, 
+    .inorder=FALSE, 
+    .packages=c("data.table","tidyverse")) %dopar% {
+      # Calculate outputs in any order
+      v_outputs_mc <- params_to_outputs(l_params_mc, 
+                                        l_outcome_params = l_params_calib$l_outcome_params,
+                                        l_censor_vars = l_params_calib$l_censor_vars)
+      
+      # Call item to save
+      t(v_outputs_mc)
+    }
+})
+print(stime_mc)
 
 # Get column-wise mean and SD
 mean_mc <- colMeans(df_res_mc)
@@ -103,31 +117,9 @@ saveRDS(l_params_calib, file = file_params_calib)
 
 # Run coverage analysis if necessary
 if (check_coverage == T) {
-  # Set number of cores to use
-  registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
-  
-  # Generate random set of inputs
-  m_param_samp <- with(l_params_calib, {
-    # Get number of params to calibrate and number of samples
-    n_param <- nrow(prior_map)
-    n_samp <- n_samp_coverage
-    
-    # Sample unit Latin Hypercube
-    m_lhs_unit <- randomLHS(n_samp, n_param)
-    
-    # Rescale to min/max of each parameter
-    m_param_samp <- matrix(nrow = n_samp, ncol = n_param)
-    for (i in 1:n_param) {
-      m_param_samp[, i] <- qunif(
-        m_lhs_unit[, i],
-        min = prior_map$min[i],
-        max = prior_map$max[i])
-    }
-    colnames(m_param_samp) <- prior_map$var_id
-    
-    return(m_param_samp)
-  }
-  )
+  # Generate parameter sample with LHS
+  m_param_samp <- lhs_param_samp(prior_map = l_params_calib$prior_map, 
+                                 n_samp = n_samp_coverage)
   
   # Run model for each input parameter sample and get corresponding outputs with parallel processing
   stime <- system.time({
@@ -139,7 +131,7 @@ if (check_coverage == T) {
         # Get row of parameters and calculate outputs
         v_params_update <- m_param_samp[i,]
         v_calib_outputs <- with(l_params_calib, {
-          params_to_calib_outputs(
+          params_to_outputs(
             l_params_model = l_params_model,
             v_params_update = v_params_update,
             param_map = prior_map,
@@ -169,51 +161,10 @@ if (check_coverage == T) {
     left_join(df_plot_labels, by = "target_groups")
   df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
   
-  # Convert outputs from wide to long
-  out_full_bc_cat <- data.frame(m_outputs) %>%
-    pivot_longer(
-      cols = everything(), 
-      names_to = "target_names",
-      values_to = "value"
-    ) %>%
-    mutate(target_index = rep(df_targets$target_index, nrow(m_outputs)),
-           plot_grps = rep(df_targets$plot_grps, nrow(m_outputs)))
-  
-  # Plot distribution of outputs against targets
-  plot_coverage <- ggplot(data = df_targets) + 
-    geom_errorbar(
-      aes(x    = target_index, 
-          y    = targets, 
-          ymin = targets - se, 
-          ymax = targets + se),
-      width = 0.4, linewidth = 0.9, color="red") +
-    theme(legend.position = "none") +
-    geom_violin(data = out_full_bc_cat,
-                aes(x    = target_index,
-                    y    = value),
-                alpha = 0.4) +
-    facet_wrap(~plot_grps, scales="free",
-               labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*1.5))) +
-    theme(strip.background = element_blank(),
-          strip.text.x = element_blank(), legend.position="none") +
-    scale_fill_manual(values = c("grey10", "grey30"))+
-    scale_y_continuous(breaks = number_ticks(5))+
-    theme_bw(base_size = plt_size_text + 5) +
-    theme(plot.title = element_text(size = plt_size_text, face = "bold"),
-          axis.text.x = element_text(size = plt_size_text),
-          axis.text.y = element_text(size = plt_size_text),
-          axis.title = element_text(size = plt_size_text),
-          panel.grid.major = element_blank(),
-          panel.border = element_rect(colour = "black", fill = NA),
-          strip.background = element_blank(),
-          strip.text = element_text(hjust = 0)) +
-    labs(x     = "", y     = "")
-  plot_coverage
-  
-  # Save plot and adjust size based on number of rows and columns
-  n_plot_grps <- length(unique(df_targets$plot_grps))
-  n_plot_rows <- ceiling(n_plot_grps/3)
-  n_plot_cols <- ceiling(n_plot_grps/n_plot_rows)
-  ggsave(file_fig_coverage, plot = plot_coverage,
-         width = n_plot_cols*4, height = 4*n_plot_rows)
+  # Plot and save coverage
+  plt_coverage <- plot_coverage(df_targets = df_targets, 
+                                m_outputs = m_outputs, 
+                                file_fig_coverage = file_fig_coverage,
+                                plt_size_text = plt_size_text)
+  plt_coverage
 }

@@ -39,12 +39,18 @@ file_true_params <- file.path("_ground_truth", "true_params.xlsx")
 ###### 2.3 Other parameters
 # Simulation parameters and outcome reporting
 seed <- 2025 # Random seed for generating ground truth data
+conf_level <- 0.95 # Confidence level for calculating outcomes
+v_ages <- list( # Age ranges for calculating outcomes
+  prevalence = seq(30, 80, 10),
+  incidence = seq(30, 90, 10),
+  prevalence_lesion = seq(30, 80, 10)
+)
 v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 l_outcomes_cs <- c("prevalence", "nlesions") # Outcome types to calculate cross-sectionally
 n_cohort <- c(screen = 10000, pop = 100000) # Number to simulate for screen vs. population samples
 l_outcome_grps <- list( # Outcomes to calculate together for screen vs. population samples
-  screen = list("prevalence_lesion", "n_lesions", "prevalence"),
-  pop = list("incidence", "stage_distr")
+  screen = c("prevalence_lesion", "n_lesions", "prevalence"),
+  pop = c("incidence", "stage_distr")
 )
 
 # Prior generation
@@ -79,17 +85,20 @@ prior_map <- param_map %>%
          max = round(max * (1 + prior_pct_multiplier), 2)) %>%
   dplyr::select(-c("param_val", "shift"))
 
-# Extract and process outcome parameters
+# Extract outcome parameters
 l_outcome_params <- params_calib$l_outcome_params
 l_censor_vars <- params_calib$l_censor_vars
 
-# Update cross-sectional outcome types
+# Process outcome parameters
 for (target in names(l_outcome_params)) {
   # Modify outcome list to change to cross-sectional functions
   if (l_outcome_params[[target]]["outcome_type"] %in% l_outcomes_cs) {
     l_outcome_params[[target]]["outcome_type"] <- paste0(l_outcome_params[[target]]["outcome_type"], 
                                                          "_cs")
   }
+  
+  # If applicable, add age ranges for calculating outcomes
+  l_outcome_params[[target]]$lit_params$v_ages <- v_ages[[target]]
 }
 
 # Check if data directory exists, make if not
@@ -100,44 +109,29 @@ dir.create(dirname(params_calib$l_outcome_params[[1]]$file_path), showWarnings =
 
 ###### 4.1 Simulate data and outputs
 # Calculate outcomes from different simulated cohorts
+l_cohorts <- list()
 l_results <- list()
 for (grp in names(l_outcome_grps)) {
   # Update cohort size
   l_params_model$n_cohort <- n_cohort[grp]
   
-  # Simulate cohort
-  m_cohort <- run_base_model(l_params_model)
+  # Calculate outputs in group
+  l_results_grp <- params_to_outputs(l_params_model = l_params_model, 
+                                     l_outcome_params = l_outcome_params[l_outcome_grps[[grp]]], 
+                                     l_censor_vars = l_censor_vars,
+                                     reshape_output = FALSE, 
+                                     individual_data = TRUE,
+                                     conf_level = conf_level)
   
-  # Separate patient and lesion data as necessary
-  if (is.data.table(m_cohort)) {
-    m_patients <- m_cohort
-  } else {
-    m_patients <- m_cohort$patient_level
-    m_lesions <- m_cohort$lesion_level
-  }
-  
-  # Create censor variables
-  if (!is.null(l_censor_vars)) {
-    for (dt in names(l_censor_vars)) {
-      for (varname in names(l_censor_vars[[dt]])) {
-        get(dt)[, (varname) := do.call("pmin", c(.SD, na.rm = TRUE)),
-                .SDcols = l_censor_vars[[dt]][[varname]]]
-      }
-    }
-  }
-  
-  # Calculate outcomes
-  for (outcome in l_outcome_grps[[grp]]) {
-    # Calculate outcome
-    l_results[[outcome]] <- do.call(
-      paste0("calc_", l_outcome_params[[outcome]][[2]]), 
-      c(list(get(l_outcome_params[[outcome]][[3]])), tail(l_outcome_params[[outcome]], -3)))
-  }
+  # Append results
+  l_cohorts[[grp]] <- l_results_grp$m_cohort
+  l_results <- c(l_results, l_results_grp$outputs)
 }
 
 
 ###### 4.2 Calculate relative survival by stage and years from diagnosis
 # Set patient-level data
+m_cohort <- l_cohorts$pop
 if (is.data.table(m_cohort)) {
   m_patients <- m_cohort
 } else {

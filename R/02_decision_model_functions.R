@@ -583,3 +583,156 @@ simulate_screening_P <- function(m_patients,
   
   return(NULL)
 }
+
+
+# Generate outputs from individual-level cohort data
+# l_outcome_params: list of outcome parameters
+# l_censor_vars: list of lists of variables to use to create new variables for censoring outcomes
+calc_outputs <- function(m_cohort,
+                         l_outcome_params,
+                         l_censor_vars = NULL) {
+  
+  # Separate patient and lesion data as necessary
+  if (is.data.table(m_cohort)) {
+    m_patients <- m_cohort
+  } else {
+    m_patients <- m_cohort$patient_level
+    m_lesions <- m_cohort$lesion_level
+  }
+  
+  # Create censor variables
+  if (!is.null(l_censor_vars)) {
+    for (dt in names(l_censor_vars)) {
+      for (varname in names(l_censor_vars[[dt]])) {
+        get(dt)[, (varname) := do.call("pmin", c(.SD, na.rm = TRUE)),
+                .SDcols = l_censor_vars[[dt]][[varname]]]
+      }
+    }
+  }
+  
+  # Calculate outcomes
+  l_results <- list()
+  for (outcome in names(l_outcome_params)) {
+    l_results[[outcome]] <- do.call(
+      paste0("calc_", l_outcome_params[[outcome]][["outcome_type"]]), 
+      c(lapply(l_outcome_params[[outcome]][["get_params"]], get, envir = sys.frame(sys.parent(0))), 
+        l_outcome_params[[outcome]][["lit_params"]]))
+  }
+  
+  # Return outputs
+  return(l_results)
+}
+
+
+# Reshape outputs to single vector
+reshape_outputs <- function(l_outputs, var_to_keep = "value") {
+  v_outputs <- c()
+  for (df in l_outputs) {
+    if (var_to_keep %in% names(df)) {
+      v_outputs <- c(v_outputs, df[[var_to_keep]])
+    } else {
+      if (is.null(dim(df))) {
+        n_vals <- 1
+      } else {
+        n_vals <- nrow(df)
+      }
+      v_outputs <- c(v_outputs, rep(NA, n_vals))
+    }
+  }
+  
+  return(v_outputs)
+}
+
+
+# Wrapper for running model and outputting vector of outputs
+params_to_outputs <- function(l_params_model, 
+                              v_params_update = NULL, 
+                              param_map = NULL,
+                              l_outcome_params, # List of base case outcomes and parameters to calculate them
+                              l_screen_params = NULL, # If populated, run screening scenario with list of parameters
+                              l_outcome_params_screen = NULL, # If populated, calculate different outcomes for screening scenario, otherwise use base outcomes
+                              l_censor_vars = NULL,
+                              reshape_output = TRUE, 
+                              individual_data = FALSE, # Output individual-level data
+                              conf_level = 0.95) {
+  # Update parameters
+  if (!is.null(v_params_update)) {
+    if (is.null(param_map)) {
+      stop("Input parameter map")
+    }
+    l_params_update <- update_param_from_map(l_params_model, v_params_update, param_map)
+  } else {
+    l_params_update <- l_params_model
+  }
+  
+  # Run base decision model
+  m_cohort <- run_base_model(l_params_update)
+  
+  # Get base outputs
+  l_outputs <- calc_outputs(m_cohort, 
+                            l_outcome_params = l_outcome_params,
+                            l_censor_vars = l_censor_vars)
+  
+  # Add individual-level data to results list if necessary
+  if (individual_data) {
+    res <- list(m_cohort = m_cohort)
+  } else {
+    res <- list()
+  }
+  
+  # Reshape outputs if necessary and add to results
+  if (reshape_output) {
+    res <- c(res, outputs = list(reshape_outputs(l_outputs)))
+  } else {
+    res <- c(res, outputs = list(l_outputs))
+  }
+  
+  # If applicable, run screening counterfactual
+  if (!is.null(l_screen_params)) {
+    # Set screening outcome parameters
+    if (is.null(l_outcome_params_screen)) {
+      l_outcome_params_screen <- l_outcome_params
+    }
+    
+    # Loop through screening strategies
+    for (i in 1:length(l_screen_params$strats)) {
+      # Extract screening modality
+      mod <- l_screen_params$strats[[i]][["mod"]]
+      
+      # Remove modality from strategy parameters
+      l_strat_params <- l_screen_params$strats[[i]][-which(names(l_screen_params$strats[[i]]) == "mod")]
+      
+      # Extract test characteristics for modality
+      l_mod_chars <- l_screen_params$test_chars[["mod"]]
+      
+      # Generate data under screening counterfactual
+      m_cohort_screen <- do.call(run_screening_counterfactual, 
+                                 c(list(m_cohort), 
+                                   list(l_params_model),
+                                   l_strat_params,
+                                   l_mod_chars,
+                                   overwrite = F
+                                 ))
+      
+      # Calculate screening outcomes
+      l_outputs_screen <- calc_outputs(m_cohort_screen, 
+                                       l_outcome_params = l_outcome_params_screen,
+                                       l_censor_vars = l_censor_vars)
+      
+      # Reshape outputs if necessary and add to results
+      if (reshape_output) {
+        res$outputs <- c(res$outputs, reshape_outputs(l_outputs_screen))
+      } else {
+        res <- c(res, outputs_screen = list(l_outputs_screen))
+      }
+    }
+  }
+  
+  # Return single item or list of results if >1 items
+  if (length(res) == 1) {
+    return(res[[1]])
+  } else {
+    return(res)
+  }
+}
+
