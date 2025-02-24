@@ -17,6 +17,7 @@ paths:
     output:
       posterior: "imabc_posterior.rds"
       runtime: "imabc_runtime.csv"
+      outputs: "imabc_decision_outputs.rds"
     figs:
       validation: "imabc_validation.png"
   files_baycann: # File names for BayCANN outputs

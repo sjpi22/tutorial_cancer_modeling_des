@@ -1,6 +1,6 @@
 ###########################  Internal Validation  #########################################
 #
-#  Objective: Validate BayCANN posteriors by plotting fit of calibration outputs
+#  Objective: Validate IMABC posteriors by plotting fit of calibration outputs
 ########################### <<<<<>>>>> ##############################################
 
 rm(list = ls()) # Clean environment
@@ -10,8 +10,9 @@ options(scipen = 999) # View data without scientific notation
 
 ###### 1.1 Load packages
 library(tidyverse)
-library(doBy)
+library(dplyr)
 library(patchwork)
+library(ggdist)
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 
@@ -30,8 +31,8 @@ source("configs/process_configs.R")
 file_params_calib <- configs$paths$file_params_calib
 file_plot_labels <- configs$paths$file_plot_labels
 
-# Get list of BayCANN output file paths and load to global environment
-l_filepaths <- update_config_paths("files_baycann", configs$paths)
+# Get list of relevant output file paths and load to global environment
+l_filepaths <- update_config_paths("files_imabc", configs$paths)
 list2env(l_filepaths, envir = .GlobalEnv)
 
 # Load coverage analysis parameters from configs file
@@ -43,8 +44,12 @@ list2env(configs$params_coverage, envir = .GlobalEnv)
 # Load model parameters
 l_params_calib <- readRDS(file_params_calib)
 
-# Load calibration outputs
-l_outputs <- readRDS(file_outputs)
+# Load IMABC calibration outputs
+calibration_outputs <- readRDS(file_posterior)
+
+# Extracted unweighted calibration outputs
+imabc_targets_unweighted <- calibration_outputs$good_sim_target %>%
+  dplyr::select(-c("iter", "draw", "step"))
 
 # Load plot labels
 df_plot_labels <- read.csv(file_plot_labels)
@@ -57,15 +62,10 @@ df_targets <- l_params_calib$df_target %>%
 df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
 
 
-#### 4. Plots ===========================================
+#### 4. Internal validation  ===========================================
 
-# Extract calibration outputs and convert to data frame
-m_outputs <- do.call(rbind, lapply(l_outputs, function(u) {
-  reshape_outputs(u[["outputs_base"]])
-}))
-
-# Calculate mean of outputs
-df_targets$model_mean <- colMeans(m_outputs)
+# Calculate weighted mean of outputs
+df_targets$model_mean <- apply(imabc_targets_unweighted, 2, weighted.mean, w = calibration_outputs$good_parm_draws$sample_wt)
 
 # Calculate quantiles and column labels from inner quantile vector
 v_quantiles_lb <- (1 - v_quantiles/100)/2
@@ -74,9 +74,13 @@ v_quantiles_ub <- (1 + v_quantiles/100)/2
 names(v_quantiles_ub) <- paste0("model_UB_", v_quantiles)
 v_quantiles_calc <- sort(c(v_quantiles_lb, v_quantiles_ub))
 
-# Get quantiles of calibration outputs
-m_output_quantiles <- t(apply(m_outputs, 2, function(u) {
-  quantile(u, probs = v_quantiles_calc)
+# Get weighted quantiles of calibration outputs
+m_output_quantiles <- t(apply(imabc_targets_unweighted, 2, function(u) {
+  weighted_quantile(
+    x = u,
+    probs = v_quantiles_calc,
+    weights = calibration_outputs$good_parm_draws$sample_wt
+  )
 }))
 colnames(m_output_quantiles) <- names(v_quantiles_calc)
 

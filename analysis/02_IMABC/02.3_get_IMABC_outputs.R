@@ -1,8 +1,8 @@
-###########################  Generate BayCANN outputs   #########################################
+###########################  Generate IMABC outputs   ##########################
 #
-#  Objective: Script to generate calibration target and decision outputs for 
-#  BayCANN calibrated parameters
-########################### <<<<<>>>>> ##############################################
+#  Objective: Script to generate decision outputs for IMABC calibrated
+#  parameters
+########################### <<<<<>>>>> #########################################
 
 rm(list = ls()) # Clean environment
 options(scipen = 999) # View data without scientific notation
@@ -28,13 +28,16 @@ sapply(distr.sources, source, .GlobalEnv)
 # Run file to process configurations
 source("configs/process_configs.R")
 
-# Extract parameters from configs
+# Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
-params_screen <- configs$params_screen
+file_plot_labels <- configs$paths$file_plot_labels
 
-# Get list of BayCANN output file paths and load to global environment
-l_filepaths <- update_config_paths("files_baycann", configs$paths)
+# Get list of relevant output file paths and load to global environment
+l_filepaths <- update_config_paths("files_imabc", configs$paths)
 list2env(l_filepaths, envir = .GlobalEnv)
+
+# Load coverage analysis parameters from configs file
+list2env(configs$params_coverage, envir = .GlobalEnv)
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -45,21 +48,17 @@ l_params_calib <- readRDS(file_params_calib)
 # Set flag to count diagnostic tests in base case scenario
 l_params_calib$l_params_model$fl_count_tests <- TRUE
 
-# Load BayCANN posteriors
-m_params <- read.csv(file_posterior) %>%
-  dplyr::select(-lp) %>% # Remove last non-parameter column
-  as.matrix()
+# Load IMABC posteriors
+l_outputs <- readRDS(file_posterior)
+m_params <- l_outputs$good_parm_draws %>%
+  dplyr::select(l_params_calib$prior_map$var_id)
 
-# Set base case outcome parameters (include calibration target parameters)
-l_outcome_params_base <- c(l_params_calib$l_outcome_params,
-                           params_screen$l_outcome_base)
+# Set decision outcome parameters
+l_outcome_params <- params_screen$l_outcome_base
 
 # Set screening test and strategy parameters
 l_screen_params <- list(test_chars = params_screen$test_chars,
                         strats = params_screen$strats)
-
-# Set screening outcome parameters
-l_outcome_params_screen <- params_screen$l_outcome_base
 
 # Set counterfactual comparison parameters
 l_outcome_params_counter <- params_screen$l_outcome_counterfactual
@@ -71,8 +70,8 @@ set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG")
 registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
 
 
-#### 4. Generate BayCANN outputs  ===========================================
-  
+#### 4. Generate IMABC outputs  ===========================================
+
 # Run model for each input parameter sample and get corresponding targets
 stime <- system.time({
   m_outputs <- foreach(
@@ -87,9 +86,8 @@ stime <- system.time({
           l_params_model = l_params_model,
           v_params_update = v_params_update,
           param_map = prior_map,
-          l_outcome_params = l_outcome_params_base,
+          l_outcome_params = l_outcome_params,
           l_screen_params = l_screen_params,
-          l_outcome_params_screen = l_outcome_params_screen,
           l_outcome_params_counter = l_outcome_params_counter,
           l_censor_vars = l_censor_vars,
           reshape_output = FALSE
