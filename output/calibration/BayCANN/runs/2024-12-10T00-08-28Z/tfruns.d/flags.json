@@ -1,7 +1,0 @@
-{
-  "n_hidden_layers": 1,
-  "n_hidden_nodes": 96,
-  "dropout": true,
-  "dropout_rate": 0.25,
-  "activation_fun": "tanh"
-}

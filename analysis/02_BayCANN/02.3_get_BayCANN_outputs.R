@@ -73,13 +73,9 @@ registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_
 
 #### 4. Generate BayCANN outputs  ===========================================
 
-m_params_orig <- m_params
-
-
-m_params <- m_params_orig[1:2, ]
 # Run model for each input parameter sample and get corresponding targets
 stime <- system.time({
-  m_outputs <- foreach(
+  l_outputs <- foreach(
     i=1:nrow(m_params), 
     .combine=c, 
     .inorder=TRUE, 
@@ -92,9 +88,9 @@ stime <- system.time({
           v_params_update = v_params_update,
           param_map = prior_map,
           l_outcome_params = l_outcome_params_base,
-          # l_screen_params = l_screen_params,
-          # l_outcome_params_screen = l_outcome_params_screen,
-          # l_outcome_params_counter = l_outcome_params_counter,
+          l_screen_params = l_screen_params,
+          l_outcome_params_screen = l_outcome_params_screen,
+          l_outcome_params_counter = l_outcome_params_counter,
           l_censor_vars = l_censor_vars,
           reshape_output = FALSE
         )
@@ -107,5 +103,5 @@ print(stime)
 closeAllConnections()
 
 # Save model outputs
-saveRDS(list(m_outputs = m_outputs,
+saveRDS(list(l_outputs = l_outputs,
              runtime = stime), file = file_outputs)
