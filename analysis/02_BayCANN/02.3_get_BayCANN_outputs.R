@@ -28,7 +28,7 @@ sapply(distr.sources, source, .GlobalEnv)
 # Run file to process configurations
 source("configs/process_configs.R")
 
-# Extract parameters from configs
+# Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
 params_screen <- configs$params_screen
 
@@ -72,7 +72,11 @@ registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_
 
 
 #### 4. Generate BayCANN outputs  ===========================================
-  
+
+m_params_orig <- m_params
+
+
+m_params <- m_params_orig[1:2, ]
 # Run model for each input parameter sample and get corresponding targets
 stime <- system.time({
   m_outputs <- foreach(
@@ -88,9 +92,9 @@ stime <- system.time({
           v_params_update = v_params_update,
           param_map = prior_map,
           l_outcome_params = l_outcome_params_base,
-          l_screen_params = l_screen_params,
-          l_outcome_params_screen = l_outcome_params_screen,
-          l_outcome_params_counter = l_outcome_params_counter,
+          # l_screen_params = l_screen_params,
+          # l_outcome_params_screen = l_outcome_params_screen,
+          # l_outcome_params_counter = l_outcome_params_counter,
           l_censor_vars = l_censor_vars,
           reshape_output = FALSE
         )

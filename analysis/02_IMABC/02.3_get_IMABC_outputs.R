@@ -30,7 +30,7 @@ source("configs/process_configs.R")
 
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
-file_plot_labels <- configs$paths$file_plot_labels
+params_screen <- configs$params_screen
 
 # Get list of relevant output file paths and load to global environment
 l_filepaths <- update_config_paths("files_imabc", configs$paths)
@@ -49,12 +49,12 @@ l_params_calib <- readRDS(file_params_calib)
 l_params_calib$l_params_model$fl_count_tests <- TRUE
 
 # Load IMABC posteriors
-l_outputs <- readRDS(file_posterior)
-m_params <- l_outputs$good_parm_draws %>%
+l_posteriors <- readRDS(file_posterior)
+m_params <- l_posteriors$good_parm_draws %>%
   dplyr::select(l_params_calib$prior_map$var_id)
 
 # Set decision outcome parameters
-l_outcome_params <- params_screen$l_outcome_base
+l_params_calib$l_outcome_params <- params_screen$l_outcome_base
 
 # Set screening test and strategy parameters
 l_screen_params <- list(test_chars = params_screen$test_chars,
@@ -74,7 +74,7 @@ registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_
 
 # Run model for each input parameter sample and get corresponding targets
 stime <- system.time({
-  m_outputs <- foreach(
+  l_outputs <- foreach(
     i=1:nrow(m_params), 
     .combine=c, 
     .inorder=TRUE, 
@@ -101,5 +101,5 @@ print(stime)
 closeAllConnections()
 
 # Save model outputs
-saveRDS(list(m_outputs = m_outputs,
+saveRDS(list(l_outputs = l_outputs,
              runtime = stime), file = file_outputs)

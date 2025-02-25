@@ -687,7 +687,7 @@ params_to_outputs <- function(l_params_model,
   } else {
     l_params_update <- l_params_model
   }
-  
+  browser()
   # Run base decision model
   m_cohort <- run_base_model(l_params_update)
   

@@ -11,7 +11,6 @@ options(scipen = 999) # View data without scientific notation
 ###### 1.1 Load packages
 library(tidyverse)
 library(doBy)
-library(dplyr)
 library(patchwork)
 
 ###### 1.2 Load functions

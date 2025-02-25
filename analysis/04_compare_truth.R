@@ -29,7 +29,7 @@ source("configs/process_configs.R")
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
 
-# Get list of output file paths and load to global environment
+# Get list of output file paths
 l_filepaths_imabc <- update_config_paths("files_imabc", configs$paths)
 l_filepaths_baycann <- update_config_paths("files_baycann", configs$paths)
 
@@ -46,8 +46,8 @@ df_true_params <- readRDS(file_truth)
 l_params_calib <- readRDS(file_params_calib)
 
 # Load IMABC posteriors
-l_outputs_imabc <- readRDS(l_filepaths_imabc$file_posterior)
-m_params_imabc <- l_outputs_imabc$good_parm_draws %>%
+l_posteriors_imabc <- readRDS(l_filepaths_imabc$file_posterior)
+m_params_imabc <- l_posteriors_imabc$good_parm_draws %>%
   dplyr::select(l_params_calib$prior_map$var_id)
 
 # Load BayCANN posteriors

@@ -206,31 +206,6 @@ params_screen:
         P: 0.9
       p_spec: 0.84
   strats: # Screening test strategies 
-    strategy1_40:
-      mod: "modality1"
-      age_screen_start: 40
-      age_screen_end: 41
-      int_screen: 10
-    strategy1_50:
-      mod: "modality1"
-      age_screen_start: 50
-      age_screen_end: 51
-      int_screen: 10
-    strategy1_60:
-      mod: "modality1"
-      age_screen_start: 60
-      age_screen_end: 61
-      int_screen: 10
-    strategy1_70:
-      mod: "modality1"
-      age_screen_start: 70
-      age_screen_end: 71
-      int_screen: 10
-    strategy1_80:
-      mod: "modality1"
-      age_screen_start: 80
-      age_screen_end: 81
-      int_screen: 10
     strategy_int1:
       mod: "modality1"
       age_screen_start: 50
@@ -251,4 +226,14 @@ params_screen:
       age_screen_start: 50
       age_screen_end: 70
       int_screen: 10
+    strategy_int20: # Effectively two-time screening at age 50 and 70
+      mod: "modality1"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 20
+    strategy_int30: # Effectively one-time screening at age 50
+      mod: "modality1"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 30
       
