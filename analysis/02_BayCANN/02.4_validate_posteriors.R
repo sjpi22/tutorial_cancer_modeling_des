@@ -10,7 +10,6 @@ options(scipen = 999) # View data without scientific notation
 
 ###### 1.1 Load packages
 library(tidyverse)
-library(doBy)
 library(patchwork)
 
 ###### 1.2 Load functions
@@ -44,7 +43,7 @@ list2env(configs$params_coverage, envir = .GlobalEnv)
 l_params_calib <- readRDS(file_params_calib)
 
 # Load calibration outputs
-l_outputs <- readRDS(file_outputs)
+l_outputs <- readRDS(file_outputs)$l_outputs
 
 # Load plot labels
 df_plot_labels <- read.csv(file_plot_labels)
@@ -61,7 +60,7 @@ df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plo
 
 # Extract calibration outputs and convert to data frame
 m_outputs <- do.call(rbind, lapply(l_outputs, function(u) {
-  reshape_outputs(u[["outputs_base"]])
+  reshape_outputs(u[["outputs_base"]][names(l_params_calib$l_outcome_params)])
 }))
 
 # Calculate mean of outputs

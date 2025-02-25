@@ -1,8 +1,8 @@
 #!/usr/bin/bash
 #SBATCH --job-name=get_baycann_outputs
 #SBATCH --nodes=1
-#SBATCH --time=24:00:00
-#SBATCH --mem=16G
+#SBATCH --time=8:00:00
+#SBATCH --mem=30G
 #SBATCH --ntasks-per-node=8
 #SBATCH --output=output/baycann_outputs_sherlock.log
 #SBATCH --mail-user=sjpi@stanford.edu

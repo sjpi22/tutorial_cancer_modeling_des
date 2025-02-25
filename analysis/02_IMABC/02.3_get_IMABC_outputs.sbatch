@@ -1,7 +1,7 @@
 #!/usr/bin/bash
-#SBATCH --job-name=run_IMABC
+#SBATCH --job-name=get_IMABC_outputs
 #SBATCH --nodes=1
-#SBATCH --time=24:00:00
+#SBATCH --time=3:00:00
 #SBATCH --mem=16G
 #SBATCH --ntasks-per-node=8
 #SBATCH --output=output/imabc_outputs_sherlock.log
