@@ -28,6 +28,7 @@ source("configs/process_configs.R")
 # Extract relevant parameters from configs
 path_figs <- configs$paths$root_dir$figs
 file_params_calib <- configs$paths$file_params_calib
+plt_size_text <- configs$params_coverage$plt_size_text # Plot text size
 
 # Get list of output file paths
 l_filepaths_imabc <- update_config_paths("files_imabc", configs$paths)
@@ -36,6 +37,9 @@ l_filepaths_baycann <- update_config_paths("files_baycann", configs$paths)
 ###### 2.2 Other file paths
 file_true_params <- file.path("_ground_truth", "true_params.xlsx")
 file_fig_prior <- file.path(path_figs, "true_param_comparison.png")
+
+###### 2.3 Other parameters
+v_methods <- c(imabc = "IMABC", baycann = "BayCANN") # Calibration methods
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -61,17 +65,18 @@ names(m_params_baycann) <- l_params_calib$prior_map$var_id
 df_params_long <- rbind(
   m_params_imabc %>%
     pivot_longer(everything()) %>%
-    mutate(src = "IMABC"),
+    mutate(method = v_methods["imabc"]),
   m_params_baycann %>%
     pivot_longer(everything()) %>%
-    mutate(src = "BayCANN"))
+    mutate(method = v_methods["baycann"]))
+df_params_long$method <- factor(df_params_long$method, levels = v_methods)
 
 
 #### 4. Generate plots  ===========================================
 
 # Plot BayCANN parameters against true parameters and priors
-plot_params <- ggplot(df_params_long, aes(x = value, fill = src)) + 
-  geom_histogram(aes(y = ..density..), position = "identity", alpha = 0.7) + 
+plt_params <- ggplot(df_params_long, aes(x = value, fill = method)) + 
+  geom_histogram(aes(y = after_stat(density)), position = "identity", alpha = 0.7) + 
   geom_vline(data = df_true_params %>%
                rename(name = var_id), aes(xintercept = param_val), color = 'red') +
   geom_vline(data = l_params_calib$prior_map %>%
@@ -79,8 +84,22 @@ plot_params <- ggplot(df_params_long, aes(x = value, fill = src)) +
   geom_vline(data = l_params_calib$prior_map %>%
                rename(name = var_id), aes(xintercept = max), color = 'blue') +
   facet_wrap(~name, scales = "free") +
-  labs(x = "Parameter value", y = "Density", fill = "Method")
-plot_params
+  labs(x = "Parameter value", y = "Density", fill = "Method") +
+  scale_x_continuous(breaks = number_ticks(3)) +
+  theme_bw(base_size = plt_size_text + 5) +
+  theme(plot.title = element_text(size = plt_size_text, face = "bold"),
+        axis.text.x = element_text(size = plt_size_text),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title = element_text(size = plt_size_text),
+        legend.title = element_text(size = plt_size_text),
+        legend.text = element_text(size = plt_size_text),
+        panel.grid.major = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA),
+        strip.background = element_blank(),
+        strip.text = element_text(hjust = 0),
+        legend.position = "bottom")
+plt_params
 
 # Save plot
-ggsave(file_fig_prior, plot_params, width = 10, height = 8)
+ggsave(file_fig_prior, plt_params, width = 12, height = 10)

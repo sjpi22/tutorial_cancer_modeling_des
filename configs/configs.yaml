@@ -43,6 +43,9 @@ paths:
       corr: "baycann_corr.png"
       prior_post: "baycann_prior_post.png"
       validation: "baycann_target_validation.png"
+  files_decision: # File names for decision outcome plots
+    figs:
+      decision: "decision_outputs.png"
       
 # Model parameters (inputs to load_model_params() in R/01_load_model_inputs.R)
 params_model:
