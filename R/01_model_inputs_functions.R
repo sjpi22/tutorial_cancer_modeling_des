@@ -15,7 +15,8 @@ load_model_params <- function(
     p_male        = 0.5,                   # Proportion of males born in population - only used if sex is c("male", "female")
     lesion_state  = FALSE,                 # Indicator to include precancerous lesion state
     n_lesions_max = 20,                    # Maximum number of precancerous lesions
-    v_cancer      = seq(4),                # Cancer stages in order
+    v_cancer      = seq(4),                # Cancer stages to model in order of disease progression
+    v_cancer_surv = NULL,                  # Cancer stages from relative survival data corresponding to each modeled cancer stage; if NULL, assumed to be the same as v_cancer
     v_death       = c("o", "c"),           # Death causes
     file.distr    = NULL,                  # Path to distribution file if loading from file
     file.mort     = "data/background_mortality.xlsx",     # Path to background mortality data
@@ -28,6 +29,11 @@ load_model_params <- function(
   } else {
     v_states <- c("H", "P", "C", "D")
     n_lesions_max = NULL
+  }
+  
+  # Assign relative survival cancer stages if NULL
+  if (is.null(v_cancer_surv)) {
+    v_cancer_surv <- v_cancer
   }
   
   # Initialize list to store all parameters
@@ -61,10 +67,10 @@ load_model_params <- function(
   
   # If survival data filepath is given, load disease-specific relative survival 
   # and create distributions
+  l_d_time_C_Dc <- list()
   if (!is.null(file.surv)) {
     df_surv <- load_surv_data(file.surv)
-    d_time_C_Dc <- list()
-    for (i in v_cancer) {
+    for (i in unique(v_cancer_surv)) {
       # Filter survival data to stage at diagnosis
       temp_df_surv <- df_surv[df_surv$stage == i, ]
       
@@ -73,21 +79,20 @@ load_model_params <- function(
       probs <- c(probs, 1 - sum(probs))
       
       # Create distribution data
-      d_time_C_Dc[[i]] <- list(distr = "empirical", 
-                               params = list(xs = temp_df_surv$years_from_dx, 
-                                             probs = probs, 
-                                             max_x = max_age), 
-                               src = "known")
+      l_d_time_C_Dc[[i]] <- list(distr = "empirical", 
+                                 params = list(xs = temp_df_surv$years_from_dx, 
+                                               probs = probs, 
+                                               max_x = max_age), 
+                                 src = "known")
     }
   } else {
     # If no survival file, create placeholder for true survival distribution 
     # from diagnosis. Manually input parameters after running function in the 
     # form distr = <string> and params = <list of named parameters>
-    d_time_C_Dc <- list()
-    for (i in v_cancer) {    
-      d_time_C_Dc[[i]] <- list(distr = NULL,
-                               params = NULL,
-                               src = "known")
+    for (i in unique(v_cancer_surv)) {
+      l_d_time_C_Dc[[i]] <- list(distr = NULL,
+                                 params = NULL,
+                                 src = "known")
     }
   }
   
@@ -137,21 +142,21 @@ load_model_params <- function(
     for (i in 1:length(v_cancer)) {
       if (i < length(v_cancer)) {
         # Time to next stage of preclinical cancer
-        assign(paste0("d_time_P", v_cancer[i], "_P", v_cancer[i+1]), 
+        assign(paste0("d_time_P", i, "_P", i + 1), 
                list(distr = "exp", 
                     params = list(rate = 1), 
                     src = "unknown"))
       }
       
       # Cancer symptomatic detection by stage
-      assign(paste0("d_time_P", v_cancer[i], "_C"), 
+      assign(paste0("d_time_P", i, "_C", i), 
              list(distr = "exp", 
                   params = list(rate = 1), 
                   src = "unknown"))
+      
+      # Assign distributions for time to death from cancer by stage at detection
+      assign(paste0("d_time_C", i, "_Dc"), l_d_time_C_Dc[[v_cancer_surv[i]]])
     }
-    
-    # Survival after cancer diagnosis by stage
-    d_time_C_Dc <- d_time_C_Dc
   })
   
   # Remove variable for looping

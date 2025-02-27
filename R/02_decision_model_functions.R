@@ -230,7 +230,7 @@ simulate_cancer_progression <- function(m_patients, l_params_model) {
     
     # Populate time to detection (clinical cancer)
     for (i in 1:length(v_cancer)) {
-      var_detect <- paste0("time_P", v_cancer[i], "_C")
+      var_detect <- paste0("time_P", v_cancer[i], "_C", v_cancer[i])
       m_patients[time_H_P < time_H_Do, (var_detect) := query_distr(
         "r", .N, 
         get(paste0("d_", var_detect))$distr, 
@@ -248,7 +248,7 @@ simulate_cancer_progression <- function(m_patients, l_params_model) {
     for (i in 1:(length(v_cancer)-1)) {
       # Get progression and detection variables
       var_progress <- paste0("time_P", v_cancer[i], "_P", v_cancer[i+1])
-      var_detect <- paste0("time_P", v_cancer[i], "_C")
+      var_detect <- paste0("time_P", v_cancer[i], "_C", v_cancer[i])
       
       # If stage at diagnosis has not been set yet and detection occurs before 
       # progression, add time to detection to running total of time from cancer 
@@ -264,7 +264,7 @@ simulate_cancer_progression <- function(m_patients, l_params_model) {
     }
     
     # If not detected yet by second to last stage, set last stage as stage at detection
-    var_detect <- paste0("time_P", tail(v_cancer, 1), "_C")
+    var_detect <- paste0("time_P", tail(v_cancer, 1), "_C", tail(v_cancer, 1))
     m_patients[time_H_P < time_H_Do & is.na(stage_dx), `:=` (
       stage_dx = tail(v_cancer, 1),
       time_P_C = time_P_C + get(var_detect))]
@@ -282,12 +282,13 @@ simulate_cancer_mortality <- function(m_patients, l_params_model) {
   # Not cancer diagnosis before death from other causes to be more conservative, in case screening may convert from preclinical to clinical before death
   idx <- m_patients[time_H_P < time_H_Do, which = TRUE]
   
+  # Get progression and detection variables
   if (length(idx) > 0) {
     with(l_params_model, {
       m_patients[idx, time_C_Dc := query_distr(
         "r", .N, 
-        d_time_C_Dc[[stage_dx]]$distr, 
-        d_time_C_Dc[[stage_dx]]$params
+        get(paste0("d_time_C", stage_dx, "_Dc"))$distr, 
+        get(paste0("d_time_C", stage_dx, "_Dc"))$params
       ), by = stage_dx]
     })
     

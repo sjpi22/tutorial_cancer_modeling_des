@@ -52,6 +52,10 @@ calibration_outputs <- readRDS(file_posterior)
 m_params <- calibration_outputs$good_parm_draws %>%
   dplyr::select(l_params_calib$prior_map$var_id)
 
+m_params <- calibration_outputs$good_parm_draws %>%
+  dplyr::select(all_of(grep("d_", colnames(calibration_outputs$good_parm_draws), value = T)))
+test=data.frame(l_params_calib$prior_map$var_id,
+           colnames(m_params))
 # Extract unweighted calibration outputs
 imabc_targets_unweighted <- calibration_outputs$good_sim_target %>%
   dplyr::select(-c("iter", "draw", "step"))
@@ -97,7 +101,7 @@ plt_coverage <- plot_coverage(df_targets = df_targets,
                               file_fig_coverage = file_fig_validation)
 plt_coverage
 
-# Plot correlation graph
+# Get and save correlation plot
 df_post <- m_params
 gg_calib_post_pair_corr <- plot_posterior_corr(df_post,
                                                file_fig_corr = file_fig_corr)

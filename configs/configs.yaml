@@ -156,6 +156,7 @@ params_baycann:
     Normalize_outputs: FALSE  # TRUE if we want to normalize outputs 
     Scale_inputs: TRUE   # TRUE if we want to scale inputs
     Scale_outputs: TRUE   # TRUE if we want to scale outputs 
+    Scale_categorical: FALSE # TRUE if we want to scale categorical variables and not constrain proportions to sum to 1
     Remove_outliers: FALSE  # TRUE if we want to remove outliers
     Standardize_targets: FALSE  # TRUE if we want to standardize targets
     Saved_data: FALSE  # TRUE if we want to saved the data
@@ -166,8 +167,8 @@ params_baycann:
     n_epochs: 1000
     patience: 100
     init_W_type: 0
-  # add if you want to set your own
   params_hyperparameters: # Parameters for ANN hyperparameter tuning
+    run_hp_tuning: TRUE # Indicator to run hyperparameter tuning; if FALSE, train model with the first hyperparameter set
     confirm_hp: FALSE # Indicator to show confirmation prompt when hyperparameter tuning
     v_hidden_layers: [1, 2, 3, 4]
     v_hidden_nodes: [32, 64, 128]
@@ -207,13 +208,30 @@ params_screen:
       lit_params:
         unit: 1000
   test_chars: # Test characteristics
-    modality1:
+    confirm:
       d_p_sens:
         L:
           distr: "beta"
           params:
-            shape1: 120
-            shape2: 80
+            shape1: 150
+            shape2: 50
+        P: 
+          distr: "beta"
+          params:
+            shape1: 99
+            shape2: 1
+      d_p_spec:
+        distr: "beta"
+        params:
+          shape1: 100
+          shape2: 0
+    screen:
+      d_p_sens:
+        L:
+          distr: "beta"
+          params:
+            shape1: 80
+            shape2: 120
         P: 
           distr: "beta"
           params:
@@ -225,34 +243,76 @@ params_screen:
           shape1: 840
           shape2: 160
   strats: # Screening test strategies 
-    strategy_int1:
-      mod: "modality1"
+    strategy_c_int1:
+      mod: "confirm"
       age_screen_start: 50
       age_screen_end: 70
       int_screen: 1
-    strategy_int3:
-      mod: "modality1"
+      conf_test: ~
+    strategy_c_int3:
+      mod: "confirm"
       age_screen_start: 50
       age_screen_end: 70
       int_screen: 3
-    strategy_int5:
-      mod: "modality1"
+      conf_test: ~
+    strategy_c_int5:
+      mod: "confirm"
       age_screen_start: 50
       age_screen_end: 70
       int_screen: 5
-    strategy_int10:
-      mod: "modality1"
+      conf_test: ~
+    strategy_c_int10:
+      mod: "confirm"
       age_screen_start: 50
       age_screen_end: 70
       int_screen: 10
-    strategy_int20: # Effectively two-time screening at age 50 and 70
-      mod: "modality1"
+      conf_test: ~
+    strategy_c_int20: # Effectively two-time screening at age 50 and 70
+      mod: "confirm"
       age_screen_start: 50
       age_screen_end: 70
       int_screen: 20
-    strategy_int30: # Effectively one-time screening at age 50
-      mod: "modality1"
+      conf_test: ~
+    strategy_c_int30: # Effectively one-time screening at age 50
+      mod: "confirm"
       age_screen_start: 50
       age_screen_end: 70
       int_screen: 30
+      conf_test: ~
+    strategy_s_int1:
+      mod: "screen"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 1
+      conf_test: "confirm"
+    strategy_s_int3:
+      mod: "screen"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 3
+      conf_test: "confirm"
+    strategy_s_int5:
+      mod: "screen"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 5
+      conf_test: "confirm"
+    strategy_s_int10:
+      mod: "screen"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 10
+      conf_test: "confirm"
+    strategy_s_int20: # Effectively two-time screening at age 50 and 70
+      mod: "screen"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 20
+      conf_test: "confirm"
+    strategy_s_int30: # Effectively one-time screening at age 50
+      mod: "screen"
+      age_screen_start: 50
+      age_screen_end: 70
+      int_screen: 30
+      conf_test: "confirm"
       

@@ -110,7 +110,7 @@ if (params_model$lesion_state == T) {
 var_onset <- paste0("time_H_", l_params_model$v_states[2])
 
 # Get variable for censoring incidence
-var_censor <- params_calib$l_outcome_params$incidence$censor_var
+var_censor <- params_calib$l_outcome_params$incidence$lit_params$censor_var
 
 # Simulate ground truth data for comparisons
 m_cohort <- run_base_model(l_params_model)
@@ -124,7 +124,7 @@ if (is.data.table(m_cohort)) {
 }
 
 # Save true survival distribution
-d_time_C_Dc_true <- l_params_model$d_time_C_Dc
+d_time_C_Dc_true <- l_params_model[paste0("d_time_C", l_params_model$v_cancer, "_Dc")]
 
 # Swap empirical survival distribution
 for (i in unique(df_surv$stage)) {
@@ -136,11 +136,12 @@ for (i in unique(df_surv$stage)) {
   probs <- c(probs, 1 - sum(probs))
   
   # Create distribution data
-  l_params_model$d_time_C_Dc[[i]] <- list(distr = "empirical", 
-                                          params = list(xs = temp_df_surv$years_from_dx, 
-                                                        probs = probs, 
-                                                        max_x = max_age), 
-                                          src = "known")
+  l_params_model[[paste0("d_time_C", i, "_Dc")]] <- list(
+    distr = "empirical", 
+    params = list(xs = temp_df_surv$years_from_dx, 
+                  probs = probs, 
+                  max_x = max_age), 
+    src = "known")
 }
 
 
@@ -178,7 +179,7 @@ arrows(df_incidence[[var_index]], df_incidence[[v_cols[2]]],
 m_death <- data.table()
 
 # Sample every three values of ages for spline knots
-v_knots_Dc <- l_params_model$d_time_C_Dc[[1]]$params$xs
+v_knots_Dc <- l_params_model[["d_time_C1_Dc"]]$params$xs
 v_knots_Dc <- c(v_knots_Dc[seq(1, length(v_knots_Dc), 3)], max_age)
 
 # Fit splines to survival
@@ -186,14 +187,14 @@ par(mfrow = c(length(l_params_model$v_cancer)/2, 2))
 d_time_C_Dc_spline <- list()
 for (i in l_params_model$v_cancer) {
   # Calculate cumulative percentage dead from survival distribution
-  pct_Dc <- cumsum(l_params_model$d_time_C_Dc[[i]]$params$probs)
+  pct_Dc <- cumsum(l_params_model[[paste0("d_time_C", i, "_Dc")]]$params$probs)
   
   # Convert to cumulative hazard
   chaz_Dc <- -log(1 - pct_Dc)
   
   # Fit spline to survival data
   fit_spline_Dc <- cobs(
-    x = l_params_model$d_time_C_Dc[[i]]$params$xs[-1],
+    x = l_params_model[[paste0("d_time_C", i, "_Dc")]]$params$xs[-1],
     y = head(chaz_Dc, -1), 
     constraint = c("increase"),
     knots = v_knots_Dc,

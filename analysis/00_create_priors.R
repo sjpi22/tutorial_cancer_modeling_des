@@ -132,7 +132,7 @@ arrows(df_incidence[[var_index]], df_incidence[[v_cols[2]]],
 m_death <- data.table()
 
 # Sample every three values of ages for spline knots
-v_knots_Dc <- l_params_model$d_time_C_Dc[[1]]$params$xs
+v_knots_Dc <- l_params_model$d_time_C1_Dc$params$xs
 v_knots_Dc <- c(v_knots_Dc[seq(1, length(v_knots_Dc), 3)], max_age)
 
 # Fit splines to survival
@@ -140,14 +140,14 @@ par(mfrow = c(length(l_params_model$v_cancer)/2, 2))
 d_time_C_Dc_spline <- list()
 for (i in l_params_model$v_cancer) {
   # Calculate cumulative percentage dead from survival distribution
-  pct_Dc <- cumsum(l_params_model$d_time_C_Dc[[i]]$params$probs)
+  pct_Dc <- cumsum(l_params_model[[paste0("d_time_C", i, "_Dc")]]$params$probs)
   
   # Convert to cumulative hazard
   chaz_Dc <- -log(1 - pct_Dc)
   
   # Fit spline to survival data
   fit_spline_Dc <- cobs(
-    x = l_params_model$d_time_C_Dc[[i]]$params$xs[-1],
+    x = l_params_model[[paste0("d_time_C", i, "_Dc")]]$params$xs[-1],
     y = head(chaz_Dc, -1), 
     constraint = c("increase"),
     knots = v_knots_Dc,
