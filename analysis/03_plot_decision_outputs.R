@@ -56,6 +56,14 @@ df_intervals <- data.frame(
   }))
 )
 
+# Load IMABC parameter weights
+l_wts <- list()
+l_posteriors_imabc <- readRDS(l_filepaths_imabc$file_posterior)
+l_wts[["imabc"]] <- l_posteriors_imabc$good_parm_draws$sample_wt
+
+# Use placeholder weights for BayCANN
+l_wts[["baycann"]] <- 1
+
 # Load IMABC and BayCANN decision outputs if they exist
 l_outputs_raw <- list() # Vector for holding saved raw outputs
 l_outcomes <- list() # Vector for holding extracted outcomes
@@ -95,6 +103,8 @@ for (method in names(v_methods)) {
     
     # Merge outcomes for plotting (LYG vs. test burden)
     l_outcomes[[method]][["plot_data"]] <- l_outcomes[[method]][["lyg"]][["screen"]] %>%
+      # Append weights
+      mutate(wt = rep(l_wts[[method]], each = n()/length(l_wts[[method]]))) %>%
       # Merge base scenario N
       mutate(N = rep(l_outcomes[[method]][["lifeyears"]][["base"]][, "N"],
                      each = length(params_screen$strats))) %>%
@@ -134,8 +144,8 @@ df_plot$method <- factor(df_plot$method, levels = v_methods)
 # Get means for plotting lines
 df_plot_mean <- df_plot %>%
   group_by(method, scenario, int_test, multiplier) %>%
-  summarise(time_total = mean(time_total),
-            burden_total = mean(burden_total), 
+  summarise(time_total = weighted.mean(time_total, wt),
+            burden_total = weighted.mean(burden_total, wt), 
             .groups = "drop")
 
 # Plot number of tests against life years gained across strategies

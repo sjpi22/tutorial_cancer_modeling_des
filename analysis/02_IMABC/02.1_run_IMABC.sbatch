@@ -1,9 +1,9 @@
 #!/usr/bin/bash
 #SBATCH --job-name=run_IMABC
 #SBATCH --nodes=1
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=20G
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=8
 #SBATCH --output=output/imabc_sherlock.log
 #SBATCH --mail-user=sjpi@stanford.edu
 #SBATCH --mail-type=ALL

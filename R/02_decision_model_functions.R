@@ -321,8 +321,8 @@ run_screening_counterfactual <- function(
     age_screen_start,
     age_screen_end,
     int_screen,
-    p_sens,
-    p_spec,
+    d_p_sens,
+    d_p_spec,
     verbose = FALSE
 ) {
   # Separate patient and lesion data as necessary
@@ -343,7 +343,7 @@ run_screening_counterfactual <- function(
                        age_screen_start = age_screen_start,
                        age_screen_end = age_screen_end,
                        int_screen = int_screen,
-                       p_spec = p_spec)
+                       d_p_spec = d_p_spec)
   
   #### Case 2: Lesions developed by screen age, but no preclinical cancer ####
   if ('L' %in% l_params_model$v_states) {
@@ -353,8 +353,8 @@ run_screening_counterfactual <- function(
                          l_params_model = l_params_model,
                          age_screen_end = age_screen_end,
                          int_screen = int_screen,
-                         p_sens = p_sens[["L"]],
-                         p_spec = p_spec,
+                         d_p_sens = d_p_sens[["L"]],
+                         d_p_spec = d_p_spec,
                          verbose = verbose)
   }
   
@@ -363,7 +363,7 @@ run_screening_counterfactual <- function(
                        l_params_model = l_params_model,
                        age_screen_end = age_screen_end,
                        int_screen = int_screen,
-                       p_sens = p_sens[["P"]],
+                       d_p_sens = d_p_sens[["P"]],
                        verbose = verbose)
   
   # Recalculate mortality outcomes
@@ -381,10 +381,13 @@ simulate_screening_H <- function(m_patients,
                                  age_screen_start,
                                  age_screen_end,
                                  int_screen,
-                                 p_spec
+                                 d_p_spec
 ) {
   # Get routine screening ages
   v_screen_ages <- seq(age_screen_start, age_screen_end, int_screen)
+  
+  # Sample specificity
+  p_spec <- query_distr("r", 1, d_p_spec$distr, d_p_spec$params)
   
   # Get number of tests during healthy state before earliest of death or disease onset
   m_patients[, ct_tests_screen := findInterval(pmin(time_H_D, get(var_onset)), v_screen_ages, left.open = T)]
@@ -416,10 +419,14 @@ simulate_screening_L <- function(m_patients,
                                  l_params_model,
                                  age_screen_end,
                                  int_screen,
-                                 p_sens,
-                                 p_spec,
+                                 d_p_sens,
+                                 d_p_spec,
                                  verbose = verbose
 ) {
+  # Sample sensitivity and specificity
+  p_sens <- query_distr("r", 1, d_p_sens$distr, d_p_sens$params)
+  p_spec <- query_distr("r", 1, d_p_spec$distr, d_p_spec$params)
+  
   # Merge first screen age within lesion state and minimum of cancer 
   # onset and death as lesion screening censor date (to be updated after every screening)
   m_lesions[m_patients[screen_age < time_H_P], `:=` (time_lesion_censor = pmin(time_H_P, time_H_Do, na.rm = T),
@@ -524,12 +531,15 @@ simulate_screening_P <- function(m_patients,
                                  l_params_model,
                                  age_screen_end,
                                  int_screen,
-                                 p_sens,
+                                 d_p_sens,
                                  verbose = FALSE
 ) {
   if (verbose) print("Number of individuals with preclinical cancer remaining to screen:")
   while (m_patients[!is.na(screen_age), .N] > 0) {
     if (verbose) print(m_patients[!is.na(screen_age), .N])
+    # Sample sensitivity
+    p_sens <- query_distr("r", 1, d_p_sens$distr, d_p_sens$params)
+    
     # Increment number of screening tests and sample whether cancer leads to positive screen
     m_patients[time_H_P <= screen_age, `:=` (ct_tests_screen = ct_tests_screen + 1,
                                              fl_detected = rbinom(

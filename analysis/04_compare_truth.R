@@ -51,24 +51,25 @@ l_params_calib <- readRDS(file_params_calib)
 df_true_params <- read_xlsx(file_true_params) %>%
   filter(var_id %in% l_params_calib$prior_map$var_id)
 
-# Load IMABC posteriors
-l_posteriors_imabc <- readRDS(l_filepaths_imabc$file_posterior)
-m_params_imabc <- l_posteriors_imabc$good_parm_draws %>%
-  dplyr::select(l_params_calib$prior_map$var_id)
+# Load posteriors
+l_m_params <- list()
+if ("imabc" %in% tolower(v_methods)) {
+  l_posteriors_imabc <- readRDS(l_filepaths_imabc$file_posterior)
+  l_m_params[[v_methods["imabc"]]] <- l_posteriors_imabc$good_parm_draws %>%
+    dplyr::select(l_params_calib$prior_map$var_id)
+}
 
 # Load BayCANN posteriors
-m_params_baycann <- read_csv(l_filepaths_baycann$file_posterior) %>%
-  dplyr::select(-lp) # Remove last non-parameter column
-names(m_params_baycann) <- l_params_calib$prior_map$var_id
+if ("baycann" %in% tolower(v_methods)) {
+  m_params_baycann <- read_csv(l_filepaths_baycann$file_posterior) %>%
+    dplyr::select(-lp) # Remove last non-parameter column
+  names(m_params_baycann) <- l_params_calib$prior_map$var_id
+  l_m_params[[v_methods["baycann"]]] <- m_params_baycann
+}
 
 # Combine IMABC and BayCANN posteriors in long form
-df_params_long <- rbind(
-  m_params_imabc %>%
-    pivot_longer(everything()) %>%
-    mutate(method = v_methods["imabc"]),
-  m_params_baycann %>%
-    pivot_longer(everything()) %>%
-    mutate(method = v_methods["baycann"]))
+df_params_long <- rbindlist(l_m_params, idcol = "method") %>%
+  pivot_longer(l_params_calib$prior_map$var_id)
 df_params_long$method <- factor(df_params_long$method, levels = v_methods)
 
 

@@ -19,6 +19,8 @@ paths:
       runtime: "imabc_runtime.csv"
       outputs: "imabc_decision_outputs.rds"
     figs:
+      corr: "imabc_corr.png"
+      prior_post: "imabc_prior_post.png"
       validation: "imabc_target_validation.png"
   files_baycann: # File names for BayCANN outputs
     none:
@@ -136,7 +138,7 @@ params_imabc:
   alpha_current: 0.000000000000001
   alpha_stop: 0.05
   fn_use_seed: FALSE
-  N_start_multiplier: 1000 # Number of initial samples per parameter
+  N_start_multiplier: 2000 # Number of initial samples per parameter
   optional_args:
     N_centers: 2
     Center_n: 100
@@ -164,6 +166,7 @@ params_baycann:
     n_epochs: 1000
     patience: 100
     init_W_type: 0
+  # add if you want to set your own
   params_hyperparameters: # Parameters for ANN hyperparameter tuning
     confirm_hp: FALSE # Indicator to show confirmation prompt when hyperparameter tuning
     v_hidden_layers: [1, 2, 3, 4]
@@ -205,10 +208,22 @@ params_screen:
         unit: 1000
   test_chars: # Test characteristics
     modality1:
-      p_sens:
-        L: 0.6
-        P: 0.9
-      p_spec: 0.84
+      d_p_sens:
+        L:
+          distr: "beta"
+          params:
+            shape1: 120
+            shape2: 80
+        P: 
+          distr: "beta"
+          params:
+            shape1: 45
+            shape2: 5
+      d_p_spec:
+        distr: "beta"
+        params:
+          shape1: 840
+          shape2: 160
   strats: # Screening test strategies 
     strategy_int1:
       mod: "modality1"

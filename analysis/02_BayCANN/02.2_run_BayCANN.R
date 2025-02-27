@@ -31,6 +31,7 @@ library(patchwork)
 library(MASS)
 library(bestNormalize)
 library(data.table)
+library(GGally) # For correlation graph
 library(assertthat)
 rstan_options(auto_write = TRUE)
 
@@ -508,38 +509,11 @@ df_post_ann <- read.csv(file = cal_mdl_1)[, -n_col]
 colnames(df_post_ann) <- x_names
 
 ## Correlation graph
-library(GGally)
 df_post <- data.frame(Xq_unscaled)
 colnames(df_post) <- x_names
-df_post_long <- reshape2::melt(df_post,
-                               variable.name = "Parameter")
-df_post_long$Parameter <- factor(df_post_long$Parameter,
-                                 levels = levels(df_post_long$Parameter),
-                                 ordered = TRUE)
-gg_calib_post_pair_corr <- GGally::ggpairs(df_post,
-                                           upper = list(continuous = wrap("cor",
-                                                                          color = "black",
-                                                                          size = 5)),
-                                           diag = list(continuous = wrap("barDiag",
-                                                                         alpha = 0.8)),
-                                           lower = list(continuous = wrap("points",
-                                                                          alpha = 0.3,
-                                                                          size = 0.5)),
-                                           labeller = "label_parsed") +
-  theme_bw(base_size = 18) +
-  theme(axis.title.x = element_blank(),
-        axis.text.x  = element_text(size=6),
-        axis.title.y = element_blank(),
-        axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank(),
-        strip.background = element_rect(fill = "white",
-                                        color = "white"),
-        strip.text = element_text(hjust = 0))
+gg_calib_post_pair_corr <- plot_posterior_corr(df_post,
+                                               file_fig_corr = file_fig_corr)
 gg_calib_post_pair_corr
-
-ggsave(filename = file_fig_corr,
-       gg_calib_post_pair_corr,
-       width = 36, height = 24)
 
 #### Prior and posterior graph
 n_samp <- min(1000, nrow(data_sim_param_train))

@@ -13,6 +13,7 @@ library(tidyverse)
 library(dplyr)
 library(patchwork)
 library(ggdist)
+library(GGally)
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 
@@ -47,7 +48,11 @@ l_params_calib <- readRDS(file_params_calib)
 # Load IMABC calibration outputs
 calibration_outputs <- readRDS(file_posterior)
 
-# Extracted unweighted calibration outputs
+# Extract posteriors
+m_params <- calibration_outputs$good_parm_draws %>%
+  dplyr::select(l_params_calib$prior_map$var_id)
+
+# Extract unweighted calibration outputs
 imabc_targets_unweighted <- calibration_outputs$good_sim_target %>%
   dplyr::select(-c("iter", "draw", "step"))
 
@@ -91,3 +96,9 @@ df_targets <- cbind(df_targets, m_output_quantiles)
 plt_coverage <- plot_coverage(df_targets = df_targets,
                               file_fig_coverage = file_fig_validation)
 plt_coverage
+
+# Plot correlation graph
+df_post <- m_params
+gg_calib_post_pair_corr <- plot_posterior_corr(df_post,
+                                               file_fig_corr = file_fig_corr)
+gg_calib_post_pair_corr

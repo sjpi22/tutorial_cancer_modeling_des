@@ -265,3 +265,35 @@ plot_coverage <- function(
   }
   return(plt)
 }
+
+# Plot correlation of posteriors
+plot_posterior_corr <- function(df_post, file_fig_corr = NULL) {
+  gg_calib_post_pair_corr <- GGally::ggpairs(
+    df_post,
+    upper = list(continuous = wrap("cor",
+                                   color = "black",
+                                   size = 5)),
+    diag = list(continuous = wrap("barDiag",
+                                  alpha = 0.8)),
+    lower = list(continuous = wrap("points",
+                                   alpha = 0.3,
+                                   size = 0.5)),
+    labeller = "label_parsed") +
+    theme_bw(base_size = 18) +
+    theme(axis.title.x = element_blank(),
+          axis.text.x  = element_text(size = 6),
+          axis.title.y = element_blank(),
+          axis.text.y  = element_blank(),
+          axis.ticks.y = element_blank(),
+          strip.background = element_rect(fill = "white",
+                                          color = "white"),
+          strip.text = element_text(hjust = 0))
+  
+  if (!is.null(file_fig_corr)) {
+    ggsave(filename = file_fig_corr,
+           gg_calib_post_pair_corr,
+           width = 36, height = 24)
+  }
+  
+  return(gg_calib_post_pair_corr)
+}
