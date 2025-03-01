@@ -59,11 +59,11 @@ l_params_model <- do.call(load_model_params, c(
 ))
 
 # Load targets
-l_targets <- load_calibration_targets(params_calib$l_outcome_params)
+l_targets <- load_calibration_targets(params_calib$l_params_outcome)
 
 # Process incidence data
-for (target in names(params_calib$l_outcome_params)) {
-  if (params_calib$l_outcome_params[[target]][["outcome_type"]] == "incidence") {
+for (target in names(params_calib$l_params_outcome)) {
+  if (params_calib$l_params_outcome[[target]][["outcome_type"]] == "incidence") {
     # Calculate approximate confidence intervals for incidence
     l_targets[[target]] <- l_targets[[target]] %>%    
       mutate(ci_lb = pmax(0, targets - qnorm((1 + conf_level)/2)*se),
@@ -94,7 +94,7 @@ if (params_model$lesion_state == T) {
 var_onset <- paste0("time_H_", l_params_model$v_states[2])
 
 # Get variable for censoring incidence
-var_censor <- params_calib$l_outcome_params$incidence$lit_params$censor_var
+var_censor <- params_calib$l_params_outcome$incidence$lit_params$censor_var
 
 
 #### 4. Derive prior distribution for time to disease onset  ===========================================

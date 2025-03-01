@@ -84,7 +84,7 @@ stime <- system.time({
           l_params_model = l_params_model,
           v_params_update = v_params_update,
           param_map = prior_map,
-          l_outcome_params = l_outcome_params,
+          l_params_outcome = l_params_outcome,
           l_censor_vars = l_censor_vars
         )
       })

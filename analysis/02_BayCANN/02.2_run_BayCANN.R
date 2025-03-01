@@ -64,9 +64,6 @@ list2env(configs$params_baycann$params_stan, envir = .GlobalEnv)
 # Set log directory (referenced in model.R)
 log_dir <- file_logs
 
-###### 2.2 Other parameters
-skip_retraining <- FALSE # If FALSE, run everything normally; set to TRUE to run script and load variables but avoid (re)running hyperparameter tuning, ANN training, and Stan
-
 
 #### 3. Pre-processing actions  ===========================================
 
@@ -76,12 +73,9 @@ l_params_calib <- readRDS(file_params_calib)
 # Load BayCANN sample
 BayCANN_sample <- readRDS(file_sample)
 
-# Set columns to scale (currently only include targets that are not categorical if Scale_categorical == FALSE, otherwise include all targets)
-if (!Scale_categorical) {
-  scale_cols <- which(!l_params_calib$df_target$target_group %in% l_params_calib$v_outcomes_categorical)
-} else {
-  scale_cols <- 1:nrow(l_params_calib$df_target)
-}
+# Set columns to scale (currently only include targets that are not categorical)
+# Select all columns if desired
+scale_cols <- which(!l_params_calib$df_target$target_group %in% l_params_calib$v_outcomes_categorical)
 
 # Create data frame mapping targets to output layer activation function groups
 df_fn_grps <- l_params_calib$df_target %>%
@@ -90,7 +84,7 @@ df_fn_grps <- l_params_calib$df_target %>%
   summarize(n_targets = n(), .groups = "drop") %>% # Count number of targets per group
   mutate( # Assign activation functions for output layer
     activation = ifelse(
-      !Scale_categorical & target_groups %in% l_params_calib$v_outcomes_categorical, "softmax", # Categorical targets that sum to 1
+      target_groups %in% l_params_calib$v_outcomes_categorical, "softmax", # Categorical targets that sum to 1
       "sigmoid" # Non-categorical targets that get rescaled from 0 to 1
     )) %>% 
   mutate( # Assign labels to define groups within the same output head
@@ -241,112 +235,82 @@ l_hyperparams <- list(
   dropout_rate = v_dropout_rate,
   activation_fun = v_activation_fun)
 
-if (run_hp_tuning & !skip_retraining) {
-  # Set validation data to NULL to use random training split
-  l_validation_data <- NULL
-  
-  # Run hyperparameter tuning
-  hp.time <- proc.time()
-  runs <- tuning_run(
-    file_model, 
-    sample = p_hp_sample, 
-    runs_dir = file_runs, 
-    flags = l_hyperparams,
-    confirm = confirm_hp # Set false to override confirmation prompt
-  )
-  t_hp_tuning <- proc.time() - hp.time # Hyperparameter tuning time
-  t_hp_tuning <- t_hp_tuning[3]/60
-  print(t_hp_tuning)
-} else {
-  print("Note: skipping hyperparameter tuning")
-}
+# Set validation data to NULL to use random training split
+l_validation_data <- NULL
+
+# Run hyperparameter tuning
+runs <- tuning_run(
+  file_model, 
+  sample = p_hp_sample, 
+  runs_dir = file_runs, 
+  flags = l_hyperparams,
+  confirm = confirm_hp # Set false to override confirmation prompt
+)
 
 ###### 8.2 Train best model  ####
-# Search for folder with hyperparameter tuning runs
-if (file.exists(file_runs)) {
-  # See runs in directory
-  ls_runs_df <- ls_runs(runs_dir = file_runs)
-  runs <- ls_runs_df 
-  
-  # Select best run and set best hyperparameters
-  if (nrow(runs) > 0) {
-    best_run <- runs[order(runs$metric_val_loss), ][1,]
-    l_hyperparams_best <- as.list(best_run)[paste0("flag_", names(l_hyperparams))]
-    names(l_hyperparams_best) <- names(l_hyperparams)
-  }
-} 
+# See runs in directory
+ls_runs_df <- ls_runs(runs_dir = file_runs)
+runs <- ls_runs_df 
 
-# If no hyperparameter tuning was done, default to first set of hyperparameters
-if (!exists("l_hyperparams_best")) {
-  # Set training parameters
-  l_hyperparams_best <- list(
-    n_hidden_layers = v_hidden_layers[1],
-    n_hidden_nodes = v_hidden_nodes[1],
-    dropout = v_dropout[1],
-    dropout_rate = v_dropout_rate[1],
-    activation_fun = v_activation_fun[1])
-}
+# Select best run
+best_run <- runs[order(runs$metric_val_loss), ][1,]
+l_hyperparams_best <- as.list(best_run)[paste0("flag_", names(l_hyperparams))]
+names(l_hyperparams_best) <- names(l_hyperparams)
 
 # Set validation data as test data
 l_validation_data <- list(xtest_scaled, ytest_scaled_reshape)
 
 # Train model from best run
-if (!skip_retraining) {
-  keras.time <- proc.time()
-  run <- training_run(file_model, 
-                      flags = l_hyperparams_best,
-                      run_dir = file_run_best)
-  t_training <- proc.time() - keras.time # Keras ANN fitting time
-  t_training <- t_training[3]/60
-  print(t_training)
-  
-  # Save model
-  save_model(model, file_keras_model, overwrite = TRUE)  
-  
-  # Plot loss function and accuracy function
-  png(filename = file_fig_history)
-  plot(history)   
-  dev.off()
-}
+keras.time <- proc.time()
+run <- training_run(file_model, 
+                    flags = l_hyperparams_best,
+                    run_dir = file_run_best)
+t_training <- proc.time() - keras.time #keras ann fitting time
+t_training <- t_training[3]/60
+print(t_training)
 
-# Reload model
+# Save model
+save_model(model, file_keras_model, overwrite = TRUE)  # Save the model and reload
 model <- load_model(file_keras_model)
 
+# Plot loss function and accuracy function
+png(filename = file_fig_history)
+plot(history)   
+dev.off()
+
 ###### 8.3 Evaluate model  ####
-if (!skip_retraining) {
-  # Model performance evaluation
-  acc_err <- model %>% evaluate(xtest_scaled, ytest_scaled_reshape) 
-  
-  # Save predictions on test data
-  pred <- model %>% predict(xtest_scaled)
-  ytest_scaled_pred <- data.frame(pred) # Note: outputs may be in different order than ytest_scaled corresponding to function group ordering
-  colnames(ytest_scaled_pred) <- y_names[idx_reshaped]
-  saveRDS(ytest_scaled_pred, file = file_test_outputs) 
-  
-  # Plot ANN validation
-  ann_valid <- rbind(data.frame(sim = 1:n_test, ytest_scaled[, idx_reshaped], type = "model"), # Reorder columns of ytest_scaled to match ANN order of outputs
-                     data.frame(sim = 1:n_test, ytest_scaled_pred, type = "pred"))
-  ann_valid_transpose <- ann_valid %>%
-    pivot_longer(cols = -c(sim, type)) %>%
-    pivot_wider(id_cols = c(sim, name), names_from = type, values_from = value)
-  
-  n_partition <- round(sqrt(n_outputs))
-  n_part_bach <- floor(n_outputs/n_partition)
-  
-  ann_valid_transpose <- arrange(ann_valid_transpose, desc(name))
-  
-  ann_plot_full <- ggplot(data = ann_valid_transpose, aes(x = model, y = pred)) +
-    geom_point(alpha = 0.5, color = "tomato") +
-    geom_abline(linetype = "dashed") + 
-    facet_wrap(~name, scales="free", nrow = n_partition) +
-    xlab("Model outputs (scaled)") +
-    ylab("ANN predictions (scaled)") +
-    theme_bw()
-  
-  ggsave(filename = file_fig_ann_valid,
-         ann_plot_full,
-         width = 2.4*n_part_bach, height = 2*n_partition)
-}
+# Model performance evaluation
+acc_err <- model %>% evaluate(xtest_scaled, ytest_scaled_reshape) 
+
+# Save predictions on test data
+pred <- model %>% predict(xtest_scaled)
+ytest_scaled_pred <- data.frame(pred) # Note: outputs may be in different order than ytest_scaled corresponding to function group ordering
+colnames(ytest_scaled_pred) <- y_names[idx_reshaped]
+saveRDS(ytest_scaled_pred, file = file_test_outputs) 
+
+# Plot ANN validation
+ann_valid <- rbind(data.frame(sim = 1:n_test, ytest_scaled[, idx_reshaped], type = "model"), # Reorder columns of ytest_scaled to match ANN order of outputs
+                   data.frame(sim = 1:n_test, ytest_scaled_pred, type = "pred"))
+ann_valid_transpose <- ann_valid %>%
+  pivot_longer(cols = -c(sim, type)) %>%
+  pivot_wider(id_cols = c(sim, name), names_from = type, values_from = value)
+
+n_partition <- round(sqrt(n_outputs))
+n_part_bach <- floor(n_outputs/n_partition)
+
+ann_valid_transpose <- arrange(ann_valid_transpose, desc(name))
+
+ann_plot_full <- ggplot(data = ann_valid_transpose, aes(x = model, y = pred)) +
+  geom_point(alpha = 0.5, color = "tomato") +
+  geom_abline(linetype = "dashed") + 
+  facet_wrap(~name, scales="free", nrow = n_partition) +
+  xlab("Model outputs (scaled)") +
+  ylab("ANN predictions (scaled)") +
+  theme_bw()
+
+ggsave(filename = file_fig_ann_valid,
+       ann_plot_full,
+       width = 2.4*n_part_bach, height = 2*n_partition)
 
 
 #### 9. Stan ==============================================================
@@ -420,8 +384,8 @@ stan.dat <- list(
   weight_last = weight_last)
 
 # Verify that the Stan model produces outputs matching the Keras ANN if necessary
-if (validate_stan_model & !skip_retraining) {
-  # Load ANN outputs for validating Stan
+if (validate_stan_model) {
+  # Load ANN outputs for validating STAN
   ytest_scaled_pred <- readRDS(file_test_outputs)
   
   # Create R representation of Stan functions
@@ -448,25 +412,23 @@ if (validate_stan_model & !skip_retraining) {
 
 ###### 9.2 Bayesian calibration with Stan  ----
 # Run Stan
-if (!skip_retraining) {
-  stan.time <- proc.time()
-  m <- stan(file = file_stan,
-            data = stan.dat,
-            iter = n_iter,
-            chains = n_chains,
-            thin = n_thin,
-            pars = c("Xq"),
-            warmup = floor(n_iter/2),   ## (cp)
-            seed = seed) # For reproducibility. R's set.seed() will not work for stan
-  t_calibration <- proc.time() - stan.time # Stan sampling time
-  t_calibration <- t_calibration[3] / 60
-  summary(m)
-  
-  # Rename parameters and save results
-  param_names    <- colnames(data_sim_param)
-  names(m)[1:n_inputs] <- param_names
-  saveRDS(m, file_stan_model)
-}
+stan.time <- proc.time()
+m <- stan(file = file_stan,
+          data = stan.dat,
+          iter = n_iter,
+          chains = n_chains,
+          thin = n_thin,
+          pars = c("Xq"),
+          warmup = floor(n_iter/2),   ## (cp)
+          seed = seed) # For reproducibility. R's set.seed() will not work for stan
+t_calibration <- proc.time() - stan.time # Stan sampling time
+t_calibration <- t_calibration[3] / 60
+summary(m)
+
+# Rename parameters and save results
+param_names    <- colnames(data_sim_param)
+names(m)[1:n_inputs] <- param_names
+saveRDS(m, file_stan_model)
 
 # Read in results and rename parameters
 m <- readRDS(file_stan_model) 
@@ -512,34 +474,32 @@ if (Scale_inputs) {
 
 Xq_lp <- cbind(Xq_unscaled, lp)
 
-# Save the unscaled posterior samples and BayCANN training statistics
-if (!skip_retraining) {
-  write.csv(Xq_lp,
-            file = file_posterior,
-            row.names = FALSE)
-  
-  baycann_stats <- list(l_hyperparams_best = l_hyperparams_best,
-                        scale_type = scale_type,
-                        df_fn_grps = df_fn_grps,
-                        scale_cols = scale_cols,
-                        acc_err = acc_err)
-  if (exists("t_hp_tuning")) {
-    baycann_stats$t_hp_tuning <- t_hp_tuning
-  }
-  if (exists("t_training")) {
-    baycann_stats$t_training <- t_training
-  }
-  if (exists("t_calibration")) {
-    baycann_stats$t_calibration <- t_calibration
-  }
-  saveRDS(baycann_stats, file = file_baycann_stats)
+# Save the unscaled posterior samples
+write.csv(Xq_lp,
+          file = file_posterior,
+          row.names = FALSE)
+
+cal_mdl_1 <- file_posterior
+
+
+# 10. Save BayCANN statistics and run final diagnostic plots ---------------------
+
+## Save BayCANN statistics
+baycann_stats <- list(l_hyperparams_best = l_hyperparams_best,
+                      scale_type = scale_type,
+                      df_fn_grps = df_fn_grps,
+                      scale_cols = scale_cols,
+                      acc_err = acc_err)
+if (exists("t_training")) {
+  baycann_stats$t_training <- t_training
+}
+if (exists("t_training")) {
+  baycann_stats$t_calibration <- t_calibration
 }
 
-
-# 10. Generate prior and posterior plots ---------------------
+saveRDS(baycann_stats, file = file_baycann_stats)
 
 ### Load ANN posterior
-cal_mdl_1 <- file_posterior
 Xq_lp <- read.csv(file = cal_mdl_1)
 n_col <- ncol(Xq_lp)
 lp <- Xq_lp[, n_col]
@@ -584,7 +544,7 @@ df_maps_n_true_params$Parameter <- as.factor(x_names)
 
 library(dampack)
 gg_prior_post <- ggplot(df_samp_prior_post,
-                        aes(x = value, y = ..density.., fill = Distribution)) +
+                         aes(x = value, y = ..density.., fill = Distribution)) +
   facet_wrap(~Parameter, scales = "free",
              ncol = 5,
              labeller = label_parsed) +

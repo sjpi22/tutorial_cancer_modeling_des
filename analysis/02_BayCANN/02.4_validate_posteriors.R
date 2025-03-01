@@ -60,7 +60,7 @@ df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plo
 
 # Extract calibration outputs and convert to data frame
 m_outputs <- do.call(rbind, lapply(l_outputs, function(u) {
-  reshape_outputs(u[["outputs_base"]][names(l_params_calib$l_outcome_params)])
+  reshape_outputs(u[["outputs_base"]][names(l_params_calib$l_params_outcome)])
 }))
 
 # Calculate mean of outputs

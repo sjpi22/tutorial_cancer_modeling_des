@@ -83,7 +83,7 @@ stime_mc <- system.time({
     .packages=c("data.table","tidyverse")) %dopar% {
       # Calculate outputs in any order
       v_outputs_mc <- params_to_outputs(l_params_mc, 
-                                        l_outcome_params = l_params_calib$l_outcome_params,
+                                        l_params_outcome = l_params_calib$l_params_outcome,
                                         l_censor_vars = l_params_calib$l_censor_vars)
       
       # Call item to save
@@ -135,7 +135,7 @@ if (check_coverage == T) {
             l_params_model = l_params_model,
             v_params_update = v_params_update,
             param_map = prior_map,
-            l_outcome_params = l_outcome_params,
+            l_params_outcome = l_params_outcome,
             l_censor_vars = l_censor_vars
           )
         })

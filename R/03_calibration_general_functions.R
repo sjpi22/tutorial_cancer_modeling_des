@@ -1,6 +1,6 @@
 # Load general parameters for calibration
 load_calib_params <- function(l_params_model, # Model parameters to update
-                              l_outcome_params, # List of outcome parameters
+                              l_params_outcome, # List of outcome parameters
                               l_censor_vars, # List of variables to combine for censor variables
                               file_priors, # Path to parameter mapping as .rds file
                               outpath = 'output', # Path for output
@@ -25,11 +25,11 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   )
   
   # Load targets
-  l_targets <- load_calibration_targets(l_outcome_params)
+  l_targets <- load_calibration_targets(l_params_outcome)
   
   # Further process target data
   v_outcomes_categorical <- c()
-  for (label in names(l_outcome_params)) {
+  for (label in names(l_params_outcome)) {
     # Subset columns for consolidated target dataframe
     l_targets[[label]] <- l_targets[[label]] %>%
       dplyr::select(any_of(c("target_names", "target_groups", 
@@ -48,16 +48,16 @@ load_calib_params <- function(l_params_model, # Model parameters to update
     
     # Augment parameters with v_ages for calculating outcomes
     if ("age_start" %in% colnames(l_targets[[label]])) {
-      l_outcome_params[[label]]$lit_params$v_ages <- c(l_targets[[label]]$age_start, 
+      l_params_outcome[[label]]$lit_params$v_ages <- c(l_targets[[label]]$age_start, 
                                                        tail(l_targets[[label]]$age_end, 1))
     }
     
     # Keep list of categorical variables
-    if (l_outcome_params[[label]]$categorical == T) v_outcomes_categorical <- c(v_outcomes_categorical, label)
+    if (l_params_outcome[[label]]$categorical == T) v_outcomes_categorical <- c(v_outcomes_categorical, label)
   }
   
-  # Flatten targets in order of l_outcome_params
-  df_targets_flattened <- rbindlist(l_targets[names(l_outcome_params)], fill = TRUE)
+  # Flatten targets in order of l_params_outcome
+  df_targets_flattened <- rbindlist(l_targets[names(l_params_outcome)], fill = TRUE)
   
   # Create directory if it does not exist
   outpath_split <- unlist(strsplit(outpath, split = "/"))
@@ -78,7 +78,7 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   l_params_calib <- list(
     l_params_model = l_params_model,
     df_targets = df_targets_flattened,
-    l_outcome_params = l_outcome_params,
+    l_params_outcome = l_params_outcome,
     v_outcomes_categorical = v_outcomes_categorical,
     l_censor_vars = l_censor_vars,
     prior_map = prior_map,

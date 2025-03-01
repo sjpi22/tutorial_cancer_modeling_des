@@ -60,7 +60,7 @@ params_model:
 params_calib:
   seed_calib: 42
   file_priors: "data/priors.csv" # File path for prior distributions for calibration parameters
-  l_outcome_params: # Parameters for calculating calibration outcomes
+  l_params_outcome: # Parameters for calculating calibration outcomes
     prevalence:
       file_path: "data/prevalence_preclinical_cancer.csv"
       outcome_type: "prevalence"
@@ -96,7 +96,7 @@ params_calib:
     m_lesions:
       time_screen_censor: ["time_H_P", "time_H_Do"]
   lesion_state_true: # Parameters to add for lesion model
-    l_outcome_params: # Parameters for calculating lesion-model-specific calibration outcomes
+    l_params_outcome: # Parameters for calculating lesion-model-specific calibration outcomes
       prevalence_lesion:
         file_path: "data/prevalence_lesion.csv"
         outcome_type: "prevalence"
@@ -122,8 +122,8 @@ params_calib:
         
 # Parameters for Monte Carlo analysis to set sample size
 params_montecarlo:
-  n_init: 10000
-  n_mc_reps: 100
+  n_init: 50000
+  n_mc_reps: 50
   mc_multiplier: 2
   
 # Parameters for initial coverage analysis and internal validation
@@ -246,73 +246,85 @@ params_screen:
     strategy_c_int1:
       mod: "confirm"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 1
-      conf_test: ~
+      mod_conf: ~
     strategy_c_int3:
       mod: "confirm"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 3
-      conf_test: ~
+      mod_conf: ~
     strategy_c_int5:
       mod: "confirm"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 5
-      conf_test: ~
+      mod_conf: ~
     strategy_c_int10:
       mod: "confirm"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 10
-      conf_test: ~
+      mod_conf: ~
     strategy_c_int20: # Effectively two-time screening at age 50 and 70
       mod: "confirm"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 20
-      conf_test: ~
+      mod_conf: ~
     strategy_c_int30: # Effectively one-time screening at age 50
       mod: "confirm"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 30
-      conf_test: ~
+      mod_conf: ~
     strategy_s_int1:
       mod: "screen"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 1
-      conf_test: "confirm"
+      mod_conf: "confirm"
+      int_conf: 10
+      targeted_conf: FALSE
     strategy_s_int3:
       mod: "screen"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 3
-      conf_test: "confirm"
+      mod_conf: "confirm"
+      int_conf: 10
+      targeted_conf: FALSE
     strategy_s_int5:
       mod: "screen"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 5
-      conf_test: "confirm"
+      mod_conf: "confirm"
+      int_conf: 10
+      targeted_conf: FALSE
     strategy_s_int10:
       mod: "screen"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 10
-      conf_test: "confirm"
+      mod_conf: "confirm"
+      int_conf: 10
+      targeted_conf: FALSE
     strategy_s_int20: # Effectively two-time screening at age 50 and 70
       mod: "screen"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 20
-      conf_test: "confirm"
+      mod_conf: "confirm"
+      int_conf: 10
+      targeted_conf: FALSE
     strategy_s_int30: # Effectively one-time screening at age 50
       mod: "screen"
       age_screen_start: 50
-      age_screen_end: 70
+      age_screen_stop: 71
       int_screen: 30
-      conf_test: "confirm"
+      mod_conf: "confirm"
+      int_conf: 10
+      targeted_conf: FALSE
       
