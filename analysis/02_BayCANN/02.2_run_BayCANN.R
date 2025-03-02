@@ -477,16 +477,19 @@ names(m)[1:n_inputs] <- param_names
 
 ###### 9.3 Stan diagnose  ----
 # Run each of these separately to examine plots for Stan convergence
-stan_trace(m, pars=param_names, inc_warmup = FALSE)
+plt_stantrace <- stan_trace(m, pars=param_names, inc_warmup = FALSE)
+ggsave(filename = file_fig_trace,
+       plt_stantrace,
+       width = 12, height = 8)
 
 stan_plot(m, pars=param_names, point_est = "mean", show_density = TRUE, fill_color = "maroon", ncol=2)
 
 stan_hist(m, pars=param_names, inc_warmup = FALSE)
 
-standensity <- stan_dens(m, pars=param_names, inc_warmup = FALSE, separate_chains=TRUE)
+plt_standensity <- stan_dens(m, pars=param_names, inc_warmup = FALSE, separate_chains=TRUE)
 ggsave(filename = file_fig_chains,
-       standensity,
-       width = 24, height = 16)
+       plt_standensity,
+       width = 12, height = 8)
 
 stan_dens(m, pars=param_names, inc_warmup = FALSE, separate_chains=FALSE)
 
