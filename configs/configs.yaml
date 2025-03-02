@@ -129,7 +129,7 @@ params_montecarlo:
 # Parameters for initial coverage analysis and internal validation
 params_coverage:
   check_coverage: TRUE # Indicator to (re)run coverage analysis
-  n_samp_coverage: 50
+  n_samp_coverage: 100
   v_quantiles: [50, 95]
   plt_size_text: 18
 
@@ -327,4 +327,3 @@ params_screen:
       mod_conf: "confirm"
       int_conf: 10
       targeted_conf: FALSE
-      

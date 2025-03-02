@@ -45,6 +45,9 @@ list2env(l_filepaths, envir = .GlobalEnv)
 list2env(configs$params_montecarlo, envir = .GlobalEnv)
 list2env(configs$params_coverage, envir = .GlobalEnv)
 
+###### 2.2 Other parameters
+v_outcomes_cs <- c("prevalence", "nlesions") # Outcome types that can be calculated cross-sectionally
+
 
 #### 3. Pre-processing  ===========================================
 
@@ -62,8 +65,26 @@ l_params_calib <- do.call(load_calib_params, c(
 # Load plot labels
 df_plot_labels <- read.csv(file_plot_labels)
 
+# Create cross-sectional version of outcome parameters
+l_params_outcome_cs <- l_params_calib$l_params_outcome
+v_labels_cs <- c()
+for (target in names(l_params_outcome_cs)) {
+  if (l_params_outcome_cs[[target]][["outcome_type"]] %in% v_outcomes_cs) {
+    # Change to cross-sectional function
+    l_params_outcome_cs[[target]][["outcome_type"]] <- paste0(l_params_outcome_cs[[target]][["outcome_type"]], "_cs")
+    
+    # Keep track of outcome labels that can be cross-sectional
+    v_labels_cs <- c(v_labels_cs, target)
+  }
+}
+
+# Create outcome list to compare longitudinal and cross-sectional calculations
+l_params_outcomes_cs_renamed <- l_params_outcome_cs[v_labels_cs]
+names(l_params_outcomes_cs_renamed) <- paste0(names(l_params_outcomes_cs_renamed), "_cs")
+
 # Set number of cores to use
 registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
+print(getDoParWorkers())
 
 
 #### 4. Monte Carlo error analysis  ===========================================
@@ -74,7 +95,7 @@ l_params_mc$n_cohort <- n_init
 l_params_mc$seed <- NULL # Remove seed that is reset every time model is run
 set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG") # Set seed externally; kind set for parallel package
 
-# Run model for each input parameter sample and get corresponding outputs with parallel processing
+# Test sample size with longitudinally vs. cross-sectionally calculated vs. other outcomes
 stime_mc <- system.time({
   df_res_mc <- foreach(
     i=1:n_mc_reps, 
@@ -83,7 +104,7 @@ stime_mc <- system.time({
     .packages=c("data.table","tidyverse")) %dopar% {
       # Calculate outputs in any order
       v_outputs_mc <- params_to_outputs(l_params_mc, 
-                                        l_params_outcome = l_params_calib$l_params_outcome,
+                                        l_params_outcome = c(l_params_calib$l_params_outcome, l_params_outcomes_cs_renamed),
                                         l_censor_vars = l_params_calib$l_censor_vars)
       
       # Call item to save
@@ -91,21 +112,39 @@ stime_mc <- system.time({
     }
 })
 print(stime_mc)
+  
+# Compare mean, SD, and required cohort size for longitudinal vs. cross-sectional outcomes
+df_sample <- data.frame(
+  rbind(l_params_calib$df_targets,
+        l_params_calib$df_targets[l_params_calib$df_targets$target_groups %in% v_labels_cs, ]),
+  mean_mc = colMeans(df_res_mc),
+  sd_mc = apply(df_res_mc, 2, sd)
+) %>%
+  mutate( # Calculate required cohort size
+    n_target = n_init * (sd_mc / se)^2,
+    label = c(rep("long", nrow(l_params_calib$df_targets)), rep("cs", sum(l_params_calib$df_targets$target_groups %in% v_labels_cs))),
+    cs_option = target_groups %in% v_labels_cs
+  )
 
-# Get column-wise mean and SD
-mean_mc <- colMeans(df_res_mc)
-sd_mc <- apply(df_res_mc, 2, sd)
+# Get maximum cohort size per target group and calculation type
+df_sample_max <- df_sample %>%
+  group_by(target_groups, label, cs_option) %>%
+  summarise(n_max = max(n_target), .groups = "drop") %>%
+  arrange(desc(n_max))
 
-# Calculate required sample size
-n_target <- n_init * (sd_mc / l_params_calib$df_targets$se)^2
-
-# Set final N as multiple of maximum required sample size, rounded up to second highest digit
-n_final <- mc_multiplier * max(n_target)
+# Set final N as multiple of maximum required cohort size, rounded up to second highest digit
+n_final <- mc_multiplier * max(df_sample_max$n_max)
 n_digits <- floor(log(n_final, base = 10))
 n_final <- ceiling(n_final / 10^(n_digits - 1)) * 10^(n_digits - 1)
 
-# Update parameters
+# Update calibration parameters
 l_params_calib$l_params_model$n_cohort <- n_final
+
+# If the faster cross-sectional calculations do not require a larger cohort size, update calibration outcome parameters
+# otherwise, need to choose cohort size by weighing speed increases of calculation against larger cohort size
+if (df_sample_max$cs_option[1] == F) {
+  l_params_calib$l_params_outcome <- l_params_outcome_cs
+}
 
 
 #### 5. Save parameters  ===========================================

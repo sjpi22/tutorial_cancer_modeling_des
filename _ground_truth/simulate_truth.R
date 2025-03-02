@@ -46,8 +46,8 @@ v_ages <- list( # Age ranges for calculating outcomes
   prevalence_lesion = seq(30, 80, 10)
 )
 v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
-l_outcomes_cs <- c("prevalence", "nlesions") # Outcome types to calculate cross-sectionally
 n_cohort <- c(screen = 10000, pop = 100000) # Number to simulate for screen vs. population samples
+v_outcomes_cs <- c("prevalence", "nlesions") # Outcome types to calculate cross-sectionally
 l_outcome_grps <- list( # Outcomes to calculate together for screen vs. population samples
   screen = c("prevalence_lesion", "n_lesions", "prevalence"),
   pop = c("incidence", "stage_distr")
@@ -86,23 +86,22 @@ prior_map <- param_map %>%
   dplyr::select(-c("param_val", "shift"))
 
 # Extract outcome parameters
-l_outcome_params <- params_calib$l_outcome_params
+l_params_outcome <- params_calib$l_params_outcome
 l_censor_vars <- params_calib$l_censor_vars
 
 # Process outcome parameters
-for (target in names(l_outcome_params)) {
+for (target in names(l_params_outcome)) {
   # Modify outcome list to change to cross-sectional functions
-  if (l_outcome_params[[target]]["outcome_type"] %in% l_outcomes_cs) {
-    l_outcome_params[[target]]["outcome_type"] <- paste0(l_outcome_params[[target]]["outcome_type"], 
-                                                         "_cs")
+  if (l_params_outcome[[target]][["outcome_type"]] %in% v_outcomes_cs) {
+    l_params_outcome[[target]][["outcome_type"]] <- paste0(l_params_outcome[[target]][["outcome_type"]], "_cs")
   }
   
   # If applicable, add age ranges for calculating outcomes
-  l_outcome_params[[target]]$lit_params$v_ages <- v_ages[[target]]
+  l_params_outcome[[target]]$lit_params$v_ages <- v_ages[[target]]
 }
 
 # Check if data directory exists, make if not
-dir.create(dirname(params_calib$l_outcome_params[[1]]$file_path), showWarnings = FALSE)
+dir.create(dirname(params_calib$l_params_outcome[[1]]$file_path), showWarnings = FALSE)
 
 
 #### 4. Generate population data and outputs ========================================================
@@ -117,7 +116,7 @@ for (grp in names(l_outcome_grps)) {
   
   # Calculate outputs in group
   l_results_grp <- params_to_outputs(l_params_model = l_params_model, 
-                                     l_outcome_params = l_outcome_params[l_outcome_grps[[grp]]], 
+                                     l_params_outcome = l_params_outcome[l_outcome_grps[[grp]]], 
                                      l_censor_vars = l_censor_vars,
                                      reshape_output = FALSE, 
                                      individual_data = TRUE,
@@ -168,7 +167,7 @@ for (target in names(l_results)) {
   
   # Save data to file path
   write.csv(df_target,
-            l_outcome_params[[target]][["file_path"]],
+            l_params_outcome[[target]][["file_path"]],
             row.names = FALSE)
 }
 

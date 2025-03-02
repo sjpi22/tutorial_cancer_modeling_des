@@ -51,18 +51,18 @@ m_params <- read.csv(file_posterior) %>%
   as.matrix()
 
 # Set base case outcome parameters (include calibration target parameters)
-l_outcome_params_base <- c(l_params_calib$l_outcome_params,
+l_params_outcome_base <- c(l_params_calib$l_params_outcome,
                            params_screen$l_outcome_base)
 
 # Set screening test and strategy parameters
-l_screen_params <- list(test_chars = params_screen$test_chars,
+l_params_screen <- list(test_chars = params_screen$test_chars,
                         strats = params_screen$strats)
 
 # Set screening outcome parameters
-l_outcome_params_screen <- params_screen$l_outcome_base
+l_params_outcome_screen <- params_screen$l_outcome_base
 
 # Set counterfactual comparison parameters
-l_outcome_params_counter <- params_screen$l_outcome_counterfactual
+l_params_outcome_counter <- params_screen$l_outcome_counterfactual
 
 # Set seed
 set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG")
@@ -87,10 +87,10 @@ stime <- system.time({
           l_params_model = l_params_model,
           v_params_update = v_params_update,
           param_map = prior_map,
-          l_outcome_params = l_outcome_params_base,
-          l_screen_params = l_screen_params,
-          l_outcome_params_screen = l_outcome_params_screen,
-          l_outcome_params_counter = l_outcome_params_counter,
+          l_params_outcome = l_params_outcome_base,
+          l_params_screen = l_params_screen,
+          l_params_outcome_screen = l_params_outcome_screen,
+          l_params_outcome_counter = l_params_outcome_counter,
           l_censor_vars = l_censor_vars,
           reshape_output = FALSE
         )

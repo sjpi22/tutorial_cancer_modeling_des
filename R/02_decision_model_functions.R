@@ -380,8 +380,6 @@ run_screening_counterfactual <- function(
   # Recalculate mortality outcomes
   calc_mortality_outcomes(m_patients)
   
-  # Sum tests requiring confirmatory workup
-  m_patients[, ct_tests_conf_total := rowSums(.SD, na.rm = T), .SDcols = patterns("ct_tests_conf_")]
   return(NULL)
 }
 
@@ -415,7 +413,9 @@ simulate_screening_H <- function(m_patients,
   }
   
   # Calculate age at which individual no longer screens as minimum of patient censor age and strategy stop age
-  m_patients[, time_screen_stop := pmin(time_screen_censor, l_params_strategy$age_screen_stop)]
+  # and reset confirmatory tests to 0
+  m_patients[, `:=` (time_screen_stop = pmin(time_screen_censor, l_params_strategy$age_screen_stop),
+                     ct_tests_conf = 0)]
   
   # If screening interval is constant, perform simplified calculation of number of screening tests during healthy state
   # Otherwise, loop over testing rounds and assign applicable screening interval
@@ -434,11 +434,8 @@ simulate_screening_H <- function(m_patients,
         prob = 1 - p_spec
       ))]
     
-    # If screening test is also the confirmatory test, set confirmatory tests to 0 to calculate tests for symptom-detected cancer later
-    if (is.null(mod_conf)) {
-      m_patients[, ct_tests_conf := 0]
-    } # Otherwise, set confirmatory tests equal to false positive screening tests
-    else {
+    # If screening test is followed by confirmatory test, set confirmatory tests equal to false positive screening tests
+    if (!is.null(mod_conf)) {
       m_patients[, ct_tests_conf := ct_tests_screen_FP]
     }
     
@@ -450,8 +447,7 @@ simulate_screening_H <- function(m_patients,
   } else { 
     # Initialize test counts to 0
     m_patients[, `:=` (ct_tests_screen = 0,
-                       ct_tests_screen_FP = 0,
-                       ct_tests_conf = 0)]
+                       ct_tests_screen_FP = 0)]
     
     # Initialize running screening age at screening start age for individuals eligible to receive screening at that age
     m_patients[l_params_strategy$age_screen_start < time_screen_censor, screen_age := l_params_strategy$age_screen_start]

@@ -1,6 +1,7 @@
 ###########################  Unit test: Epi functions   ################
 #
-#  Objective: Run unit tests for calculating epidemiological summary statistics
+#  Objective: Run unit tests for calculating epidemiological summary statistics,
+#  including prevalence and lesion count
 ########################### <<<<<>>>>> ##############################################
 
 rm(list = ls()) # Clean environment
@@ -42,6 +43,7 @@ get_el <- function(distr, lb, ub) {
 ###### 2.1 Configurations
 # Run file to process configurations
 source("configs/process_configs.R")
+list2env(configs, envir = .GlobalEnv)
 
 ###### 2.2 File paths
 path_truth <- "_ground_truth"
@@ -51,9 +53,9 @@ file_distr <- file.path(path_truth, "true_params.xlsx")
 ###### 2.3 Other parameters
 seed <- 2025 # Random seed
 conf_level <- 0.95
-n_sim <- 20
+n_sim <- 40
 time_1_2 <- 5 # Artificial time from disease onset to next state
-l_outcomes_cs <- c("prevalence", "num_lesions") # Outcome types to calculate cross-sectionally
+v_outcomes_cs <- c("prevalence", "num_lesions") # Outcome types to calculate cross-sectionally
 
 
 #### 3. Pre-processing  ===========================================
@@ -61,14 +63,20 @@ l_outcomes_cs <- c("prevalence", "num_lesions") # Outcome types to calculate cro
 # Set seed
 set.seed(seed)
 
-# Load ground truth model parameters
-l_params_model <- do.call(load_model_params, c(
-  modifyList(params_model,
-             list(file.surv = NULL),
-             keep.null = T),
-  list(seed = NULL,
-       file.distr = file_distr)
+# Load initial model parameters
+l_params_init <- do.call(load_model_params, c(
+  params_model
 ))
+
+# Load calibration parameters
+l_params_calib <- do.call(load_calib_params, c(
+  l_params_model = list(l_params_init),
+  params_calib
+))
+
+# Extract model parameters and remove decision model seed
+l_params_model <- l_params_calib$l_params_model
+l_params_model$seed <- NULL
 
 # Get distribution for disease onset
 var_onset <- paste0("time_H_", l_params_model$v_states[2])
@@ -117,7 +125,7 @@ for (i in 1:n_sim) {
     var_onset, 
     "time_H_Inf", 
     "time_H_Inf", 
-    v_ages = params_calib$l_outcome_params$prevalence$v_ages)
+    v_ages = l_params_calib$l_params_outcome$prevalence$lit_params$v_ages)
   
   # Calculate prevalence (cross-sectional)
   summ_prevalence_cs <- calc_prevalence_cs(
@@ -125,7 +133,7 @@ for (i in 1:n_sim) {
     var_onset, 
     "time_H_Inf", 
     "time_H_Inf",
-    v_ages = params_calib$l_outcome_params$prevalence$v_ages)
+    v_ages = l_params_calib$l_params_outcome$prevalence$lit_params$v_ages)
   
   # Merge longitudinal and cross-sectional
   summ_prevalence <- merge(summ_prevalence,
@@ -148,7 +156,7 @@ for (i in 1:n_sim) {
     var_onset, 
     "time_H_2", 
     "time_H_Inf", 
-    v_ages = params_calib$l_outcome_params$prevalence$v_ages)
+    v_ages = l_params_calib$l_params_outcome$prevalence$lit_params$v_ages)
   
   # Calculate prevalence (cross-sectional)
   summ_prevalence_cs_bounded <- calc_prevalence_cs(
@@ -156,7 +164,7 @@ for (i in 1:n_sim) {
     var_onset, 
     "time_H_2",
     "time_H_Inf",
-    v_ages = params_calib$l_outcome_params$prevalence$v_ages)
+    v_ages = l_params_calib$l_params_outcome$prevalence$lit_params$v_ages)
   
   # Merge longitudinal and cross-sectional
   summ_prevalence_bounded <- merge(summ_prevalence_bounded,
@@ -179,14 +187,17 @@ for (i in 1:n_sim) {
   ###### 4.3 Compare longitudinal and cross-sectional lesion count
   if (params_model$lesion_state == T) {
     # Calculate lesion count (longitudinal)
-    summ_nlesions <- do.call(calc_nlesions, c(
-      list(get(params_calib$l_outcome_params$n_lesions[[3]])),
-      tail(params_calib$l_outcome_params$n_lesions, -3)))
+    outcome <- "n_lesions"
+    summ_nlesions <- do.call(
+      calc_nlesions,  
+      c(lapply(l_params_calib$l_params_outcome[[outcome]][["get_params"]], get, envir = sys.frame(sys.parent(0))), 
+        l_params_calib$l_params_outcome[[outcome]][["lit_params"]]))
     
     # Calculate lesion count (cross-sectional)
-    summ_nlesions_cs <- do.call(calc_nlesions_cs, c(
-      list(get(params_calib$l_outcome_params$n_lesions[[3]])),
-      tail(params_calib$l_outcome_params$n_lesions, -3)))
+    summ_nlesions_cs <- do.call(
+      calc_nlesions_cs,  
+      c(lapply(l_params_calib$l_params_outcome[[outcome]][["get_params"]], get, envir = sys.frame(sys.parent(0))), 
+        l_params_calib$l_params_outcome[[outcome]][["lit_params"]]))
     
     # Merge longitudinal and cross-sectional
     summ_nlesions <- merge(summ_nlesions,
