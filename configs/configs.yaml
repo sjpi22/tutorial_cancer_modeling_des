@@ -141,7 +141,7 @@ params_imabc:
   fn_use_seed: FALSE
   N_start_multiplier: 2000 # Number of initial samples per parameter
   optional_args:
-    N_centers: 2
+    N_centers: 10
     Center_n: 100
     N_post: 2000
     max_iter: 1000
