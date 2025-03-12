@@ -32,19 +32,25 @@ source("configs/process_configs.R")
 
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
+file_plot_labels <- configs$paths$file_plot_labels
+alpha_ci <- 1 - configs$params_model$conf_level
 
 # Get list of relevant output file paths and load to global environment
 l_filepaths <- update_config_paths("files_baycann", configs$paths)
 list2env(l_filepaths, envir = .GlobalEnv)
 
-# Load BayCANN parameters from configs file
+# Load BayCANN and coverage analysis parameters from configs file
 list2env(configs$params_baycann$params_sampling, envir = .GlobalEnv)
+list2env(configs$params_coverage, envir = .GlobalEnv)
 
 
 #### 3. Pre-processing  ===========================================
 
 # Load model and calibration parameters
 l_params_calib <- readRDS(file_params_calib)
+
+# Load plot labels
+df_plot_labels <- read.csv(file_plot_labels)
 
 # Set seed
 set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG")
@@ -111,3 +117,25 @@ saveRDS(list(m_param_samp = m_param_samp,
              m_calib_outputs = m_outputs,
              runtime = stime), 
         file = file_sample)
+
+
+#### 5. Generate inputs and outputs  ===========================================
+
+# Load BayCANN sample
+BayCANN_sample <- readRDS(file_sample)
+
+# Process targets
+df_targets <- l_params_calib$df_target %>%
+  mutate(target_index = factor(target_index),
+         ci_lb = ifelse(is.na(ci_lb), targets - se*qnorm(1 - alpha_ci/2), ci_lb),
+         ci_ub = ifelse(is.na(ci_ub), targets + se*qnorm(1 - alpha_ci/2), ci_ub)) %>% # Create plot labels
+  left_join(df_plot_labels, by = "target_groups")
+df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
+
+# Plot and save coverage
+plt_coverage <- plot_coverage(df_targets = df_targets, 
+                              m_outputs = BayCANN_sample$m_calib_outputs, 
+                              file_fig_coverage = file_fig_coverage,
+                              target_range = "ci",
+                              plt_size_text = plt_size_text)
+plt_coverage

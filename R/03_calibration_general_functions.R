@@ -135,10 +135,22 @@ plot_coverage <- function(
     df_targets, # Dataframe of targets with columns target_index (factor) for x axis, plot_grps for groups of targets to plot in the same graph, targets (target values), se (standard error), and optional categorical indicator variable
     m_outputs = NULL, # Matrix of outputs with columns corresponding to target_names; if NULL, assumes that df_targets already contains summary statistics
     file_fig_coverage = NULL, # File path to save coverage figure
+    target_range = "se", # "se" for standard error and "ci" for confidence interval
     v_quantiles = c(50, 95), # Inner box and whisker quantiles for boxplot
     plt_size_text = 18, # Size of text in plot
     n_cols_max = 3 # Maximum number of columns in plot
 ) { 
+  # Get range to plot for targets
+  if (target_range == "se") {
+    df_targets <- df_targets %>%
+      mutate(diff_lb = se,
+             diff_ub = se)
+  } else {
+    df_targets <- df_targets %>%
+      mutate(diff_lb = targets - ci_lb,
+             diff_ub = ci_ub - targets)
+  }
+  
   # Calculate simulated output mean and box plot quantiles
   if (!is.null(m_outputs)) {
     df_targets[["model_mean"]] <- colMeans(m_outputs)
@@ -182,8 +194,8 @@ plot_coverage <- function(
     l_plts[["cat"]] <- ggplot(data = df_targets_cat, 
                               aes(x = target_index)) + 
       geom_errorbar(aes(y    = targets, 
-                        ymin = targets - se, 
-                        ymax = targets + se),
+                        ymin = targets - diff_lb, 
+                        ymax = targets + diff_ub),
                     width = 0.3, linewidth = 0.9, color = "red", 
                     position = position_nudge(x = -0.2)) +
       geom_boxplot(aes(ymin = model_LB_95, 
@@ -216,8 +228,8 @@ plot_coverage <- function(
     l_plts[["cont"]] <- ggplot(data = df_targets_cont, 
                                aes(x = target_index)) + 
       geom_errorbar(aes(y    = targets, 
-                        ymin = targets - se, 
-                        ymax = targets + se),
+                        ymin = targets - diff_lb, 
+                        ymax = targets + diff_ub),
                     width = 0.3, linewidth = 0.9, color = "red") +
       geom_ribbon(aes(y    = model_mean,
                       ymin = model_LB_95,
@@ -265,6 +277,7 @@ plot_coverage <- function(
   }
   return(plt)
 }
+
 
 # Plot correlation of posteriors
 plot_posterior_corr <- function(df_post, file_fig_corr = NULL) {

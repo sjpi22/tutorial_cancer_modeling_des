@@ -39,7 +39,7 @@ list2env(l_filepaths_decision, envir = .GlobalEnv)
 
 ###### 2.2 Other parameters
 v_methods <- c(imabc = "IMABC", baycann = "BayCANN") # Calibration methods
-v_screen_multiplier <- 2^seq(0, 3) # Number of screening tests equivalent to cost of one diagnostic test
+burden_multiplier <- 50 # Number of screening tests equivalent to cost of one diagnostic test
 x_var <- "time_total" # Variable for x-axis
 y_var <- "burden_total" # Variable for y-axis
 x_int <- 200 # Interval for x-axis
@@ -51,6 +51,9 @@ y_int <- 2000 # Interval for y-axis
 # Get screening interval associated with each strategy
 df_intervals <- data.frame(
   scenario = names(params_screen$strats),
+  modality = unname(sapply(names(params_screen$strats), function(u) {
+    params_screen$strats[[u]]$mod
+  })),
   int_test = unname(sapply(names(params_screen$strats), function(u) {
     params_screen$strats[[u]]$int_screen
   }))
@@ -101,27 +104,44 @@ for (method in names(v_methods)) {
       }
     }
     
+    # # Merge outcomes for plotting (LYG vs. test burden)
+    # l_outcomes[[method]][["plot_data"]] <- l_outcomes[[method]][["lyg"]][["screen"]] %>%
+    #   # Append weights
+    #   mutate(wt = rep(l_wts[[method]], each = n()/length(l_wts[[method]]))) %>%
+    #   # Merge base scenario N
+    #   mutate(N = rep(l_outcomes[[method]][["lifeyears"]][["base"]][, "N"],
+    #                  each = length(params_screen$strats))) %>%
+    #   # Merge base scenario screening burden
+    #   mutate(ct_tests_diag_C_base = rep(l_outcomes[[method]][["ntests"]][["base"]],
+    #                                     each = length(params_screen$strats))) %>%
+    #   # Merge screening test burden
+    #   bind_cols(l_outcomes[[method]][["ntests"]][["screen"]] %>%
+    #               dplyr::select(ct_tests_screen, ct_tests_diag_total)) %>%
+    #   # Normalize test count by population (LYG already normalized)
+    #   mutate(across(starts_with("ct_"), ~ . / N * unit)) %>%
+    #   mutate(ct_tests_diag_diff = ct_tests_diag_total - ct_tests_diag_C_base) %>%
+    #   mutate(burden_total = ct_tests_screen / burden_multiplier + ct_tests_diag_diff)
+    
     # Merge outcomes for plotting (LYG vs. test burden)
+    l_wts[["imabc"]] <- 1
+    n_strat <- nrow(l_outcomes[[method]][["lyg"]][["screen"]])/length(l_outcomes[[method]][["lifeyears"]][["base"]][, "N"])
     l_outcomes[[method]][["plot_data"]] <- l_outcomes[[method]][["lyg"]][["screen"]] %>%
       # Append weights
       mutate(wt = rep(l_wts[[method]], each = n()/length(l_wts[[method]]))) %>%
       # Merge base scenario N
       mutate(N = rep(l_outcomes[[method]][["lifeyears"]][["base"]][, "N"],
-                     each = length(params_screen$strats))) %>%
+                     each = n_strat)) %>%
       # Merge base scenario screening burden
-      mutate(ct_tests_diag_C_base = rep(l_outcomes[[method]][["ntests"]][["base"]],
-                                        each = length(params_screen$strats))) %>%
+      mutate(ct_tests_base = rep(l_outcomes[[method]][["ntests"]][["base"]],
+                                        each = n_strat)) %>%
       # Merge screening test burden
       bind_cols(l_outcomes[[method]][["ntests"]][["screen"]] %>%
-                  dplyr::select(ct_tests_screen, ct_tests_diag_total)) %>%
+                  dplyr::select(any_of(c("ct_tests_conf", "ct_tests_screen", "ct_tests_diag_total")))) %>%
+      rename(any_of(c(ct_tests_conf = "ct_tests_diag_total"))) %>%
       # Normalize test count by population (LYG already normalized)
       mutate(across(starts_with("ct_"), ~ . / N * unit)) %>%
-      mutate(ct_tests_diag_diff = ct_tests_diag_total - ct_tests_diag_C_base)
-    
-    # Calculate test burden with appending cost fraction
-    l_outcomes[[method]][["plot_data"]] <- crossing(l_outcomes[[method]][["plot_data"]],
-                                                    multiplier = v_screen_multiplier) %>%
-      mutate(burden_total = ct_tests_screen / multiplier + ct_tests_diag_diff) %>%
+      mutate(ct_tests_conf_diff = ct_tests_conf - ct_tests_base) %>%
+      mutate(burden_total = ct_tests_screen / burden_multiplier + ct_tests_conf_diff) %>%
       # Merge test interval
       merge(df_intervals, by = "scenario")
   }
@@ -143,7 +163,7 @@ df_plot$method <- factor(df_plot$method, levels = v_methods)
 
 # Get means for plotting lines
 df_plot_mean <- df_plot %>%
-  group_by(method, scenario, int_test, multiplier) %>%
+  group_by(method, scenario, modality, int_test) %>%
   summarise(time_total = weighted.mean(time_total, wt),
             burden_total = weighted.mean(burden_total, wt), 
             .groups = "drop")
@@ -152,20 +172,20 @@ df_plot_mean <- df_plot %>%
 plt_outcomes <- ggplot(df_plot, 
                        aes(x = get(x_var), y = get(y_var))) +
   geom_line(data = df_plot_mean, 
-            aes(linetype = factor(multiplier)),
+            aes(linetype = factor(modality)),
             linewidth = 1, color = "gray") +
   geom_point(aes(color = factor(int_test)), 
              alpha = 0.3, size = 1) +
   facet_grid(~method) +
   labs(x = paste0("LYG per ", scales::label_comma()(unit)), 
        y = paste0("Additional diagnostic test burden per ", scales::label_comma()(unit)),
-       color = "Screening \ninterval (years)",
-       linetype = "Screening tests \nequivalent to cost of \none diagnostic test") +
+       color = "Screening \ninterval (years)") +
   guides(color = guide_legend(override.aes = list(alpha = 1, size = 3)),
-         linetype = guide_legend(ncol = 2)) +
+         linetype = guide_legend(nrow = 2)) +
   scale_x_continuous(labels = scales::comma) +
   scale_y_continuous(labels = scales::comma,
                      breaks = number_ticks(5)) +
+  scale_linetype_discrete(name = "Test modality", labels = c("Confirmatory", "Non-invasive")) +
   theme_bw(base_size = plt_size_text + 5) +
   theme(plot.title = element_text(size = plt_size_text, face = "bold"),
         axis.text.x = element_text(size = plt_size_text),

@@ -54,6 +54,7 @@ v_colors <- c("green", "red", "orange")
 var_index <- "target_index"
 n_samp <- 50 # Number of cohorts to simulate for checking coverage
 seed <- 123
+eps <- 1e-8
 
 
 #### 3. Load data  ===========================================
@@ -74,7 +75,7 @@ l_params_model <- do.call(load_model_params, c(
 df_surv <- load_surv_data(params_model$file.surv)
 
 # Load targets
-l_targets <- load_calibration_targets(params_calib$l_outcome_params)
+l_targets <- load_calibration_targets(params_calib$l_params_outcome)
 
 # Process targets
 for (target in names(params_calib$l_outcome_params)) {
@@ -110,7 +111,7 @@ if (params_model$lesion_state == T) {
 var_onset <- paste0("time_H_", l_params_model$v_states[2])
 
 # Get variable for censoring incidence
-var_censor <- params_calib$l_outcome_params$incidence$lit_params$censor_var
+var_censor <- params_calib$l_params_outcome$incidence$lit_params$censor_var
 
 # Simulate ground truth data for comparisons
 m_cohort <- run_base_model(l_params_model)
@@ -149,7 +150,11 @@ for (i in unique(df_surv$stage)) {
 
 ##### 4.0 Plot calibration targets
 df_prevalence <- l_targets[l_prev_targets]
-df_incidence <- l_targets$incidence
+df_incidence <- l_targets$incidence %>%
+  mutate(targets = targets / unit,
+         se = se / unit) %>%
+  mutate(ci_lb = targets - qnorm((1 + conf_level)/2)*se,
+         ci_ub = targets + qnorm((1 + conf_level)/2)*se)
 
 # Plot prevalence
 plot(df_prevalence[[1]][[var_index]], df_prevalence[[1]][[v_cols[1]]], 
@@ -236,6 +241,8 @@ d_time_C_Dc_est <- list(distr = "exp", params = list(rate = 1/mean_Dc))
 # Compare to true expectation
 mean_time_C_Dc_true <- sapply(d_time_C_Dc_true, function(distr) integrate(function(x) x*query_distr("d", x, distr$distr, distr$params), lower = 0, upper = Inf)$value)
 mean_Dc_true <- sum(l_targets$stage_distr$targets * mean_time_C_Dc_true)
+print("Estimated vs. true mean time to death from cancer:")
+print(paste(round(mean_Dc, 3), "vs", round(mean_Dc_true, 3)))
 
 ##### 4.2 Derive time-to-event distribution from targets using splines
 # Sample every three values of ages for spline knots
@@ -389,7 +396,7 @@ if (params_model$lesion_state == T) {
 legend("topleft",
        legend = c(v_labs, "Estimated CDF", "Estimate CI", "True CDF", "Prevalence"), 
        col = c(v_colors_plot, rep("black", 4)), pch = c(rep(0, length(v_labs)), 1, rep(NA, 3)),
-       lty = c(rep(NA, length(v_labs)), NA, 1, 2, 3),
+       lty = c(rep(NA, length(v_labs)), NA, 2, 1, 3),
        bty = "n", border = F)
 
 ##### 4.3 Fit Weibull distribution to time to disease onset
@@ -412,7 +419,8 @@ shape_onset <- coefs_onset[2]
 scale_onset <- exp(-coefs_onset[1]/shape_onset)
 
 # Set estimated distribution for time to disease onset
-d_time_onset_est <- list(distr = "weibull", params = list(shape = shape_onset, scale = scale_onset))
+d_time_onset_est <- list()
+d_time_onset_est[[v_cols[1]]] <- list(distr = "weibull", params = list(shape = shape_onset, scale = scale_onset))
 
 # Calculate heteroskedasticity-robust standard errors
 vcov <- vcovHC(fit_lm_mean)
@@ -441,6 +449,8 @@ abline(coefs_onset_ub[1], coefs_onset_lb[2], col = "red", lty = 2)
 # and vice versa for more accurate coverage of line
 shape_onset_ci <- coefs_onset_ci[2, ]
 scale_onset_ci <- rev(exp(-rev(coefs_onset_ci[1,])/shape_onset_ci))
+d_time_onset_est[[v_cols[3]]] <- list(distr = "weibull", params = list(shape = shape_onset_ci[1], scale = scale_onset_ci[1])) # Reversed order since higher Weibull scale --> lower CDF
+d_time_onset_est[[v_cols[2]]] <- list(distr = "weibull", params = list(shape = shape_onset_ci[2], scale = scale_onset_ci[2]))
 
 # Plot true vs. fitted Weibull parameters
 curve(pweibull(x, l_params_model[[paste0("d_", var_onset)]]$params$shape, l_params_model[[paste0("d_", var_onset)]]$params$scale), from = 0, to = 10,
@@ -449,6 +459,80 @@ lines(0:10, pweibull(0:10, shape_onset, scale_onset), col = "red")
 lines(0:10, pweibull(0:10, shape_onset_ci[1], scale_onset_ci[1]), col = "red", lty = 2)
 lines(0:10, pweibull(0:10, shape_onset_ci[2], scale_onset_ci[2]), col = "red", lty = 2)
 
+##### 4.4 Calculate time from lesion to cancer onset
+if (params_model$lesion_state == T) {
+  # Calculate SE of preclinical cancer CDF
+  se_preclin <- (df_prevalence[[2]]$ci_ub - df_prevalence[[2]]$ci_lb)/2/qnorm((1 + conf_level)/2)
+  
+  # Set initial distribution for time from lesion to cancer onset
+  d_time_onset_cancer <- list(distr = "weibull", params = list(shape = 1, scale = 1))
+  
+  # Initialize matrix to hold parameters
+  df_params_L_P <- matrix(nrow = 0, ncol = 2)
+  
+  for (val in v_cols) {
+    # Find parameters that optimize fit
+    fit_cdf <- optim(par = c(3, 10), fn = function(x) {
+      x <- as.list(x)
+      names(x) <- names(d_time_onset_cancer$params)
+      obj_fn_cdf(x, d_time_onset_est[[val]], d_time_onset_cancer, 
+                 df_prevalence[[2]][[var_index]], 
+                 df_prevalence[[2]][[paste0("p_", val)]],
+                 se_preclin,
+                 method = "ll")
+    }, control = list(fnscale = -1))
+    
+    # Output warning if optimization did not converge
+    if (fit_cdf$convergence != 0) {
+      warning("Optimization did not converge")
+    }
+    
+    # Append to matrix
+    df_params_L_P <- rbind(df_params_L_P, fit_cdf$par)
+  }
+  
+  # Convert matrix to data frame
+  df_params_L_P <- data.frame(v_cols, df_params_L_P)
+  names(df_params_L_P) <- c("value", names(d_time_onset_cancer$params))
+  
+  #### Check recovery of distribution ####
+  # Get variable name
+  var_dx <- "time_H_P"
+  
+  # Fit KM curve to disease state data, censoring at death time
+  fit_surv <- survfit(Surv(m_patients[, pmin(get(var_dx), time_H_D, na.rm = T)], 
+                           m_patients[, pmin(get(var_dx), Inf, na.rm = T) < time_H_D]) ~ 1)
+  
+  # Calculate CDF at each time point
+  cdf_surv <- summary(fit_surv)
+  df_cdf_surv = data.frame(
+    time = cdf_surv$time,
+    pct = 1 - cdf_surv$surv
+  )
+  
+  # Plot true CDF
+  plot(df_cdf_surv$time, df_cdf_surv$pct, col = v_colors[4 - i], type = "l",
+       xlab = "Age", ylab = "Probability", main = "Time to preclinical cancer")
+  
+  # Plot estimated CDFs
+  for (val in v_cols) {
+    # Update distribution for time from lesion to cancer onset
+    params_L_P <- df_params_L_P[df_params_L_P$value == val, -1]
+    names(params_L_P) <- names(d_time_onset_cancer$params)
+    d_time_onset_cancer$params <- modifyList(d_time_onset_cancer$params, params_L_P)
+    
+    # Calculate CDF of sum at indices
+    p_pred_P <- calc_cdf_sum(df_prevalence[[2]][[var_index]],
+                             d_time_onset_est[[val]],
+                             d_time_onset_cancer)
+    if (val == "targets") {
+      points(df_prevalence[[2]][[var_index]], p_pred_P)
+    } else {
+      lines(df_prevalence[[2]][[var_index]], p_pred_P, lty = 2)
+    }
+  }
+}
+  
 # The following sections have only been tested on the no-lesion model
 if (params_model$lesion_state == F) {
   ##### 4.4 Fit exponential distribution to time from preclinical to clinical cancer

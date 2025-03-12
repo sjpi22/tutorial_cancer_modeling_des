@@ -16,6 +16,8 @@ load_model_params <- function(
     lesion_state  = FALSE,                 # Indicator to include precancerous lesion state
     n_lesions_max = 20,                    # Maximum number of precancerous lesions
     v_cancer      = seq(4),                # Cancer stages to model in order of disease progression
+    p_cancer      = NULL,                  # Probability of being diagnosed at each cancer stage; should be same length at v_cancer
+    hr_cancer     = c(1, 1, 1, 1),         # Hazard ratios for progression from one preclinical cancer stage to the next, or detection for stage IV; set to NULL to update cancer progression variables directly
     v_cancer_surv = NULL,                  # Cancer stages from relative survival data corresponding to each modeled cancer stage; if NULL, assumed to be the same as v_cancer
     v_death       = c("o", "c"),           # Death causes
     file.distr    = NULL,                  # Path to distribution file if loading from file
@@ -31,6 +33,11 @@ load_model_params <- function(
     n_lesions_max = NULL
   }
   
+  # Assign probability of diagnosis at each cancer stage
+  if (is.null(p_cancer)) {
+    p_cancer <- rep(1 / length(v_cancer), length(v_cancer))
+  }
+  
   # Assign relative survival cancer stages if NULL
   if (is.null(v_cancer_surv)) {
     v_cancer_surv <- v_cancer
@@ -44,6 +51,9 @@ load_model_params <- function(
     sex           = sex,
     v_states      = v_states,
     v_cancer      = v_cancer,
+    p_cancer      = p_cancer,
+    diff_p_cancer = rep(0, length(v_cancer)),
+    hr_cancer     = hr_cancer,
     v_death       = v_death,
     n_lesions_max = n_lesions_max
   )
@@ -138,23 +148,24 @@ load_model_params <- function(
                         src = "unknown")
     }
     
-    # Add default distributions for cancer progression by stage
+    # Time to next stage of preclinical cancer
+    for (i in 1:(length(v_cancer) - 1)) {
+      assign(paste0("d_time_P", i, "_P", i + 1), 
+             list(distr = "exp", 
+                  params = list(rate = 1), 
+                  src = ifelse(i == 1 | is.null(hr_cancer), "unknown", "calculated")))
+    }
+    
+    # Cancer symptomatic detection by stage
     for (i in 1:length(v_cancer)) {
-      if (i < length(v_cancer)) {
-        # Time to next stage of preclinical cancer
-        assign(paste0("d_time_P", i, "_P", i + 1), 
-               list(distr = "exp", 
-                    params = list(rate = 1), 
-                    src = "unknown"))
-      }
-      
-      # Cancer symptomatic detection by stage
       assign(paste0("d_time_P", i, "_C", i), 
              list(distr = "exp", 
                   params = list(rate = 1), 
-                  src = "unknown"))
-      
-      # Assign distributions for time to death from cancer by stage at detection
+                  src = ifelse(is.null(hr_cancer), "unknown", "calculated")))
+    }
+    
+    # Assign distributions for time to death from cancer by stage at detection
+    for (i in 1:length(v_cancer)) {
       assign(paste0("d_time_C", i, "_Dc"), l_d_time_C_Dc[[v_cancer_surv[i]]])
     }
   })
@@ -242,7 +253,11 @@ update_param_from_map <- function(l_params_model, v_params_update, param_map,
         if (is.na(param_map$idx[i])) {
           l_params_model[[param_map$var_name[i]]]$params[[param_map$param_name[i]]] <- val
         } else {
-          l_params_model[[param_map$var_name[i]]][[param_map$idx[i]]]$params[[param_map$param_name[i]]] <- val
+          if (is.na(param_map$var_distr[i])) {
+            l_params_model[[param_map$var_name[i]]][param_map$idx[i]] <- val
+          } else {
+            l_params_model[[param_map$var_name[i]]][[param_map$idx[i]]]$params[[param_map$param_name[i]]] <- val
+          }
         }
       }
     } else { # If no nested distributions, run same updating code without extra checks
@@ -268,17 +283,21 @@ update_param_from_map <- function(l_params_model, v_params_update, param_map,
       # Loop over grouped parameters and update l_params_model for variables in the list
       for (i in seq(nrow(df_distr_grouped))) {
         if (df_distr_grouped$var_name[i] %in% names(l_params_model)) {
-          # Get list of of values to update
-          l_distr_updates <- list(distr = df_distr_grouped$distr[i],
-                                  params = as.list(df_distr_grouped$params[[i]]))
-          
-          # Check if distribution has an index within a nested list and update the distribution
-          if (is.na(df_distr_grouped$idx[i])) {
-            l_params_model[[df_distr_grouped$var_name[i]]]$distr <- l_distr_updates$distr
-            l_params_model[[df_distr_grouped$var_name[i]]]$params <- l_distr_updates$params
+          if (is.na(df_distr_grouped$distr[i])) {
+            l_params_model[[df_distr_grouped$var_name[i]]][df_distr_grouped$idx[i]] <- unname(df_distr_grouped$params[[i]][[1]])
           } else {
-            l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$distr <- l_distr_updates$distr
-            l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$params <- l_distr_updates$params
+            # Get list of of values to update
+            l_distr_updates <- list(distr = df_distr_grouped$distr[i],
+                                    params = as.list(df_distr_grouped$params[[i]]))
+            
+            # Check if distribution has an index within a nested list and update the distribution
+            if (is.na(df_distr_grouped$idx[i])) {
+              l_params_model[[df_distr_grouped$var_name[i]]]$distr <- l_distr_updates$distr
+              l_params_model[[df_distr_grouped$var_name[i]]]$params <- l_distr_updates$params
+            } else {
+              l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$distr <- l_distr_updates$distr
+              l_params_model[[df_distr_grouped$var_name[i]]][[df_distr_grouped$idx[[i]]]]$params <- l_distr_updates$params
+            }
           }
         }
       }
@@ -307,6 +326,11 @@ update_param_from_map <- function(l_params_model, v_params_update, param_map,
     }
   }
   
+  # If using hazard ratios for cancer progression variables, update variable parameterse
+  if (!is.null(l_params_model$hr_cancer)) {
+    l_params_model <- modifyList(l_params_model, update_cancer_variables(l_params_model))
+  }
+  
   return(l_params_model)
 }
 
@@ -329,7 +353,6 @@ make_param_map <- function(l_params_model, src = 'unknown') {
                          param_val = unname(unlist(par)))
         
         return(df)
-        
       }
     }
   })
@@ -340,4 +363,65 @@ make_param_map <- function(l_params_model, src = 'unknown') {
     mutate(var_id = paste(var_name, param_name, sep = '.'))
   
   return(param_map)
+}
+
+
+# Custom function to update parameters for cancer progression and detection 
+# based on hazard ratios and proportion diagnosed at each stage
+update_cancer_variables <- function(l_params_model) {
+  l_vars_update <- with(l_params_model, {
+    # Initialize list of updated variables
+    l_vars_update <- list()
+    
+    # Assign distributions for preclinical cancer progression by stage
+    if (length(v_cancer) > 2) {
+      for (i in 2:(length(v_cancer) - 1)) {
+        # Get prior stage progression distribution
+        if (i == 2) {
+          d_prior <- get(paste0("d_time_P", i - 1, "_P", i))
+        } else {
+          d_prior <- l_vars_update[[paste0("d_time_P", i - 1, "_P", i)]]
+        }
+        
+        # Calculate current rate
+        rate_progress <- hr_cancer[i - 1] * d_prior$params$rate
+        
+        # Update distribution
+        l_vars_update[[paste0("d_time_P", i, "_P", i + 1)]] <- list(
+          params = list(rate = rate_progress))
+      }
+    }
+    
+    # Calculate shifted cancer stage distribution
+    p_cancer_shift <- p_cancer + diff_p_cancer
+    
+    # Add default distributions for cancer symptomatic detection by stage
+    for (i in 1:(length(v_cancer) - 1)) {
+      # Get probability of being diagnosed at current stage conditional on not being diagnosed earlier
+      p_conditional <- p_cancer_shift[i] / sum(p_cancer_shift[i:length(v_cancer)])
+      
+      # Get stage distribution
+      if (i == 1) {
+        d_stage <- get(paste0("d_time_P", i, "_P", i + 1))
+      } else {
+        d_stage <- l_vars_update[[paste0("d_time_P", i, "_P", i + 1)]]
+      }
+      
+      # Calculate rate consistent with conditional probability of diagnosis at stage
+      r_consistent <- p_conditional * d_stage$params$rate / (1 - p_conditional)
+      
+      # Assign rate
+      l_vars_update[[paste0("d_time_P", i, "_C", i)]] <- list(
+        params = list(rate =  r_consistent))
+    }
+    
+    # Calculate rate of detection for final stage as hazard ratio applied to sum of prior stage rates
+    rate_detect <- hr_cancer[length(v_cancer)] * (d_prior$params$rate + d_stage$params$rate)
+    l_vars_update[[paste0("d_time_P", length(v_cancer), "_C", length(v_cancer))]] <- list(
+      params = list(rate = rate_detect))
+    
+    return(l_vars_update)
+  })
+  
+  return(l_vars_update)
 }

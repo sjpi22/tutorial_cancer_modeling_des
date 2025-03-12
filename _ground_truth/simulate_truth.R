@@ -35,6 +35,7 @@ params_calib <- configs$params_calib
 
 ###### 2.2 File paths
 file_true_params <- file.path("_ground_truth", "true_params.xlsx")
+file_constant_priors <- file.path("_ground_truth", "constant_priors.xlsx")
 
 ###### 2.3 Other parameters
 # Simulation parameters and outcome reporting
@@ -63,6 +64,9 @@ prior_pct_multiplier <- 0.2 # Final multiplier adjustment to increase bounds of 
 # Set seed
 set.seed(seed)
 
+# Load constant priors
+df_constant_priors <- read_xlsx(file_constant_priors)
+
 # Load ground truth model parameters (with file_surv set to NULL as survival data is generated in this script)
 l_params_model <- do.call(load_model_params, c(
   modifyList(params_model,
@@ -83,7 +87,10 @@ prior_map <- param_map %>%
          max = param_val * (1 + prior_pct_width_init/2 + (shift - 0.5) * prior_pct_width_init)) %>%
   mutate(min = round(min * (1 - prior_pct_multiplier), 2),
          max = round(max * (1 + prior_pct_multiplier), 2)) %>%
-  dplyr::select(-c("param_val", "shift"))
+  dplyr::select(-c("param_val", "shift")) %>%
+  # Bind constant priors
+  bind_rows(df_constant_priors) %>%
+  relocate(idx, .after = var_name)
 
 # Extract outcome parameters
 l_params_outcome <- params_calib$l_params_outcome
