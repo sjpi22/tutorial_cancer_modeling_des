@@ -1619,3 +1619,193 @@ null device
 [1m1/9[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 116ms/step[1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 9ms/step  [1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 9ms/step
 <environment: R_GlobalEnv>
 [1] TRUE
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
+Chain 1: 
+Chain 1: Gradient evaluation took 0.000354 seconds
+Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 3.54 seconds.
+Chain 1: Adjust your expectations accordingly!
+Chain 1: 
+Chain 1: 
+Chain 1: Iteration:      1 / 300000 [  0%]  (Warmup)
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
+Chain 2: 
+Chain 2: Gradient evaluation took 0.000348 seconds
+Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 3.48 seconds.
+Chain 2: Adjust your expectations accordingly!
+Chain 2: 
+Chain 2: 
+Chain 2: Iteration:      1 / 300000 [  0%]  (Warmup)
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
+Chain 3: 
+Chain 3: Gradient evaluation took 0.000346 seconds
+Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 3.46 seconds.
+Chain 3: Adjust your expectations accordingly!
+Chain 3: 
+Chain 3: 
+Chain 3: Iteration:      1 / 300000 [  0%]  (Warmup)
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
+Chain 4: 
+Chain 4: Gradient evaluation took 0.00022 seconds
+Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 2.2 seconds.
+Chain 4: Adjust your expectations accordingly!
+Chain 4: 
+Chain 4: 
+Chain 4: Iteration:      1 / 300000 [  0%]  (Warmup)
+Chain 1: Iteration:  30000 / 300000 [ 10%]  (Warmup)
+Chain 2: Iteration:  30000 / 300000 [ 10%]  (Warmup)
+Chain 4: Iteration:  30000 / 300000 [ 10%]  (Warmup)
+Chain 3: Iteration:  30000 / 300000 [ 10%]  (Warmup)
+Chain 1: Iteration:  60000 / 300000 [ 20%]  (Warmup)
+Chain 2: Iteration:  60000 / 300000 [ 20%]  (Warmup)
+Chain 3: Iteration:  60000 / 300000 [ 20%]  (Warmup)
+Chain 4: Iteration:  60000 / 300000 [ 20%]  (Warmup)
+Chain 1: Iteration:  90000 / 300000 [ 30%]  (Warmup)
+Chain 2: Iteration:  90000 / 300000 [ 30%]  (Warmup)
+Chain 4: Iteration:  90000 / 300000 [ 30%]  (Warmup)
+Chain 3: Iteration:  90000 / 300000 [ 30%]  (Warmup)
+Chain 1: Iteration: 120000 / 300000 [ 40%]  (Warmup)
+Chain 2: Iteration: 120000 / 300000 [ 40%]  (Warmup)
+Chain 4: Iteration: 120000 / 300000 [ 40%]  (Warmup)
+Chain 3: Iteration: 120000 / 300000 [ 40%]  (Warmup)
+Chain 1: Iteration: 150000 / 300000 [ 50%]  (Warmup)
+Chain 1: Iteration: 150001 / 300000 [ 50%]  (Sampling)
+Chain 2: Iteration: 150000 / 300000 [ 50%]  (Warmup)
+Chain 2: Iteration: 150001 / 300000 [ 50%]  (Sampling)
+Chain 3: Iteration: 150000 / 300000 [ 50%]  (Warmup)
+Chain 3: Iteration: 150001 / 300000 [ 50%]  (Sampling)
+Chain 4: Iteration: 150000 / 300000 [ 50%]  (Warmup)
+Chain 4: Iteration: 150001 / 300000 [ 50%]  (Sampling)
+Chain 3: Iteration: 180000 / 300000 [ 60%]  (Sampling)
+Chain 1: Iteration: 180000 / 300000 [ 60%]  (Sampling)
+Chain 4: Iteration: 180000 / 300000 [ 60%]  (Sampling)
+Chain 2: Iteration: 180000 / 300000 [ 60%]  (Sampling)
+Chain 3: Iteration: 210000 / 300000 [ 70%]  (Sampling)
+Chain 1: Iteration: 210000 / 300000 [ 70%]  (Sampling)
+Chain 4: Iteration: 210000 / 300000 [ 70%]  (Sampling)
+Chain 2: Iteration: 210000 / 300000 [ 70%]  (Sampling)
+Chain 3: Iteration: 240000 / 300000 [ 80%]  (Sampling)
+Chain 1: Iteration: 240000 / 300000 [ 80%]  (Sampling)
+Chain 4: Iteration: 240000 / 300000 [ 80%]  (Sampling)
+Chain 2: Iteration: 240000 / 300000 [ 80%]  (Sampling)
+Chain 3: Iteration: 270000 / 300000 [ 90%]  (Sampling)
+Chain 1: Iteration: 270000 / 300000 [ 90%]  (Sampling)
+Chain 4: Iteration: 270000 / 300000 [ 90%]  (Sampling)
+Chain 2: Iteration: 270000 / 300000 [ 90%]  (Sampling)
+Chain 3: Iteration: 300000 / 300000 [100%]  (Sampling)
+Chain 3: 
+Chain 3:  Elapsed Time: 225.139 seconds (Warm-up)
+Chain 3:                345.642 seconds (Sampling)
+Chain 3:                570.781 seconds (Total)
+Chain 3: 
+Chain 1: Iteration: 300000 / 300000 [100%]  (Sampling)
+Chain 1: 
+Chain 1:  Elapsed Time: 223.037 seconds (Warm-up)
+Chain 1:                388.735 seconds (Sampling)
+Chain 1:                611.772 seconds (Total)
+Chain 1: 
+Chain 4: Iteration: 300000 / 300000 [100%]  (Sampling)
+Chain 4: 
+Chain 4:  Elapsed Time: 225.163 seconds (Warm-up)
+Chain 4:                401.044 seconds (Sampling)
+Chain 4:                626.207 seconds (Total)
+Chain 4: 
+Chain 2: Iteration: 300000 / 300000 [100%]  (Sampling)
+Chain 2: 
+Chain 2:  Elapsed Time: 224.945 seconds (Warm-up)
+Chain 2:                411.26 seconds (Sampling)
+Chain 2:                636.205 seconds (Total)
+Chain 2: 
+ci_level: 0.8 (80% intervals)
+outer_level: 0.95 (95% intervals)
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+Warning message:
+Removed 2 rows containing missing values or values outside the scale range
+(`geom_bar()`). 
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+Error in doWithOneRestart(return(expr), restart) : bad error message
+Calls: melt ... signal -> withRestarts -> withOneRestart -> doWithOneRestart
+Execution halted
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.1.4     ✔ readr     2.1.5
+✔ forcats   1.0.0     ✔ stringr   1.5.1
+✔ ggplot2   3.5.1     ✔ tibble    3.2.1
+✔ lubridate 1.9.3     ✔ tidyr     1.3.1
+✔ purrr     1.0.2     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+Loading required package: foreach
+
+Attaching package: ‘foreach’
+
+The following objects are masked from ‘package:purrr’:
+
+    accumulate, when
+
+Loading required package: iterators
+Loading required package: parallel
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, mday, minute, month, quarter, second, wday, week,
+    yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+        R/01_model_inputs_functions.R R/02_decision_model_functions.R
+value   ?                             ?                              
+visible FALSE                         FALSE                          
+        R/03_calibration_general_functions.R R/03a_baycann_functions.R
+value   ?                                    ?                        
+visible FALSE                                FALSE                    
+        R/utils/data_processing.R R/utils/distr_empirical.R
+value   ?                         ?                        
+visible FALSE                     FALSE                    
+        R/utils/epi_functions.R R/utils/query_distr.R R/utils/sum_of_cdfs.R
+value   ?                       ?                     ?                    
+visible FALSE                   FALSE                 FALSE                
+Warning message:
+In readLines(file, warn = readLines.warn) :
+  incomplete final line found on 'configs/configs.yaml'
+<environment: R_GlobalEnv>
