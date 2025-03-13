@@ -169,7 +169,7 @@ params_baycann:
     patience: 100
     init_W_type: 0
   params_hyperparameters: # Parameters for ANN hyperparameter tuning
-    run_hp_tuning: FALSE # Indicator to run hyperparameter tuning; if FALSE, train model with the first hyperparameter set
+    run_hp_tuning: TRUE # Indicator to run hyperparameter tuning; if FALSE, train model with the first hyperparameter set
     confirm_hp: FALSE # Indicator to show confirmation prompt when hyperparameter tuning
     v_hidden_layers: [1, 2, 3, 4]
     v_hidden_nodes: [32, 64, 128]
