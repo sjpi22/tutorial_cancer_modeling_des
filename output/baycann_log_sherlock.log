@@ -686,3 +686,936 @@ Model: "functional"
 
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-33-28Z
+
+Training run 9/22 (flags = list(3L, 128L, FALSE, 0.25, "relu")) 
+Using run directory output/baycann_runs/2025-03-13T05-36-01Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 128)       │       1,792 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 128)       │      16,512 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 128)       │      16,512 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 16)        │       2,064 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 3)         │         387 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_5 (Dense)       │ (None, 4)         │         516 │ dense_2[0][0]      │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 37,783 (147.59 KB)
+ Trainable params: 37,783 (147.59 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-36-01Z
+
+Training run 10/22 (flags = list(3L, 64L, FALSE, 0.25, "tanh")) 
+Using run directory output/baycann_runs/2025-03-13T05-37-56Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 64)        │         896 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 64)        │       4,160 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 64)        │       4,160 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 16)        │       1,040 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 3)         │         195 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_5 (Dense)       │ (None, 4)         │         260 │ dense_2[0][0]      │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 10,711 (41.84 KB)
+ Trainable params: 10,711 (41.84 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-37-56Z
+
+Training run 11/22 (flags = list(2L, 64L, TRUE, 0.25, "sigmoid")) 
+Using run directory output/baycann_runs/2025-03-13T05-40-32Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 64)        │         896 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout (Dropout)     │ (None, 64)        │           0 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 64)        │       4,160 │ dropout[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout_1 (Dropout)   │ (None, 64)        │           0 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 16)        │       1,040 │ dropout_1[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 3)         │         195 │ dropout_1[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 4)         │         260 │ dropout_1[0][0]    │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 6,551 (25.59 KB)
+ Trainable params: 6,551 (25.59 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-40-32Z
+
+Training run 12/22 (flags = list(2L, 32L, TRUE, 0.25, "sigmoid")) 
+Using run directory output/baycann_runs/2025-03-13T05-43-09Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 32)        │         448 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout (Dropout)     │ (None, 32)        │           0 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 32)        │       1,056 │ dropout[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout_1 (Dropout)   │ (None, 32)        │           0 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 16)        │         528 │ dropout_1[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 3)         │          99 │ dropout_1[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 4)         │         132 │ dropout_1[0][0]    │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 2,263 (8.84 KB)
+ Trainable params: 2,263 (8.84 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-43-09Z
+
+Training run 13/22 (flags = list(4L, 32L, TRUE, 0.25, "sigmoid")) 
+Using run directory output/baycann_runs/2025-03-13T05-45-57Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 32)        │         448 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout (Dropout)     │ (None, 32)        │           0 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 32)        │       1,056 │ dropout[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout_1 (Dropout)   │ (None, 32)        │           0 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 32)        │       1,056 │ dropout_1[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout_2 (Dropout)   │ (None, 32)        │           0 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 32)        │       1,056 │ dropout_2[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout_3 (Dropout)   │ (None, 32)        │           0 │ dense_3[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 16)        │         528 │ dropout_3[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_5 (Dense)       │ (None, 3)         │          99 │ dropout_3[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_6 (Dense)       │ (None, 4)         │         132 │ dropout_3[0][0]    │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 4,375 (17.09 KB)
+ Trainable params: 4,375 (17.09 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-45-57Z
+
+Training run 14/22 (flags = list(3L, 128L, TRUE, 0.25, "sigmoid")) 
+Using run directory output/baycann_runs/2025-03-13T05-48-54Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 128)       │       1,792 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout (Dropout)     │ (None, 128)       │           0 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 128)       │      16,512 │ dropout[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout_1 (Dropout)   │ (None, 128)       │           0 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 128)       │      16,512 │ dropout_1[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout_2 (Dropout)   │ (None, 128)       │           0 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 16)        │       2,064 │ dropout_2[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 3)         │         387 │ dropout_2[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_5 (Dense)       │ (None, 4)         │         516 │ dropout_2[0][0]    │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 37,783 (147.59 KB)
+ Trainable params: 37,783 (147.59 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-48-54Z
+
+Training run 15/22 (flags = list(1L, 64L, FALSE, 0.25, "sigmoid")) 
+Using run directory output/baycann_runs/2025-03-13T05-51-46Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 64)        │         896 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 16)        │       1,040 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 3)         │         195 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 4)         │         260 │ dense[0][0]        │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 2,391 (9.34 KB)
+ Trainable params: 2,391 (9.34 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-51-46Z
+
+Training run 16/22 (flags = list(2L, 64L, FALSE, 0.25, "tanh")) 
+Using run directory output/baycann_runs/2025-03-13T05-54-21Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 64)        │         896 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 64)        │       4,160 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 16)        │       1,040 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 3)         │         195 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 4)         │         260 │ dense_1[0][0]      │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 6,551 (25.59 KB)
+ Trainable params: 6,551 (25.59 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-54-21Z
+
+Training run 17/22 (flags = list(3L, 64L, FALSE, 0.25, "sigmoid")) 
+Using run directory output/baycann_runs/2025-03-13T05-57-06Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 64)        │         896 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 64)        │       4,160 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 64)        │       4,160 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 16)        │       1,040 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 3)         │         195 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_5 (Dense)       │ (None, 4)         │         260 │ dense_2[0][0]      │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 10,711 (41.84 KB)
+ Trainable params: 10,711 (41.84 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-57-06Z
+
+Training run 18/22 (flags = list(1L, 128L, FALSE, 0.25, "tanh")) 
+Using run directory output/baycann_runs/2025-03-13T05-59-59Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 128)       │       1,792 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 16)        │       2,064 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 3)         │         387 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 4)         │         516 │ dense[0][0]        │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 4,759 (18.59 KB)
+ Trainable params: 4,759 (18.59 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T05-59-59Z
+
+Training run 19/22 (flags = list(1L, 128L, FALSE, 0.25, "relu")) 
+Using run directory output/baycann_runs/2025-03-13T06-02-43Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 128)       │       1,792 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 16)        │       2,064 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 3)         │         387 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 4)         │         516 │ dense[0][0]        │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 4,759 (18.59 KB)
+ Trainable params: 4,759 (18.59 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T06-02-43Z
+
+Training run 20/22 (flags = list(1L, 128L, TRUE, 0.25, "sigmoid")) 
+Using run directory output/baycann_runs/2025-03-13T06-05-18Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 128)       │       1,792 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout (Dropout)     │ (None, 128)       │           0 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 16)        │       2,064 │ dropout[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 3)         │         387 │ dropout[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 4)         │         516 │ dropout[0][0]      │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 4,759 (18.59 KB)
+ Trainable params: 4,759 (18.59 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T06-05-18Z
+
+Training run 21/22 (flags = list(1L, 64L, FALSE, 0.25, "relu")) 
+Using run directory output/baycann_runs/2025-03-13T06-07-56Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 64)        │         896 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 16)        │       1,040 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 3)         │         195 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 4)         │         260 │ dense[0][0]        │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 2,391 (9.34 KB)
+ Trainable params: 2,391 (9.34 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T06-07-56Z
+
+Training run 22/22 (flags = list(3L, 128L, TRUE, 0.25, "tanh")) 
+Using run directory output/baycann_runs/2025-03-13T06-10-28Z
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 128)       │       1,792 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout (Dropout)     │ (None, 128)       │           0 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 128)       │      16,512 │ dropout[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout_1 (Dropout)   │ (None, 128)       │           0 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 128)       │      16,512 │ dropout_1[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dropout_2 (Dropout)   │ (None, 128)       │           0 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 16)        │       2,064 │ dropout_2[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 3)         │         387 │ dropout_2[0][0]    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_5 (Dense)       │ (None, 4)         │         516 │ dropout_2[0][0]    │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 37,783 (147.59 KB)
+ Trainable params: 37,783 (147.59 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_runs/2025-03-13T06-10-28Z
+
+ elapsed 
+57.99753 
+Using run directory output/baycann_run_best
+
+> FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
++     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
++         TRUE), flag_numeric .... [TRUNCATED] 
+
+> input <- layer_input(shape = ncol(data_sim_param_train))
+
+> for (i in 1:FLAGS$n_hidden_layers) {
++     if (i == 1) {
++         x <- layer_dense(input, units = FLAGS$n_hidden_nodes, 
++             activation = .... [TRUNCATED] 
+
+> output <- list()
+
+> loss_list <- list()
+
+> loss_weights <- list()
+
+> metrics_list <- list()
+
+> for (i in df_fn_grp_chars$fn_grp) {
++     temp_df_fn_grps <- df_fn_grp_chars[df_fn_grp_chars$fn_grp == 
++         i, ]
++     output[[i]] <- layer_de .... [TRUNCATED] 
+
+> model <- keras_model(inputs = input, outputs = output)
+
+> summary(model)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)          ┃ Output Shape      ┃     Param # ┃ Connected to       ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer           │ (None, 13)        │           0 │ -                  │
+│ (InputLayer)          │                   │             │                    │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense (Dense)         │ (None, 64)        │         896 │ input_layer[0][0]  │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_1 (Dense)       │ (None, 64)        │       4,160 │ dense[0][0]        │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_2 (Dense)       │ (None, 64)        │       4,160 │ dense_1[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_3 (Dense)       │ (None, 16)        │       1,040 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_4 (Dense)       │ (None, 3)         │         195 │ dense_2[0][0]      │
+├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
+│ dense_5 (Dense)       │ (None, 4)         │         260 │ dense_2[0][0]      │
+└───────────────────────┴───────────────────┴─────────────┴────────────────────┘
+ Total params: 10,711 (41.84 KB)
+ Trainable params: 10,711 (41.84 KB)
+ Non-trainable params: 0 (0.00 B)
+
+> model %>% compile(loss = loss_list, loss_weights = loss_weights, 
++     optimizer = optimizer_adam(), metrics = metrics_list)
+
+> history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
++     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
+
+Run completed: output/baycann_run_best
+
+elapsed 
+2.77155 
+null device 
+          1 
+[1m1/9[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 646ms/step - dense_3_loss: 3.0416e-04 - dense_3_mae: 0.0070 - dense_4_accuracy: 1.0000 - dense_4_loss: 1.0614 - dense_5_accuracy: 0.9375 - dense_5_loss: 1.3799 - loss: 2.4416[1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 3ms/step - dense_3_loss: 3.9542e-04 - dense_3_mae: 0.0077 - dense_4_accuracy: 0.9951 - dense_4_loss: 1.0529 - dense_5_accuracy: 0.9075 - dense_5_loss: 1.3800 - loss: 2.4335  
+[1m1/9[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 116ms/step[1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 9ms/step  [1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 9ms/step
+<environment: R_GlobalEnv>
+[1] TRUE
