@@ -54,8 +54,7 @@ m_params <- calibration_outputs$good_parm_draws %>%
 
 m_params <- calibration_outputs$good_parm_draws %>%
   dplyr::select(all_of(grep("d_", colnames(calibration_outputs$good_parm_draws), value = T)))
-test=data.frame(l_params_calib$prior_map$var_id,
-           colnames(m_params))
+
 # Extract unweighted calibration outputs
 imabc_targets_unweighted <- calibration_outputs$good_sim_target %>%
   dplyr::select(-c("iter", "draw", "step"))

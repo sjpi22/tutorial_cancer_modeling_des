@@ -11,6 +11,7 @@ options(scipen = 999) # View data without scientific notation
 ###### 1.1 Load packages
 library(readxl)
 library(tidyverse)
+library(data.table)
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 

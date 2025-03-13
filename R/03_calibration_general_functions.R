@@ -69,7 +69,10 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   prior_map <- read.csv(file_priors)
   prior_map$param_val = rowMeans(prior_map[, c("min", "max")])
   
-  # Update default parameters with  mean of priors
+  # Update stage distribution parameters
+  l_params_model[["p_cancer"]] <- l_targets[["stage_distr"]]$targets
+  
+  # Update default parameters with mean of priors
   l_params_model <- update_param_from_map(l_params_model, 
                                           param_map = prior_map,
                                           update_distr = T)
