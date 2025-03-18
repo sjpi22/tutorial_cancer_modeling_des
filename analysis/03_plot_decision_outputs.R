@@ -178,14 +178,14 @@ plt_outcomes <- ggplot(df_plot,
              alpha = 0.3, size = 1) +
   facet_grid(~method) +
   labs(x = paste0("LYG per ", scales::label_comma()(unit)), 
-       y = paste0("Additional diagnostic test burden per ", scales::label_comma()(unit)),
+       y = paste0("Additional confirmatory test burden per ", scales::label_comma()(unit)),
        color = "Screening \ninterval (years)") +
   guides(color = guide_legend(override.aes = list(alpha = 1, size = 3)),
          linetype = guide_legend(nrow = 2)) +
   scale_x_continuous(labels = scales::comma) +
   scale_y_continuous(labels = scales::comma,
                      breaks = number_ticks(5)) +
-  scale_linetype_discrete(name = "Test modality", labels = c("Confirmatory", "Non-invasive")) +
+  scale_linetype_discrete(name = "Screening modality", labels = c("Confirmatory", "Non-invasive")) +
   theme_bw(base_size = plt_size_text + 5) +
   theme(plot.title = element_text(size = plt_size_text, face = "bold"),
         axis.text.x = element_text(size = plt_size_text),

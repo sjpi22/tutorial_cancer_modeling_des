@@ -48,8 +48,28 @@ v_methods <- c(imabc = "IMABC", baycann = "BayCANN") # Calibration methods
 # Load model and calibration parameters
 l_params_calib <- readRDS(file_params_calib)
 
-# Load true parameters and remove known parameters
-df_true_params <- read_xlsx(file_true_params) %>%
+# Load true parameters
+df_true_params <- read_xlsx(file_true_params) 
+
+# Update true parameters table if using hazard ratios to parametrize cancer progression variables
+if (!is.null(l_params_calib$l_params_model$hr_cancer)) {
+  # Update stage distribution parameters
+  df_true_params_stage <- df_true_params %>%
+    # Subset to stage distribution variables
+    filter(var_name == "p_cancer") %>%
+    # Replace name of p_cancer variable name and ID
+    # and calculate true difference between true and observed stage distribution
+    mutate(var_name = "diff_p_cancer",
+           param_val = param_val - l_params_calib$l_params_model$p_cancer) %>%
+    # Rename variable id
+    mutate(var_id = paste(var_name, idx, sep = "."))
+  
+  # Bind to true parameter table
+  df_true_params <- bind_rows(df_true_params, df_true_params_stage)
+}
+
+# Remove known parameters
+df_true_params <- df_true_params %>%
   filter(var_id %in% l_params_calib$prior_map$var_id)
 
 # Load posteriors

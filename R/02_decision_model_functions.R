@@ -582,9 +582,9 @@ simulate_screening_L <- function(m_patients,
       m_lesions[fl_present == 1 & fl_positive == 1, `:=` (fl_removed = 1)]
     } else {
       # If there is a follow-on confirmatory test, apply confirmatory tests 
-      # based on whether test is applied to only positive lesions (targeted_conf is TRUE) or 
-      # all present lesions if there is at least one positive lesion (targeted_conf is FALSE)
-      if (l_params_strategy[["targeted_conf"]]) { # Apply confirmatory tests to positive lesions only
+      # based on whether test is applied to only positive lesions (targeted is TRUE) or 
+      # all present lesions if there is at least one positive lesion (targeted is FALSE)
+      if (l_test_chars[[mod]][["targeted"]]) { # Apply confirmatory tests to positive lesions only
         # Sample whether positive lesions are removed
         m_lesions[fl_present == 1 & fl_positive == 1, `:=` (
           fl_removed = rbinom(
@@ -625,10 +625,19 @@ simulate_screening_L <- function(m_patients,
                                    by = pt_id]
     
     ###### 2.2 Flag false positives among screened individuals with no active lesions
-    m_lesions_summary[ct_eligible == 0, fl_positive := rbinom(
+    m_lesions_summary[ct_eligible == 0, fl_FP := rbinom(
       .N,
       size = 1,
       prob = 1 - p_spec)]
+    
+    ###### 2.3 Update screening data
+    # Process positive and confirmatory test flags for merging
+    m_lesions_summary[ct_eligible == 0, fl_positive := fl_FP]
+    if (!is.null(mod_conf)) {
+      m_lesions_summary[, fl_test_conf := fl_positive]
+    } else {
+      m_lesions_summary[, fl_test_conf := 0]
+    }
     
     # Set next screen time
     if (is.null(mod_conf)) {
@@ -637,12 +646,11 @@ simulate_screening_L <- function(m_patients,
       m_lesions_summary[, int_screen_next := ifelse(fl_positive %in% 1, int_conf, int_screen)]
     }
     
-    ###### 2.3 Update screening data
     # Update time to preclinical cancer and following times, increment number of screens, number of confirmatory tests, and screen age
     m_patients[m_lesions_summary, `:=` (time_H_P = i.time_H_P,
                                         ct_tests_screen = ct_tests_screen + 1,
-                                        ct_tests_screen_FP = ct_tests_screen_FP + pmax(0, i.fl_positive, na.rm = T),
-                                        ct_tests_conf = ct_tests_conf + pmax(0, !is.null(mod_conf)*i.fl_positive, na.rm = T),
+                                        ct_tests_screen_FP = ct_tests_screen_FP + pmax(0, i.fl_FP, na.rm = T),
+                                        ct_tests_conf = ct_tests_conf + pmax(0, i.fl_test_conf, na.rm = T),
                                         screen_age = screen_age + int_screen_next)]
     
     # Reset screening age to NA if after censor date or end age
@@ -920,6 +928,11 @@ params_to_outputs <- function(l_params_model,
       l_params_outcome_screen <- l_params_outcome
     }
     
+    # Initialize results list for individual-level screening data if necessary
+    if (individual_data) {
+      res$m_cohort_screen <- list()
+    }
+    
     # Loop through screening strategies
     l_outputs_screen <- list()
     for (strat in names(l_params_screen$strats)) {
@@ -933,10 +946,15 @@ params_to_outputs <- function(l_params_model,
       # Generate data under screening counterfactual
       do.call(run_screening_counterfactual, 
               list(m_cohort = m_cohort_screen, 
-                l_params_model = l_params_model,
-                l_params_strategy = l_params_screen$strats[[strat]],
-                l_params_tests = l_params_screen$test_chars
+                   l_params_model = l_params_model,
+                   l_params_strategy = l_params_screen$strats[[strat]],
+                   l_params_tests = l_params_screen$test_chars
               ))
+      
+      # Add individual-level data to results list if necessary
+      if (individual_data) {
+        res$m_cohort_screen[[strat]] <- m_cohort_screen
+      }
       
       # Calculate screening outcomes
       l_outputs_screen[[strat]] <- calc_cohort_outputs(m_cohort_screen, 

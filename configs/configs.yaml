@@ -226,6 +226,7 @@ params_screen:
         params:
           shape1: 100
           shape2: 0
+      targeted: TRUE
     screen:
       d_p_sens:
         L:
@@ -243,19 +244,8 @@ params_screen:
         params:
           shape1: 840
           shape2: 160
+      targeted: FALSE
   strats: # Screening test strategies 
-    strategy_c_int1:
-      mod: "confirm"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 1
-      mod_conf: ~
-    strategy_c_int3:
-      mod: "confirm"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 3
-      mod_conf: ~
     strategy_c_int5:
       mod: "confirm"
       age_screen_start: 50
@@ -287,7 +277,6 @@ params_screen:
       int_screen: 1
       mod_conf: "confirm"
       int_conf: 10
-      targeted_conf: FALSE
     strategy_s_int3:
       mod: "screen"
       age_screen_start: 50
@@ -295,7 +284,6 @@ params_screen:
       int_screen: 3
       mod_conf: "confirm"
       int_conf: 10
-      targeted_conf: FALSE
     strategy_s_int5:
       mod: "screen"
       age_screen_start: 50
@@ -303,7 +291,6 @@ params_screen:
       int_screen: 5
       mod_conf: "confirm"
       int_conf: 10
-      targeted_conf: FALSE
     strategy_s_int10:
       mod: "screen"
       age_screen_start: 50
@@ -311,7 +298,6 @@ params_screen:
       int_screen: 10
       mod_conf: "confirm"
       int_conf: 10
-      targeted_conf: FALSE
     strategy_s_int20: # Effectively two-time screening at age 50 and 70
       mod: "screen"
       age_screen_start: 50
@@ -319,7 +305,6 @@ params_screen:
       int_screen: 20
       mod_conf: "confirm"
       int_conf: 20
-      targeted_conf: FALSE
     strategy_s_int30: # Effectively one-time screening at age 50
       mod: "screen"
       age_screen_start: 50
@@ -327,4 +312,3 @@ params_screen:
       int_screen: 30
       mod_conf: "confirm"
       int_conf: 30
-      targeted_conf: FALSE
