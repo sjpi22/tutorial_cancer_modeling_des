@@ -226,7 +226,7 @@ params_screen:
         params:
           shape1: 100
           shape2: 0
-      targeted: TRUE
+      type: "targeted"
     screen:
       d_p_sens:
         L:
@@ -244,7 +244,7 @@ params_screen:
         params:
           shape1: 840
           shape2: 160
-      targeted: FALSE
+      type: "indirect"
   strats: # Screening test strategies 
     strategy_c_int5:
       mod: "confirm"

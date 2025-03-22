@@ -506,16 +506,25 @@ simulate_screening_L <- function(m_patients,
                                  var_onset,
                                  l_params_strategy,
                                  l_test_chars,
+                                 l_params_surveil = NULL,
                                  verbose = FALSE
 ) {  
-  # Extract screening and confirmatory test modalities
+  # Extract screening, confirmatory, and surveillance test modalities
   mod <- l_params_strategy[["mod"]]
   mod_conf <- l_params_strategy[["conf_test"]]
+  mod_surveil <- l_params_surveil[["mod"]]
   
   # Extract screening test sensitivity, specificity, and interval
   p_sens <- l_test_chars[[mod]][["p_sens"]][["L"]]
   p_spec <- l_test_chars[[mod]][["p_spec"]]
   int_screen <- l_params_strategy[["int_screen"]]
+  
+  # Extract modalities associated with each test type (direct, targeted, indirect)
+  df_test_types <- data.frame(mod = names(l_test_chars),
+                              type = sapply(l_test_chars, function(u) {
+                                u[["type"]]
+                              }))
+  l_test_types <- split(df_test_types$mod, df_test_types$type)
   
   # Extract confirmatory test parameters if applicable
   if (!is.null(mod_conf)) {
@@ -544,8 +553,10 @@ simulate_screening_L <- function(m_patients,
                            screen_age = i.screen_age)]
   
   # Among patients who will receive screening during the lesion state,
-  # initialize flag for whether lesion was removed
-  m_lesions[!is.na(screen_age), `:=` (fl_removed = 0)]
+  # initialize flag for whether lesion was removed and type of screening (routine vs. surveillance)
+  m_lesions[!is.na(screen_age), `:=` (fl_removed = 0,
+                                      screen_type = "routine",
+                                      modality = mod)]
   
   # Get number of lesions available for screening
   n_lesion_screen <- m_lesions[!is.na(screen_age), .N]
@@ -573,43 +584,37 @@ simulate_screening_L <- function(m_patients,
       fl_positive = rbinom(
         .N,
         size = 1,
-        prob = p_sens
+        prob = l_test_chars[[modality]][["p_sens"]][["L"]]
+      )), by = modality]
+    
+    #### Apply downstream effect of positive result depending on test type (direct, targeted, indirect) ####
+    ### If test is direct, positive lesions are detected and removed
+    m_lesions[fl_present == 1 & fl_positive == 1 & modality %in% l_test_types[["direct"]], `:=` (fl_removed = 1)]
+    
+    ### If test is targeted, apply confirmatory tests to positive lesions only to sample whether they are removed
+    m_lesions[fl_present == 1 & fl_positive == 1 & modality %in% l_test_types[["targeted"]], `:=` (
+      fl_removed = rbinom(
+        .N,
+        size = 1,
+        prob = p_sens_conf
       ))]
     
-    # Apply downstream effect of positive result
-    if (is.null(mod_conf)) {
-      # If the screening test is also the confirmatory test, set positive lesions as detected/removed
-      m_lesions[fl_present == 1 & fl_positive == 1, `:=` (fl_removed = 1)]
-    } else {
-      # If there is a follow-on confirmatory test, apply confirmatory tests 
-      # based on whether test is applied to only positive lesions (targeted is TRUE) or 
-      # all present lesions if there is at least one positive lesion (targeted is FALSE)
-      if (l_test_chars[[mod]][["targeted"]]) { # Apply confirmatory tests to positive lesions only
-        # Sample whether positive lesions are removed
-        m_lesions[fl_present == 1 & fl_positive == 1, `:=` (
-          fl_removed = rbinom(
-            .N,
-            size = 1,
-            prob = p_sens_conf
-          ))]
-      } else { # Apply confirmatory tests to all lesions if at least one produces positive result
-        # Check whether any lesion led to positive screening test
-        m_detect <- m_lesion[fl_present == 1,
-                             .(fl_positive_any = max(fl_positive)),
-                             by = pt_id]
-        
-        # Merge positive screening test flag
-        m_lesion[m_detect, fl_positive_any := i.fl_positive_any]
-        
-        # Sample removal with confirmatory test
-        m_lesion[fl_present == 1 & fl_positive_any == 1,`:=` (
-          fl_removed = rbinom(
-            .N,
-            size = 1,
-            prob = p_sens_conf
-          ))]
-      }
-    }
+    ### If test is indirect (non-targeted), apply confirmatory tests to all lesions if at least one produces positive result
+    # Check whether any lesion led to positive screening test
+    m_detect <- m_lesion[fl_present == 1 & modality %in% l_test_types[["indirect"]],
+                         .(fl_positive_any = max(fl_positive)),
+                         by = pt_id]
+    
+    # Merge positive screening test flag
+    m_lesion[m_detect, fl_positive_any := i.fl_positive_any]
+    
+    # Sample removal with confirmatory test
+    m_lesion[fl_present == 1 & fl_positive_any == 1,`:=` (
+      fl_removed = rbinom(
+        .N,
+        size = 1,
+        prob = p_sens_conf
+      ))]
     
     # For removed lesions, set time to cancer onset to Inf, and set detection time
     m_lesions[fl_present == 1 & fl_removed == 1, `:=` (
@@ -621,6 +626,7 @@ simulate_screening_L <- function(m_patients,
     m_lesions_summary <- m_lesions[fl_screen == 1, 
                                    .(ct_eligible = sum(fl_present, na.rm = T), # Number of lesions present
                                      fl_positive = max(fl_positive, na.rm = T), # Whether any lesions produced a positive screen result
+                                     ct_removed = sum(fl_present == 1 & fl_removed == 1, na.rm = T), # Count number of lesions removed during screening round
                                      time_H_P = min(time_H_Pj, na.rm = T)), 
                                    by = pt_id]
     
@@ -628,7 +634,8 @@ simulate_screening_L <- function(m_patients,
     m_lesions_summary[ct_eligible == 0, fl_FP := rbinom(
       .N,
       size = 1,
-      prob = 1 - p_spec)]
+      prob = 1 - l_test_chars[[modality]][["p_spec"]]),
+      by = modality]
     
     ###### 2.3 Update screening data
     # Process positive and confirmatory test flags for merging
@@ -638,6 +645,8 @@ simulate_screening_L <- function(m_patients,
     } else {
       m_lesions_summary[, fl_test_conf := 0]
     }
+    
+    # Update surveillance status and modality
     
     # Set next screen time
     if (is.null(mod_conf)) {

@@ -39,9 +39,9 @@ list2env(l_filepaths_decision, envir = .GlobalEnv)
 
 ###### 2.2 Other parameters
 v_methods <- c(imabc = "IMABC", baycann = "BayCANN") # Calibration methods
-burden_multiplier <- 50 # Number of screening tests equivalent to cost of one diagnostic test
+test_cost <- c(confirm = 1, screen = 1/6) # Number of tests equivalent to cost of one diagnostic test
 x_var <- "time_total" # Variable for x-axis
-y_var <- "burden_total" # Variable for y-axis
+y_var <- "conf_burden_total" # Variable for y-axis
 x_int <- 200 # Interval for x-axis
 y_int <- 2000 # Interval for y-axis
 
@@ -53,6 +53,9 @@ df_intervals <- data.frame(
   scenario = names(params_screen$strats),
   modality = unname(sapply(names(params_screen$strats), function(u) {
     params_screen$strats[[u]]$mod
+  })),
+  modality_conf = unname(sapply(names(params_screen$strats), function(u) {
+    ifelse(is.null(params_screen$strats[[u]]$mod_conf), NA, params_screen$strats[[u]]$mod_conf)
   })),
   int_test = unname(sapply(names(params_screen$strats), function(u) {
     params_screen$strats[[u]]$int_screen
@@ -80,18 +83,23 @@ for (method in names(v_methods)) {
     l_outcomes[[method]] <- list()
     for (outcome in c(names(params_screen$l_outcome_base), names(params_screen$l_outcome_counterfactual))) {
       l_outcomes[[method]][[outcome]] <- list()
+      # Extract base scenario decision outputs to matrix
       if (outcome %in% names(l_outputs_raw[[method]][[1]][["outputs_base"]])) {
-        # Extract base scenario decision outputs to matrix
         m_outputs_base <- do.call(rbind, lapply(l_outputs_raw[[method]], function(u) {
           u[["outputs_base"]][[outcome]]
         }))
         
         # Save data
         l_outcomes[[method]][[outcome]][["base"]] <- m_outputs_base
+        
+        # Truncate length of weights (if unable to produce data for whole posterior)
+        if (length(l_wts[[method]]) > 1) {
+          l_wts[[method]] <- l_wts[[method]][1:nrow(m_outputs_base)]
+        }
       }
       
+      # Extract screening scenario decision outputs to matrix
       if (outcome %in% names(l_outputs_raw[[method]][[1]][["outputs_screen"]][[1]])) {
-        # Extract screening scenario decision outputs to matrix
         m_outputs_screen <- do.call(rbind, lapply(l_outputs_raw[[method]], function(u) {
           data.frame(scenario = names(u[["outputs_screen"]]),
                      do.call(rbind, lapply(names(u[["outputs_screen"]]), function(nm) {
@@ -104,46 +112,29 @@ for (method in names(v_methods)) {
       }
     }
     
-    # # Merge outcomes for plotting (LYG vs. test burden)
-    # l_outcomes[[method]][["plot_data"]] <- l_outcomes[[method]][["lyg"]][["screen"]] %>%
-    #   # Append weights
-    #   mutate(wt = rep(l_wts[[method]], each = n()/length(l_wts[[method]]))) %>%
-    #   # Merge base scenario N
-    #   mutate(N = rep(l_outcomes[[method]][["lifeyears"]][["base"]][, "N"],
-    #                  each = length(params_screen$strats))) %>%
-    #   # Merge base scenario screening burden
-    #   mutate(ct_tests_diag_C_base = rep(l_outcomes[[method]][["ntests"]][["base"]],
-    #                                     each = length(params_screen$strats))) %>%
-    #   # Merge screening test burden
-    #   bind_cols(l_outcomes[[method]][["ntests"]][["screen"]] %>%
-    #               dplyr::select(ct_tests_screen, ct_tests_diag_total)) %>%
-    #   # Normalize test count by population (LYG already normalized)
-    #   mutate(across(starts_with("ct_"), ~ . / N * unit)) %>%
-    #   mutate(ct_tests_diag_diff = ct_tests_diag_total - ct_tests_diag_C_base) %>%
-    #   mutate(burden_total = ct_tests_screen / burden_multiplier + ct_tests_diag_diff)
-    
     # Merge outcomes for plotting (LYG vs. test burden)
-    l_wts[["imabc"]] <- 1
-    n_strat <- nrow(l_outcomes[[method]][["lyg"]][["screen"]])/length(l_outcomes[[method]][["lifeyears"]][["base"]][, "N"])
     l_outcomes[[method]][["plot_data"]] <- l_outcomes[[method]][["lyg"]][["screen"]] %>%
       # Append weights
       mutate(wt = rep(l_wts[[method]], each = n()/length(l_wts[[method]]))) %>%
       # Merge base scenario N
       mutate(N = rep(l_outcomes[[method]][["lifeyears"]][["base"]][, "N"],
-                     each = n_strat)) %>%
+                     each = length(params_screen$strats))) %>%
       # Merge base scenario screening burden
       mutate(ct_tests_base = rep(l_outcomes[[method]][["ntests"]][["base"]],
-                                        each = n_strat)) %>%
+                                        each = length(params_screen$strats))) %>%
       # Merge screening test burden
       bind_cols(l_outcomes[[method]][["ntests"]][["screen"]] %>%
-                  dplyr::select(any_of(c("ct_tests_conf", "ct_tests_screen", "ct_tests_diag_total")))) %>%
-      rename(any_of(c(ct_tests_conf = "ct_tests_diag_total"))) %>%
+                  dplyr::select(ct_tests_screen, ct_tests_conf)) %>%
       # Normalize test count by population (LYG already normalized)
       mutate(across(starts_with("ct_"), ~ . / N * unit)) %>%
-      mutate(ct_tests_conf_diff = ct_tests_conf - ct_tests_base) %>%
-      mutate(burden_total = ct_tests_screen / burden_multiplier + ct_tests_conf_diff) %>%
       # Merge test interval
-      merge(df_intervals, by = "scenario")
+      merge(df_intervals, by = "scenario") %>%
+      # Consolidate final test burden variables for confirmatory vs. screening test 
+      # (regardless of whether confirmatory was primary screening or not)
+      mutate(ct_tests_conf_final = ct_tests_conf + ifelse(modality == "confirm", ct_tests_screen, 0),
+             ct_tests_screen_final =  ifelse(modality == "screen", ct_tests_screen, 0)) %>%
+      mutate(ct_tests_conf_diff = ct_tests_conf_final - ct_tests_base) %>%
+      mutate(conf_burden_total = ct_tests_screen_final * test_cost["screen"] + ct_tests_conf_diff * test_cost["confirm"])
   }
 }
 
@@ -165,7 +156,7 @@ df_plot$method <- factor(df_plot$method, levels = v_methods)
 df_plot_mean <- df_plot %>%
   group_by(method, scenario, modality, int_test) %>%
   summarise(time_total = weighted.mean(time_total, wt),
-            burden_total = weighted.mean(burden_total, wt), 
+            conf_burden_total = weighted.mean(conf_burden_total, wt), 
             .groups = "drop")
 
 # Plot number of tests against life years gained across strategies
