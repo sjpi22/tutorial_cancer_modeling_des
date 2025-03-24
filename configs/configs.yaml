@@ -202,6 +202,24 @@ params_screen:
       lit_params:
         censor_var: "time_screen_censor"
         age_min: 40
+    dwell_time:
+      outcome_type: "dwell_time"
+      get_params:
+        m_patients: "m_patients"
+      lit_params:
+        start_var: "time_H_L"
+        end_var: "time_H_P"
+        event_var: "time_H_P"
+        censor_var: "time_H_D"
+    sojourn_time:
+      outcome_type: "dwell_time"
+      get_params:
+        m_patients: "m_patients"
+      lit_params:
+        start_var: "time_H_P"
+        end_var: "time_H_C"
+        event_var: "time_H_C"
+        censor_var: "time_H_D"
   l_outcome_counterfactual: # Outcomes comparing screening and no-screening scenarios
     lyg:
       outcome_type: "lyg"
@@ -226,7 +244,7 @@ params_screen:
         params:
           shape1: 100
           shape2: 0
-      type: "targeted"
+      type: "direct"
     screen:
       d_p_sens:
         L:
@@ -312,3 +330,9 @@ params_screen:
       int_screen: 30
       mod_conf: "confirm"
       int_conf: 30
+  surveil: # Surveillance regimen
+    mod: "confirm"
+    age_surveil_stop: 76
+    n_detected: [3, 1]
+    int_surveil: [3, 7]
+    mod_conf: ~

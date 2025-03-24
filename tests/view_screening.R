@@ -37,7 +37,8 @@ list2env(l_filepaths, envir = .GlobalEnv)
 list2env(configs$params_coverage, envir = .GlobalEnv)
 
 # Other parameters
-strat <- c(2, 8) # Screening strategy/strategies to run
+strat <- c(1, 7) # Screening strategy/strategies to run
+strat <- c(7) # Screening strategy/strategies to run
 paramset <- 1 # Parameter set(s) to run
 
 #### 3. Pre-processing actions  ===========================================
@@ -58,7 +59,8 @@ l_params_calib$l_params_outcome <- params_screen$l_outcome_base
 
 # Set screening test and strategy parameters
 l_params_screen <- list(test_chars = params_screen$test_chars,
-                        strats = params_screen$strats[strat])
+                        strats = params_screen$strats[strat],
+                        surveil = params_screen$surveil)
 
 # Set counterfactual comparison parameters
 l_params_outcome_counter <- params_screen$l_outcome_counterfactual

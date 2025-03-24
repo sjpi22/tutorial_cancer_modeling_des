@@ -56,7 +56,8 @@ l_params_outcome_base <- c(l_params_calib$l_params_outcome,
 
 # Set screening test and strategy parameters
 l_params_screen <- list(test_chars = params_screen$test_chars,
-                        strats = params_screen$strats)
+                        strats = params_screen$strats,
+                        surveil = params_screen$surveil)
 
 # Set screening outcome parameters
 l_params_outcome_screen <- params_screen$l_outcome_base

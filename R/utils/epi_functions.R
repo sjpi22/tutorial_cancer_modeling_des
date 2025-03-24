@@ -365,11 +365,12 @@ calc_lifeyears <- function(
 # Calculate mean dwell time (can also be used to calculate mean sojourn time, which is done by default)
 calc_dwell_time <- function(
     m_patients, 
-    mean_var = "time_P_C",
+    start_var = "time_H_P",
+    end_var = "time_H_C",
     event_var = "time_H_C",
     censor_var = "time_H_D"
 ) {
   # Get mean sojourn time among people diagnosed with cancer in lifetime
-  res <- m_patients[get(event_var) < get(censor_var), mean(get(mean_var))]
+  res <- m_patients[get(event_var) < get(censor_var), mean(get(end_var) - get(start_var))]
   return(res)
 }
