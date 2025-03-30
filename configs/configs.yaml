@@ -245,6 +245,7 @@ params_screen:
           shape1: 100
           shape2: 0
       type: "direct"
+      cost_ratio: 1
     screen:
       d_p_sens:
         L:
@@ -263,6 +264,7 @@ params_screen:
           shape1: 840
           shape2: 160
       type: "indirect"
+      cost_ratio: 0.2
   strats: # Screening test strategies 
     strategy_c_int5:
       mod: "confirm"
@@ -332,7 +334,6 @@ params_screen:
       int_conf: 30
   surveil: # Surveillance regimen
     mod: "confirm"
-    age_surveil_stop: 76
     n_detected: [3, 1]
     int_surveil: [3, 7]
     mod_conf: ~

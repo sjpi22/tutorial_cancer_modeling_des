@@ -677,7 +677,7 @@ simulate_screening_L <- function(m_patients,
     }
     
     ### If test is targeted, apply confirmatory tests only to positive lesions to sample whether they are removed
-    if ("targeted" %in% names(l_test_types)) {
+    if ("targeted" %in% names(l_test_types) & m_lesions[fl_present == 1 & fl_positive == 1 & modality %in% l_test_types[["targeted"]], .N] > 0) {
       m_lesions[fl_present == 1 & fl_positive == 1 & modality %in% l_test_types[["targeted"]], `:=` (
         fl_conf = 1,
         fl_removed = rbinom(
@@ -685,6 +685,7 @@ simulate_screening_L <- function(m_patients,
           size = 1,
           prob = l_test_chars[[v_mod_conf[screen_type]]][["p_sens"]][["L"]]
         )), by = screen_type]
+      # print("targeted")
     }
     
     ### If test is indirect (non-targeted), apply confirmatory tests to all lesions if at least one produces positive result
@@ -705,6 +706,7 @@ simulate_screening_L <- function(m_patients,
           size = 1,
           prob = l_test_chars[[v_mod_conf[screen_type]]][["p_sens"]][["L"]]
         )), by = screen_type]
+      # print("indirect")
     }
     
     # For removed lesions, set time to cancer onset to Inf, and set detection time
@@ -916,14 +918,17 @@ simulate_screening_P <- function(m_patients,
     
     ### If test is targeted or indirect, apply confirmatory test to sample whether it is detected
     if ("targeted" %in% names(l_test_types) | "indirect" %in% names(l_test_types)) {
-      m_patients[!is.na(screen_age) & fl_positive == 1 & modality %in% unlist(l_test_types[c("targeted", "indirect")]), `:=` (
-        fl_conf = 1,
-        modality_conf = v_mod_conf[screen_type],
-        fl_detected = rbinom(
-          .N,
-          size = 1,
-          prob = l_test_chars[[v_mod_conf[screen_type]]][["p_sens"]][["P"]]
-        )), by = screen_type]
+      if (m_patients[!is.na(screen_age) & fl_positive == 1 & modality %in% unlist(l_test_types[c("targeted", "indirect")]), .N] > 0) {
+        m_patients[!is.na(screen_age) & fl_positive == 1 & modality %in% unlist(l_test_types[c("targeted", "indirect")]), `:=` (
+          fl_conf = 1,
+          modality_conf = v_mod_conf[screen_type],
+          fl_detected = rbinom(
+            .N,
+            size = 1,
+            prob = l_test_chars[[v_mod_conf[screen_type]]][["p_sens"]][["P"]]
+          )), by = screen_type]
+      }
+      # print("confirm")
     }
     
     # Add primary modality counts and delete flags

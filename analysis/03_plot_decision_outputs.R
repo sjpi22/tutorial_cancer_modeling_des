@@ -29,6 +29,9 @@ source("configs/process_configs.R")
 # Extract relevant parameters from configs
 params_screen <- configs$params_screen
 unit <- params_screen$l_outcome_counterfactual$lyg$lit_params$unit # Unit for plotting outcomes
+test_cost <- sapply(params_screen$test_chars, function(u) { # Number of tests equivalent to cost of one confirmatory test
+  u[["cost_ratio"]]
+})
 plt_size_text <- configs$params_coverage$plt_size_text # Plot text size
 
 # Get list of output file paths
@@ -39,14 +42,18 @@ list2env(l_filepaths_decision, envir = .GlobalEnv)
 
 ###### 2.2 Other parameters
 v_methods <- c(imabc = "IMABC", baycann = "BayCANN") # Calibration methods
-test_cost <- c(confirm = 1, screen = 1/6) # Number of tests equivalent to cost of one diagnostic test
+base_test <- "confirm" # Assign name of base test (for diagnosing symptom-detected cases)
 x_var <- "time_total" # Variable for x-axis
-y_var <- "conf_burden_total" # Variable for y-axis
+y_var <- "test_burden" # Variable for y-axis
 x_int <- 200 # Interval for x-axis
 y_int <- 2000 # Interval for y-axis
 
 
 #### 3. Pre-processing actions  ===========================================
+
+# Extend base costs
+test_cost["base"] <- -test_cost[base_test] # For subtracting cost of base test in non-screening scenario
+test_cost["base_cf"] <- test_cost[base_test] # For adding cost of base test in screening scenario
 
 # Get screening interval associated with each strategy
 df_intervals <- data.frame(
@@ -67,7 +74,7 @@ l_wts <- list()
 l_posteriors_imabc <- readRDS(l_filepaths_imabc$file_posterior)
 l_wts[["imabc"]] <- l_posteriors_imabc$good_parm_draws$sample_wt
 
-# Use placeholder weights for BayCANN
+# Use uniform weight for BayCANN
 l_wts[["baycann"]] <- 1
 
 # Load IMABC and BayCANN decision outputs if they exist
@@ -102,9 +109,11 @@ for (method in names(v_methods)) {
       if (outcome %in% names(l_outputs_raw[[method]][[1]][["outputs_screen"]][[1]])) {
         m_outputs_screen <- do.call(rbind, lapply(l_outputs_raw[[method]], function(u) {
           data.frame(scenario = names(u[["outputs_screen"]]),
-                     do.call(rbind, lapply(names(u[["outputs_screen"]]), function(nm) {
-                       u[["outputs_screen"]][[nm]][[outcome]]
-                     })))
+                     do.call(rbindlist, list(l = lapply(names(u[["outputs_screen"]]), function(nm) {
+                       data.frame(t(u[["outputs_screen"]][[nm]][[outcome]]))
+                     }),
+                     use.names = TRUE,
+                     fill = TRUE)))
         }))
         
         # Save data
@@ -124,17 +133,16 @@ for (method in names(v_methods)) {
                                         each = length(params_screen$strats))) %>%
       # Merge screening test burden
       bind_cols(l_outcomes[[method]][["ntests"]][["screen"]] %>%
-                  dplyr::select(ct_tests_screen, ct_tests_conf)) %>%
+                  dplyr::select(starts_with("ct_tests_")) %>%
+                  rename(c(ct_tests_base_cf = "ct_tests_base"))) %>%
       # Normalize test count by population (LYG already normalized)
       mutate(across(starts_with("ct_"), ~ . / N * unit)) %>%
       # Merge test interval
       merge(df_intervals, by = "scenario") %>%
-      # Consolidate final test burden variables for confirmatory vs. screening test 
-      # (regardless of whether confirmatory was primary screening or not)
-      mutate(ct_tests_conf_final = ct_tests_conf + ifelse(modality == "confirm", ct_tests_screen, 0),
-             ct_tests_screen_final =  ifelse(modality == "screen", ct_tests_screen, 0)) %>%
-      mutate(ct_tests_conf_diff = ct_tests_conf_final - ct_tests_base) %>%
-      mutate(conf_burden_total = ct_tests_screen_final * test_cost["screen"] + ct_tests_conf_diff * test_cost["confirm"])
+      setDT()
+    
+    # Calculate final test cost variable
+    l_outcomes[[method]][["plot_data"]][, test_burden := rowSums(mapply(`*`, .SD, test_cost), na.rm = TRUE), .SDcols = paste0("ct_tests_", names(test_cost))]
   }
 }
 
@@ -156,7 +164,7 @@ df_plot$method <- factor(df_plot$method, levels = v_methods)
 df_plot_mean <- df_plot %>%
   group_by(method, scenario, modality, int_test) %>%
   summarise(time_total = weighted.mean(time_total, wt),
-            conf_burden_total = weighted.mean(conf_burden_total, wt), 
+            test_burden = weighted.mean(test_burden, wt), 
             .groups = "drop")
 
 # Plot number of tests against life years gained across strategies

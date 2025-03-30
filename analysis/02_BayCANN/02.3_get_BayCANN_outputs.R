@@ -66,7 +66,9 @@ l_params_outcome_screen <- params_screen$l_outcome_base
 l_params_outcome_counter <- params_screen$l_outcome_counterfactual
 
 # Set seed
-set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG")
+seed <- l_params_calib$l_params_model$seed
+set.seed(seed, kind = "L'Ecuyer-CMRG")
+l_params_calib$l_params_model$seed <- NULL
 
 # Set number of cores to use
 registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)

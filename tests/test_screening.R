@@ -40,6 +40,7 @@ list2env(configs$params_coverage, envir = .GlobalEnv)
 
 # Other parameters
 file_times <- "tests/test_screening_data.xlsx"
+nreps_var <- 100 # Replicates for testing variation
 
 
 #### 3. Pre-processing  ===========================================
@@ -170,9 +171,9 @@ test_that("Match expected number of total screens for non-lesion cancer", {
 # Test screening during lesion state
 test_that("Match expected number of screens in lesion state", {
   dx <- "L"
-  # 1 - gold standard test, 2 - screening test
+  # With and without surveillance
   for (survstrat in c("nosurv", "surv")) {
-    # Equality with (L) or without (P) precancerous lesion state
+    # 1 - gold standard test, 2 - screening test
     for (strat in 1:2) {
       # Create copy of data
       m_patient_screen <- copy(m_patient_base)
@@ -214,23 +215,87 @@ test_that("Match expected number of screens in lesion state", {
 })
 
 
-### Test for lesion
-# Load model parameters
-# l_params_init <- load_model_params(
-#   lesion_state = TRUE
-# )
-# 
-# l_params_init$d_time_H_L$params = list(shape = 2, scale = 75)
-# 
-# # Generate sample data
-# res <- run_base_model(l_params_init)
-# 
-# run_screening_counterfactual(    age_screen_start = 45,
-#                                  age_screen_end = 75,
-#                                  int_screen = 10,
-#                                  p_sens = list(L = 0.7,
-#                                                P = 0.9),
-#                                  p_spec = 0.95,
-#                                  l_params_all = l_params_init,
-#                                  m_times = res$patient_level,
-#                                  m_lesion = res$lesion_level)
+# Test variation of screening
+test_that("Match expected number of screens with variation", {
+  # Stack copies of patient and lesion data
+  m_patient_rep <- do.call(rbind, replicate(nreps_var, m_patient_base[,.SD, .SDcols = !patterns("ct_|purpose")], simplify=FALSE))
+  m_lesion_rep <- do.call(rbind, replicate(nreps_var, m_lesion_base[,.SD, .SDcols = !patterns("ct_|purpose")], simplify=FALSE))
+  
+  # Save original patient ID and update patient IDs to be unique
+  m_patient_rep$pt_id_orig <- m_patient_rep$pt_id
+  m_lesion_rep$pt_id_orig <- m_lesion_rep$pt_id
+  m_patient_rep$pt_id <- m_patient_rep$pt_id + nrow(m_patient_base)*rep(seq(0, nreps_var-1), each = nrow(m_patient_base))
+  m_lesion_rep$pt_id <- m_lesion_rep$pt_id + nrow(m_patient_base)*rep(seq(0, nreps_var-1), each = nrow(m_lesion_base))
+
+  # Set patient ID as key
+  setkey(m_patient_rep, pt_id)
+  setkey(m_lesion_rep, pt_id)
+  
+  # For cancer with and without lesion state
+  for (dx in c("L", "P")) {
+    # Set model parameters
+    if (dx == "L") {
+      l_params_model_temp <- l_params_calib$l_params_model
+    } else {
+      l_params_model_temp <- modifyList(l_params_calib$l_params_model, list(v_states = c("H", "P", "C", "D")))
+    }
+    
+    # With and without surveillance
+    for (survstrat in c("nosurv", "surv")) {
+      # Skip surveillance for preclinical
+      if (dx == "P" & survstrat == "surv") next
+      
+      # 1 - gold standard test, 2 - screening test
+      for (strat in 1:2) {
+        # Create copy of data
+        m_patient_screen <- copy(m_patient_rep)
+        m_lesion_screen <- copy(m_lesion_rep)
+        
+        # Combine with lesion data
+        m_cohort <- list(patient_level = m_patient_screen,
+                         lesion_level = m_lesion_screen)
+        
+        # Set surveillance parameters
+        if (survstrat == "nosurv") {
+          params_surv <- NULL
+        } else {
+          params_surv <- l_params_screen$surveil
+        }
+        
+        # Run screening with no surveillance
+        run_screening_counterfactual(m_cohort,
+                                     l_params_model = l_params_model_temp,
+                                     l_params_strategy = l_params_screen$strats[[strat]],
+                                     l_params_test = params_screen$test_chars, # Original distributions for screening parameters
+                                     l_params_surveil = params_surv)
+        
+        # Consolidate results at original patient ID level
+        ct_cols <- grep("ct_tests_", names(m_patient_screen), value = TRUE)
+        m_patient_summ <- m_patient_screen[, (ct_cols) := lapply(.SD, mean),
+                                           .SDcols = ct_cols,
+                                           by = pt_id_orig]
+        
+        # Set label for variable in Excel
+        if (dx == "L") {
+          label_var <- paste(strat, survstrat, sep = "_")
+        } else {
+          label_var <- strat
+        }
+        
+        # Screening test count
+        if (strat == 1) {
+          expect_equal("ct_tests_screen" %in% names(m_patient_screen), FALSE)
+        } else {
+          expect_equal(m_patient_screen[, get(paste("ct", label_var, "s", dx, sep = "_"))], m_patient_screen[, ct_tests_screen])
+        }
+        
+        # Confirmatory and base tests
+        expect_equal(m_patient_screen[, get(paste("ct", label_var, "c", dx, sep = "_"))], m_patient_screen[, ct_tests_confirm])
+        expect_equal(m_patient_screen[, get(paste("ct", label_var, "b", dx, sep = "_"))], m_patient_screen[, ct_tests_base])
+        
+        # Detection time
+        expect_equal(m_cohort$lesion_level[[paste("test", label_var, "time_detected", sep = "_")]], m_cohort$lesion_level$time_detected)
+      }
+    }
+  }
+})

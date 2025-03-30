@@ -65,7 +65,9 @@ l_params_screen <- list(test_chars = params_screen$test_chars,
 l_params_outcome_counter <- params_screen$l_outcome_counterfactual
 
 # Set seed
-set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG")
+seed <- l_params_calib$l_params_model$seed
+set.seed(seed, kind = "L'Ecuyer-CMRG")
+l_params_calib$l_params_model$seed <- NULL
 
 # Set number of cores to use
 if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) {
