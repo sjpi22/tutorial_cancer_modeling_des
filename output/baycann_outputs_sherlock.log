@@ -43,12 +43,7 @@ visible FALSE                                FALSE
         R/utils/data_processing.R R/utils/distr_empirical.R
 value   ?                         ?                        
 visible FALSE                     FALSE                    
-        R/utils/epi_functions.R R/utils/query_distr.R
-value   ?                       ?                    
-visible FALSE                   FALSE                
-Warning message:
-In readLines(file, warn = readLines.warn) :
-  incomplete final line found on 'configs/configs.yaml'
+        R/utils/epi_functions.R R/utils/query_distr.R R/utils/sum_of_cdfs.R
+value   ?                       ?                     ?                    
+visible FALSE                   FALSE                 FALSE                
 <environment: R_GlobalEnv>
-      user     system    elapsed 
-105305.150    381.173  13264.329 
