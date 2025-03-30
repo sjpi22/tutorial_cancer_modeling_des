@@ -264,7 +264,7 @@ params_screen:
           shape1: 840
           shape2: 160
       type: "indirect"
-      cost_ratio: 0.2
+      cost_ratio: 0.1
   strats: # Screening test strategies 
     strategy_c_int5:
       mod: "confirm"

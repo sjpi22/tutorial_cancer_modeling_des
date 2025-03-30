@@ -174,7 +174,13 @@ plt_outcomes <- ggplot(df_plot,
             aes(linetype = factor(modality)),
             linewidth = 1, color = "gray") +
   geom_point(aes(color = factor(int_test)), 
-             alpha = 0.3, size = 1) +
+             alpha = 0.2, size = 1) +
+  geom_point(data = df_plot_mean,
+             aes(shape = factor(modality),
+                 fill = factor(int_test)),
+             color = "black",
+             size = 2) +
+  scale_shape_manual(values=21:22) +
   facet_grid(~method) +
   labs(x = paste0("LYG per ", scales::label_comma()(unit)), 
        y = paste0("Additional confirmatory test burden per ", scales::label_comma()(unit)),

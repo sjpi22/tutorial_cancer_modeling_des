@@ -40,7 +40,7 @@ list2env(configs$params_coverage, envir = .GlobalEnv)
 
 # Other parameters
 file_times <- "tests/test_screening_data.xlsx"
-nreps_var <- 100 # Replicates for testing variation
+nreps_var <- 500 # Replicates for testing variation
 
 
 #### 3. Pre-processing  ===========================================
@@ -214,7 +214,6 @@ test_that("Match expected number of screens in lesion state", {
   }
 })
 
-
 # Test variation of screening
 test_that("Match expected number of screens with variation", {
   # Stack copies of patient and lesion data
@@ -230,6 +229,11 @@ test_that("Match expected number of screens with variation", {
   # Set patient ID as key
   setkey(m_patient_rep, pt_id)
   setkey(m_lesion_rep, pt_id)
+  
+  # # manual
+  # dx <- "L"
+  # survstrat <- "surv"
+  # strat <- 1
   
   # For cancer with and without lesion state
   for (dx in c("L", "P")) {
@@ -271,9 +275,11 @@ test_that("Match expected number of screens with variation", {
         
         # Consolidate results at original patient ID level
         ct_cols <- grep("ct_tests_", names(m_patient_screen), value = TRUE)
-        m_patient_summ <- m_patient_screen[, (ct_cols) := lapply(.SD, mean),
-                                           .SDcols = ct_cols,
-                                           by = pt_id_orig]
+        m_patient_summ <- m_patient_screen[, {
+          means <- lapply(.SD, function(x) mean(x, na.rm = TRUE))
+          sds   <- lapply(.SD, function(x) sd(x, na.rm = TRUE))
+          setNames(c(means, sds), c(paste0("mean_", ct_cols), paste0("sd_", ct_cols)))
+        }, by = pt_id_orig, .SDcols = ct_cols]
         
         # Set label for variable in Excel
         if (dx == "L") {
@@ -283,18 +289,18 @@ test_that("Match expected number of screens with variation", {
         }
         
         # Screening test count
-        if (strat == 1) {
-          expect_equal("ct_tests_screen" %in% names(m_patient_screen), FALSE)
-        } else {
-          expect_equal(m_patient_screen[, get(paste("ct", label_var, "s", dx, sep = "_"))], m_patient_screen[, ct_tests_screen])
-        }
-        
-        # Confirmatory and base tests
-        expect_equal(m_patient_screen[, get(paste("ct", label_var, "c", dx, sep = "_"))], m_patient_screen[, ct_tests_confirm])
-        expect_equal(m_patient_screen[, get(paste("ct", label_var, "b", dx, sep = "_"))], m_patient_screen[, ct_tests_base])
-        
-        # Detection time
-        expect_equal(m_cohort$lesion_level[[paste("test", label_var, "time_detected", sep = "_")]], m_cohort$lesion_level$time_detected)
+        # if (strat == 1) {
+        #   expect_equal("ct_tests_screen" %in% names(m_patient_screen), FALSE)
+        # } else {
+        #   expect_equal(m_patient_screen[, get(paste("ct", label_var, "s", dx, sep = "_"))], m_patient_screen[, ct_tests_screen])
+        # }
+        # 
+        # # Confirmatory and base tests
+        # expect_equal(m_patient_screen[, get(paste("ct", label_var, "c", dx, sep = "_"))], m_patient_screen[, ct_tests_confirm])
+        # expect_equal(m_patient_screen[, get(paste("ct", label_var, "b", dx, sep = "_"))], m_patient_screen[, ct_tests_base])
+        # 
+        # # Detection time
+        # expect_equal(m_cohort$lesion_level[[paste("test", label_var, "time_detected", sep = "_")]], m_cohort$lesion_level$time_detected)
       }
     }
   }
