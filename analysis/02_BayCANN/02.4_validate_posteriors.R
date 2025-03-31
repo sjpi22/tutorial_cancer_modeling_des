@@ -55,6 +55,13 @@ df_targets <- l_params_calib$df_target %>%
   mutate(categorical = (target_groups %in% c(l_params_calib$v_outcomes_categorical) | n()==1))
 df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
 
+# Calculate quantiles and column labels from inner quantile vector
+v_quantiles_lb <- (1 - v_quantiles/100)/2
+names(v_quantiles_lb) <- paste0("model_LB_", v_quantiles)
+v_quantiles_ub <- (1 + v_quantiles/100)/2
+names(v_quantiles_ub) <- paste0("model_UB_", v_quantiles)
+v_quantiles_calc <- sort(c(v_quantiles_lb, v_quantiles_ub))
+
 
 #### 4. Plots ===========================================
 
@@ -65,13 +72,6 @@ m_outputs <- do.call(rbind, lapply(l_outputs, function(u) {
 
 # Calculate mean of outputs
 df_targets$model_mean <- colMeans(m_outputs)
-
-# Calculate quantiles and column labels from inner quantile vector
-v_quantiles_lb <- (1 - v_quantiles/100)/2
-names(v_quantiles_lb) <- paste0("model_LB_", v_quantiles)
-v_quantiles_ub <- (1 + v_quantiles/100)/2
-names(v_quantiles_ub) <- paste0("model_UB_", v_quantiles)
-v_quantiles_calc <- sort(c(v_quantiles_lb, v_quantiles_ub))
 
 # Get quantiles of calibration outputs
 m_output_quantiles <- t(apply(m_outputs, 2, function(u) {

@@ -39,6 +39,9 @@ list2env(l_filepaths, envir = .GlobalEnv)
 # Load coverage analysis parameters from configs file
 list2env(configs$params_coverage, envir = .GlobalEnv)
 
+###### 2.2 Other parameters
+n_mc_reps <- 30 # Number of repetitions for Monte Carlo error analysis
+
 
 #### 3. Pre-processing actions  ===========================================
 
@@ -48,10 +51,11 @@ l_params_calib <- readRDS(file_params_calib)
 # Set flag to count diagnostic tests in base case scenario
 l_params_calib$l_params_model$fl_count_tests <- TRUE
 
-# Load IMABC posteriors
+# Load IMABC posteriors and weights
 l_posteriors <- readRDS(file_posterior)
 m_params <- l_posteriors$good_parm_draws %>%
   dplyr::select(l_params_calib$prior_map$var_id)
+v_wt <- l_posteriors$good_parm_draws$sample_wt
 
 # Set decision outcome parameters
 l_params_calib$l_params_outcome <- params_screen$l_outcome_base
@@ -84,7 +88,56 @@ if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) {
 print(paste("# parallel workers:", getDoParWorkers())) 
 
 
-#### 4. Generate IMABC outputs  ===========================================
+#### 4. Cohort size calculations   ===========================================
+
+# Define model parameters with posterior set associated with highest weight
+l_params_model_mc <- update_param_from_map(l_params_calib$l_params_model, 
+                                           m_params[which(v_wt == max(v_wt)), ],
+                                           l_params_calib$prior_map)
+l_params_model_mc$n_cohort <- 1000000
+
+# Subset to one screening strategy
+l_params_screen_mc <- l_params_screen
+l_params_screen_mc$strats <- l_params_screen_mc$strats[1]
+
+# Get Monte Carlo error for one screening strategy
+stime_mc <- system.time({
+  l_res_mc <- foreach(
+    i=1:n_mc_reps, 
+    .combine=c, 
+    .inorder=FALSE, 
+    .packages=c("data.table","tidyverse")) %dopar% {
+      # Calculate outputs in any order
+      l_calib_outputs <- with(l_params_calib, {
+        params_to_outputs(
+          l_params_model = l_params_model_mc,
+          l_params_outcome = l_params_outcome,
+          l_params_screen = l_params_screen_mc,
+          l_params_outcome_counter = l_params_outcome_counter,
+          l_censor_vars = l_censor_vars,
+          reshape_output = FALSE
+        )
+      })
+      # Call item to save
+      list(l_calib_outputs)
+    }
+})
+print(stime_mc)
+
+# Get vector of LYG
+v_outcome_mc <- sapply(l_res_mc, function(x) x[["outputs_screen"]][[1]][["lyg"]])
+
+# Calculate SD of LYG
+sd_mc <- sd(v_outcome_mc)
+
+# Calculate cohort size required to meet goal SD
+n_final <- ceiling((sd_mc^2) / (goal_sd^2) * l_params_model_mc$n_cohort)
+
+# Update calibration parameters
+l_params_calib$l_params_model$n_cohort <- n_final
+
+
+#### 5. Generate IMABC outputs  ===========================================
 
 # Run model for each input parameter sample and get corresponding targets
 stime <- system.time({
