@@ -12,6 +12,7 @@ options(scipen = 999) # View data without scientific notation
 library(tidyverse)
 library(data.table)
 library(patchwork)
+library(ggdist)
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 
@@ -33,6 +34,7 @@ test_cost <- sapply(params_screen$test_chars, function(u) { # Number of tests eq
   u[["cost_ratio"]]
 })
 plt_size_text <- configs$params_coverage$plt_size_text # Plot text size
+v_quantiles <- configs$params_coverage$v_quantiles
 
 # Get list of output file paths
 l_filepaths_imabc <- update_config_paths("files_imabc", configs$paths)
@@ -41,12 +43,13 @@ l_filepaths_decision <- update_config_paths("files_decision", configs$paths)
 list2env(l_filepaths_decision, envir = .GlobalEnv)
 
 ###### 2.2 Other parameters
-v_methods <- c(imabc = "IMABC", baycann = "BayCANN") # Calibration methods
+v_methods <- c(imabc = "IMABC", baycann = "BayCANN", truth = "Truth") # Calibration methods to evaluate (include "truth" if evaluating against a ground truth)
 base_test <- "confirm" # Assign name of base test (for diagnosing symptom-detected cases)
 x_var <- "time_total" # Variable for x-axis
 y_var <- "test_burden" # Variable for y-axis
 x_int <- 200 # Interval for x-axis
 y_int <- 2000 # Interval for y-axis
+l_filepaths_truth <- list(file_outputs = file.path("_ground_truth", "true_decision_outputs.rds")) # Ground truth outputs
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -74,17 +77,24 @@ l_wts <- list()
 l_posteriors_imabc <- readRDS(l_filepaths_imabc$file_posterior)
 l_wts[["imabc"]] <- l_posteriors_imabc$good_parm_draws$sample_wt
 
-# Use uniform weight for BayCANN
-l_wts[["baycann"]] <- 1
+# Use uniform weight for BayCANN and truth
+l_wts[["baycann"]] <- l_wts[["truth"]] <- 1
 
-# Load IMABC and BayCANN decision outputs if they exist
+# Calculate quantiles and column labels from inner quantile vector
+v_quantiles_lb <- (1 - v_quantiles[2]/100)/2
+v_quantiles_ub <- (1 + v_quantiles[2]/100)/2
+v_quantiles_calc <- sort(c(v_quantiles_lb, v_quantiles_ub))
+
+# Load decision outputs if they exist
 l_outputs_raw <- list() # Vector for holding saved raw outputs
 l_outcomes <- list() # Vector for holding extracted outcomes
 for (method in names(v_methods)) {
   if (file.exists(get(paste0("l_filepaths_", method))$file_outputs)) {
     # Load data from file
     l_outputs_raw[[method]] <- readRDS(get(paste0("l_filepaths_", method))$file_outputs)
-    l_outputs_raw[[method]] <- l_outputs_raw[[method]]$l_outputs
+    if ("l_outputs" %in% names(l_outputs_raw[[method]])) {
+      l_outputs_raw[[method]] <- l_outputs_raw[[method]]$l_outputs
+    }
     
     # Loop over outcome types to extract data
     l_outcomes[[method]] <- list()
@@ -147,8 +157,9 @@ for (method in names(v_methods)) {
 }
 
 
-#### 4. Plots ===========================================
+#### 4. Plots and summary ===========================================
 
+###### 4.1 Decision outcomes
 # Combine plot dataframes and label methods
 df_plot <- data.frame()
 for (method in names(l_outcomes)) {
@@ -170,27 +181,32 @@ df_plot_mean <- df_plot %>%
 # Plot number of tests against life years gained across strategies
 plt_outcomes <- ggplot(df_plot, 
                        aes(x = get(x_var), y = get(y_var))) +
-  geom_line(data = df_plot_mean, 
-            aes(linetype = factor(modality)),
-            linewidth = 1, color = "gray") +
   geom_point(aes(color = factor(int_test)), 
              alpha = 0.2, size = 1) +
+  geom_line(data = df_plot_mean, 
+            aes(linetype = factor(modality)),
+            linewidth = 1, color = "darkgray") +
   geom_point(data = df_plot_mean,
              aes(shape = factor(modality),
                  fill = factor(int_test)),
              color = "black",
-             size = 2) +
-  scale_shape_manual(values=21:22) +
+             size = 3) +
+  scale_shape_manual(values = c(21, 24),
+                     name = "Screening \nmodality", 
+                     labels = c("Confirmatory", "Non-invasive")) +
   facet_grid(~method) +
   labs(x = paste0("LYG per ", scales::label_comma()(unit)), 
        y = paste0("Additional confirmatory test burden per ", scales::label_comma()(unit)),
        color = "Screening \ninterval (years)") +
+  scale_fill_discrete(guide = "none") +
   guides(color = guide_legend(override.aes = list(alpha = 1, size = 3)),
-         linetype = guide_legend(nrow = 2)) +
+         linetype = guide_legend(nrow = 2),
+         shape = guide_legend(nrow = 2)) +
   scale_x_continuous(labels = scales::comma) +
   scale_y_continuous(labels = scales::comma,
                      breaks = number_ticks(5)) +
-  scale_linetype_discrete(name = "Screening modality", labels = c("Confirmatory", "Non-invasive")) +
+  scale_linetype_discrete(name = "Screening \nmodality", 
+                          labels = c("Confirmatory", "Non-invasive")) +
   theme_bw(base_size = plt_size_text + 5) +
   theme(plot.title = element_text(size = plt_size_text, face = "bold"),
         axis.text.x = element_text(size = plt_size_text),
@@ -207,3 +223,37 @@ plt_outcomes
 
 # Save plot
 ggsave(file_fig_decision, plt_outcomes, width = 10, height = 8)
+
+###### 4.2 Dwell and sojourn time
+l_res_time <- list()
+for (method in names(v_methods)) {
+  for (outcome in c("dwell_time", "sojourn_time")) {
+    # Extract outcome
+    v_outcomes <- l_outcomes[[method]][[outcome]][["base"]]
+    
+    # Calculate mean and quantiles of outputs
+    if (length(l_wts[[method]]) == 1) {
+      mean_outcome <- mean(v_outcomes)
+      ci_outcome <- quantile(v_outcomes, probs = v_quantiles_calc)
+    } else {
+      mean_outcome <- weighted.mean(v_outcomes, w = l_wts[[method]])
+      ci_outcome <- weighted_quantile(
+        x = v_outcomes,
+        probs = v_quantiles_calc,
+        weights = l_wts[[method]]
+      )
+    }
+    
+    # Add to results list
+    l_res_time <- c(l_res_time, list(
+      list(method = method,
+           outcome = outcome,
+           mean = mean_outcome,
+           ci_lb = ci_outcome[1],
+           ci_ub = ci_outcome[2])))
+  }
+}
+
+# Convert list to data frame and save
+df_res_time <- rbindlist(l_res_time)
+write.csv(df_res_time, file_nathist, row.names = FALSE)

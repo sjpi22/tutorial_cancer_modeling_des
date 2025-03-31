@@ -46,7 +46,9 @@ paths:
       corr: "baycann_corr.png"
       prior_post: "baycann_prior_post.png"
       validation: "baycann_target_validation.png"
-  files_decision: # File names for decision outcome plots
+  files_decision: # File names for decision and intermediate outcomes
+    output:
+      nathist: "nathist_outputs.csv"
     figs:
       decision: "decision_outputs.png"
       

@@ -36,9 +36,6 @@ params_screen <- configs$params_screen
 l_filepaths <- update_config_paths("files_imabc", configs$paths)
 list2env(l_filepaths, envir = .GlobalEnv)
 
-# Load coverage analysis parameters from configs file
-list2env(configs$params_coverage, envir = .GlobalEnv)
-
 
 #### 3. Pre-processing actions  ===========================================
 
