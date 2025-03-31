@@ -47,4 +47,5 @@ visible FALSE                     FALSE
 value   ?                       ?                     ?                    
 visible FALSE                   FALSE                 FALSE                
 <environment: R_GlobalEnv>
-slurmstepd: error: *** JOB 62371576 ON sh02-01n54 CANCELLED AT 2025-03-30T07:17:59 DUE TO TIME LIMIT ***
+      user     system    elapsed 
+309237.664   1050.745  26025.618 
