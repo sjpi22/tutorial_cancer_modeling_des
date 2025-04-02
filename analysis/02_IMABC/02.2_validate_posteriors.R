@@ -52,9 +52,6 @@ calibration_outputs <- readRDS(file_posterior)
 m_params <- calibration_outputs$good_parm_draws %>%
   dplyr::select(l_params_calib$prior_map$var_id)
 
-m_params <- calibration_outputs$good_parm_draws %>%
-  dplyr::select(all_of(grep("d_", colnames(calibration_outputs$good_parm_draws), value = T)))
-
 # Extract unweighted calibration outputs
 imabc_targets_unweighted <- calibration_outputs$good_sim_target %>%
   dplyr::select(-c("iter", "draw", "step"))

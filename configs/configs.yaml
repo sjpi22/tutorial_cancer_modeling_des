@@ -51,6 +51,10 @@ paths:
       nathist: "nathist_outputs.csv"
     figs:
       decision: "decision_outputs.png"
+  files_tests: # File names for unit tests
+    figs:
+      prior_cdf: "test_prior_cdf.pdf"
+      prior_onset: "test_prior_onset.pdf"
       
 # Model parameters (inputs to load_model_params() in R/01_load_model_inputs.R)
 params_model:

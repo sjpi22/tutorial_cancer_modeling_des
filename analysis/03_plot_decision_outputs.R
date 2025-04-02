@@ -13,6 +13,7 @@ library(tidyverse)
 library(data.table)
 library(patchwork)
 library(ggdist)
+library(dampack)
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 
@@ -43,7 +44,7 @@ l_filepaths_decision <- update_config_paths("files_decision", configs$paths)
 list2env(l_filepaths_decision, envir = .GlobalEnv)
 
 ###### 2.2 Other parameters
-v_methods <- c(imabc = "IMABC", baycann = "BayCANN", truth = "Truth") # Calibration methods to evaluate (include "truth" if evaluating against a ground truth)
+v_methods <- c(truth = "Ground truth", imabc = "IMABC", baycann = "BayCANN") # Calibration methods to evaluate (include "truth" if evaluating against a ground truth)
 base_test <- "confirm" # Assign name of base test (for diagnosing symptom-detected cases)
 x_var <- "time_total" # Variable for x-axis
 y_var <- "test_burden" # Variable for y-axis
@@ -178,22 +179,71 @@ df_plot_mean <- df_plot %>%
             test_burden = weighted.mean(test_burden, wt), 
             .groups = "drop")
 
+# Restructure to plot ground truth average over other methods
+# if ("Ground truth" %in% df_plot$method) {
+#   # Remove ground truth from plot of all simulations
+#   df_plot <- df_plot %>%
+#     filter(method != "Ground truth")
+#   
+#   # Extract ground truth means
+#   df_plot_mean_truth <- df_plot_mean %>%
+#     filter(method == "Ground truth")
+#   
+#   # Remove ground truth from plot of all simulations and merge ground truth values
+#   df_plot_mean <- df_plot_mean %>%
+#     filter(method != "Ground truth") %>%
+#     merge(df_plot_mean_truth[, c("scenario", x_var, y_var)], by = "scenario", suffixes = c("", "_truth"))
+# }
+
+# Calculate cost-efficiency frontier for plotting
+df_plot_icer <- data.frame()
+for (method in unique(df_plot$method)) {
+  # Filter data to method
+  df_plot_mean_method <- df_plot_mean[df_plot_mean$method == method, ]
+
+  # Calculate ICERs for each method
+  df_plot_icer_method <- calculate_icers(
+    df_plot_mean_method$test_burden,
+    df_plot_mean_method$time_total,
+    df_plot_mean_method$scenario) %>%
+    mutate(method = method)
+
+  # Combine to full data frame
+  df_plot_icer <- rbind(df_plot_icer, df_plot_icer_method)
+}
+
+# Rename variables in ICER data frame
+colnames(df_plot_icer)[c(1:3, ncol(df_plot_icer))] <- c(colnames(df_plot_mean)[2], y_var, x_var, colnames(df_plot_mean)[1])
+
+# Merge test interval and modality
+df_plot_icer <- merge(df_plot_icer, df_intervals, by = "scenario")
+
 # Plot number of tests against life years gained across strategies
 plt_outcomes <- ggplot(df_plot, 
                        aes(x = get(x_var), y = get(y_var))) +
-  geom_point(aes(color = factor(int_test)), 
+  geom_point(aes(color = factor(int_test)), # Plot cloud of points simulated from posterior
              alpha = 0.2, size = 1) +
-  geom_line(data = df_plot_mean, 
-            aes(linetype = factor(modality)),
-            linewidth = 1, color = "darkgray") +
-  geom_point(data = df_plot_mean,
+  geom_line(data = df_plot_icer %>% # Plot cost-efficiency frontier
+              filter(Status == "ND"), # Keep only non-dominated strategies
+            color = "black",
+            linewidth = 1) +
+  geom_point(data = df_plot_mean, # Plot mean of each strategy
              aes(shape = factor(modality),
                  fill = factor(int_test)),
              color = "black",
-             size = 3) +
+             size = 3,
+             stroke = 1) +
+  # geom_point(data = df_plot_mean, # Plot true value for each strategy
+  #            aes(x = get(paste0(x_var, "_truth")),
+  #                y = get(paste0(y_var, "_truth"))),
+  #            color = "black",
+  #            alpha = 1,
+  #            shape = 8,
+  #            size = 3,
+  #            stroke = 1) +
   scale_shape_manual(values = c(21, 24),
                      name = "Screening \nmodality", 
-                     labels = c("Confirmatory", "Non-invasive")) +
+                     labels = c("Gold standard", "Non-invasive")) +
   facet_grid(~method) +
   labs(x = paste0("LYG per ", scales::label_comma()(unit)), 
        y = paste0("Additional confirmatory test burden per ", scales::label_comma()(unit)),
@@ -206,7 +256,7 @@ plt_outcomes <- ggplot(df_plot,
   scale_y_continuous(labels = scales::comma,
                      breaks = number_ticks(5)) +
   scale_linetype_discrete(name = "Screening \nmodality", 
-                          labels = c("Confirmatory", "Non-invasive")) +
+                          labels = c("Gold standard", "Non-invasive")) +
   theme_bw(base_size = plt_size_text + 5) +
   theme(plot.title = element_text(size = plt_size_text, face = "bold"),
         axis.text.x = element_text(size = plt_size_text),

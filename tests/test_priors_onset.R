@@ -40,6 +40,10 @@ ir_clinical <- function(x) {
 source("configs/process_configs.R")
 list2env(configs, envir = .GlobalEnv)
 
+# Get list of relevant output file paths and load to global environment
+l_filepaths <- update_config_paths("files_tests", configs$paths)
+list2env(l_filepaths, envir = .GlobalEnv)
+
 ###### 2.2 File paths
 path_truth <- "_ground_truth"
 file_distr <- file.path(path_truth, "true_params.xlsx")
@@ -323,6 +327,7 @@ for (val in v_cols) {
 }
 
 # Plot estimates against truth
+pdf(file_fig_prior_cdf, width = 6, height = 6)
 par(mfrow = c(1, 1))
 for (val in v_cols) {
   # Plot targets
@@ -394,10 +399,11 @@ if (params_model$lesion_state == T) {
 }
 
 legend("topleft",
-       legend = c(v_labs, "Estimated CDF", "Estimate CI", "True CDF", "Prevalence"), 
-       col = c(v_colors_plot, rep("black", 4)), pch = c(rep(0, length(v_labs)), 1, rep(NA, 3)),
+       legend = c(v_labs, "Estimated CDF", "CI of estimated CDF", "True CDF", "Prevalence"), 
+       col = c(v_colors_plot, rep("black", 4)), pch = c(rep(15, length(v_labs)), 1, rep(NA, 3)),
        lty = c(rep(NA, length(v_labs)), NA, 2, 1, 3),
        bty = "n", border = F)
+dev.off()
 
 ##### 4.3 Fit Weibull distribution to time to disease onset
 # Calculate Weibull x transformation
@@ -453,11 +459,18 @@ d_time_onset_est[[v_cols[3]]] <- list(distr = "weibull", params = list(shape = s
 d_time_onset_est[[v_cols[2]]] <- list(distr = "weibull", params = list(shape = shape_onset_ci[2], scale = scale_onset_ci[2]))
 
 # Plot true vs. fitted Weibull parameters
+pdf(file_fig_prior_onset, width = 6, height = 6)
 curve(pweibull(x, l_params_model[[paste0("d_", var_onset)]]$params$shape, l_params_model[[paste0("d_", var_onset)]]$params$scale), from = 0, to = 10,
       xlab = "Time to disease onset", ylab = "Density", main = "Weibull fit to disease onset data")
 lines(0:10, pweibull(0:10, shape_onset, scale_onset), col = "red")
 lines(0:10, pweibull(0:10, shape_onset_ci[1], scale_onset_ci[1]), col = "red", lty = 2)
 lines(0:10, pweibull(0:10, shape_onset_ci[2], scale_onset_ci[2]), col = "red", lty = 2)
+legend("topleft",
+       legend = c("True CDF", "Initial estimate of CDF", "Prior bound CDFs"), 
+       col = c("black", "red", "red"),
+       lty = c(1, 1, 2),
+       bty = "n", border = F)
+dev.off()
 
 ##### 4.4 Calculate time from lesion to cancer onset
 if (params_model$lesion_state == T) {
