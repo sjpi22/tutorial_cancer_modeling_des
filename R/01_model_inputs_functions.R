@@ -81,19 +81,8 @@ load_model_params <- function(
   if (!is.null(file.surv)) {
     df_surv <- load_surv_data(file.surv)
     for (i in unique(v_cancer_surv)) {
-      # Filter survival data to stage at diagnosis
-      temp_df_surv <- df_surv[df_surv$stage == i, ]
-      
-      # Calculate probability mass function from CDF
-      probs <- diff(temp_df_surv$pct_died)
-      probs <- c(probs, 1 - sum(probs))
-      
       # Create distribution data
-      l_d_time_C_Dc[[i]] <- list(distr = "empirical", 
-                                 params = list(xs = temp_df_surv$years_from_dx, 
-                                               probs = probs, 
-                                               max_x = max_age), 
-                                 src = "known")
+      l_d_time_C_Dc[[i]] <- set_surv_distr(df_surv, i, max_age)
     }
   } else {
     # If no survival file, create placeholder for true survival distribution 

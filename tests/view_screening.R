@@ -56,7 +56,7 @@ m_params <- l_posteriors$good_parm_draws %>%
   dplyr::select(l_params_calib$prior_map$var_id)
 
 # Set decision outcome parameters
-l_params_calib$l_params_outcome <- params_screen$l_outcome_base
+l_params_calib$l_params_outcome <- c(configs$params_calib$l_params_outcome, params_screen$l_outcome_base)
 
 # Set screening test and strategy parameters
 l_params_screen <- list(test_chars = params_screen$test_chars,

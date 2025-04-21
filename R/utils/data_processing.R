@@ -40,11 +40,11 @@ load_lifetables <- function(filepath) {
 }
 
 
-#' Set background mortality distribution for a specific year from a life table 
+#' Set background mortality distribution from a life table 
 #'
 #' \code{set_mort_distr} sets mortality distributions from a life table
 #'
-#' @param l_lifetables A list of life tables
+#' @param l_lifetables A list of life tables with columns age and p_death (probability of death in each age year)
 #' @param label Label for desired life table (default first table in list)
 #' 
 #' @return Distribution object with distribution type and parameters
@@ -89,6 +89,38 @@ load_surv_data <- function(
   surv_data <- read.csv(filepath) %>%
     mutate(pct_died = 1 - surv)
   return(surv_data)
+}
+
+
+#' Set relative survival distribution for a stage of cancer
+#'
+#' \code{set_surv_distr} sets relative survival distributions for a stage of cancer.
+#'
+#' @param df_surv Data frame with columns \code{years_from_dx} for years from
+#'   diagnosis, \code{pct_died} for cumulative percentage dead, and \code{stage}
+#'   for stage of cancer
+#' @param stage Stage of cancer
+#' @param max_age Maximum survival age
+#' 
+#' @return Distribution object with distribution type and parameters
+#' 
+#' @export
+# 
+set_surv_distr <- function(df_surv, stage, max_age) {
+  
+  # Filter survival data to stage at diagnosis
+  temp_df_surv <- df_surv[df_surv$stage == stage, ]
+  
+  # Calculate probability mass function from CDF
+  probs <- diff(temp_df_surv$pct_died)
+  probs <- c(probs, 1 - sum(probs))
+  
+  distr <- list(distr = "empirical", 
+                params = list(xs = temp_df_surv$years_from_dx, 
+                              probs = probs, 
+                              max_x = max_age), 
+                src = "known")
+  return(distr)
 }
 
 

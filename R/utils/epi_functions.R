@@ -89,6 +89,7 @@ calc_nlesions <- function(m_lesions, start_var, end_var, censor_var,
                           start_age, end_age, n_max = 3) {
   # Account for case of null data
   if (!is.null(m_lesions)) {
+    browser()
     # Convert data to lesion start and end events
     dt_events <- rbindlist(list(
       m_lesions[get(start_var) < pmin(get(censor_var), end_age), .(pt_id, event_time = pmax(get(start_var), start_age), delta = 1)],  # Start of lesion or eligible screening period

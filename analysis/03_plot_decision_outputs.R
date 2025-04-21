@@ -179,25 +179,16 @@ df_plot_mean <- df_plot %>%
             test_burden = weighted.mean(test_burden, wt), 
             .groups = "drop")
 
-# Restructure to plot ground truth average over other methods
-# if ("Ground truth" %in% df_plot$method) {
-#   # Remove ground truth from plot of all simulations
-#   df_plot <- df_plot %>%
-#     filter(method != "Ground truth")
-#   
-#   # Extract ground truth means
-#   df_plot_mean_truth <- df_plot_mean %>%
-#     filter(method == "Ground truth")
-#   
-#   # Remove ground truth from plot of all simulations and merge ground truth values
-#   df_plot_mean <- df_plot_mean %>%
-#     filter(method != "Ground truth") %>%
-#     merge(df_plot_mean_truth[, c("scenario", x_var, y_var)], by = "scenario", suffixes = c("", "_truth"))
-# }
+# Restructure to remove ground truth clouds
+if ("Ground truth" %in% df_plot$method) {
+  # Remove ground truth from plot of all simulations
+  df_plot <- df_plot %>%
+    filter(method != "Ground truth")
+}
 
 # Calculate cost-efficiency frontier for plotting
 df_plot_icer <- data.frame()
-for (method in unique(df_plot$method)) {
+for (method in unique(df_plot_mean$method)) {
   # Filter data to method
   df_plot_mean_method <- df_plot_mean[df_plot_mean$method == method, ]
 
@@ -211,6 +202,7 @@ for (method in unique(df_plot$method)) {
   # Combine to full data frame
   df_plot_icer <- rbind(df_plot_icer, df_plot_icer_method)
 }
+df_plot_icer$method <- factor(df_plot_icer$method, levels = v_methods)
 
 # Rename variables in ICER data frame
 colnames(df_plot_icer)[c(1:3, ncol(df_plot_icer))] <- c(colnames(df_plot_mean)[2], y_var, x_var, colnames(df_plot_mean)[1])
@@ -233,17 +225,9 @@ plt_outcomes <- ggplot(df_plot,
              color = "black",
              size = 3,
              stroke = 1) +
-  # geom_point(data = df_plot_mean, # Plot true value for each strategy
-  #            aes(x = get(paste0(x_var, "_truth")),
-  #                y = get(paste0(y_var, "_truth"))),
-  #            color = "black",
-  #            alpha = 1,
-  #            shape = 8,
-  #            size = 3,
-  #            stroke = 1) +
   scale_shape_manual(values = c(21, 24),
                      name = "Screening \nmodality", 
-                     labels = c("Gold standard", "Non-invasive")) +
+                     labels = c("Confirmatory", "Non-invasive")) +
   facet_grid(~method) +
   labs(x = paste0("LYG per ", scales::label_comma()(unit)), 
        y = paste0("Additional confirmatory test burden per ", scales::label_comma()(unit)),
@@ -256,7 +240,7 @@ plt_outcomes <- ggplot(df_plot,
   scale_y_continuous(labels = scales::comma,
                      breaks = number_ticks(5)) +
   scale_linetype_discrete(name = "Screening \nmodality", 
-                          labels = c("Gold standard", "Non-invasive")) +
+                          labels = c("Confirmatory", "Non-invasive")) +
   theme_bw(base_size = plt_size_text + 5) +
   theme(plot.title = element_text(size = plt_size_text, face = "bold"),
         axis.text.x = element_text(size = plt_size_text),
