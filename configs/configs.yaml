@@ -79,6 +79,7 @@ params_calib:
         start_var: "time_H_P"
         end_var: "time_H_C"
         censor_var: "time_screen_censor"
+        method: "cs"
     incidence:
       file_path: "data/incidence_clinical_cancer.csv"
       outcome_type: "incidence"
@@ -88,6 +89,7 @@ params_calib:
       lit_params:
         time_var: "time_H_C"
         censor_var: "time_H_D"
+        method: "long"
     stage_distr:
       file_path: "data/stage_distr_clinical_cancer.csv"
       outcome_type: "distr"
@@ -127,6 +129,8 @@ params_calib:
           censor_var: "time_screen_censor"
           start_age: 50
           end_age: 80
+          n_max: 3
+          method: "cs"
         
 # Parameters for Monte Carlo analysis to set sample size
 params_montecarlo:

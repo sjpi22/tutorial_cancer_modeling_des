@@ -1,7 +1,8 @@
 ###########################  Generate ground truth outputs   ###################
 #
 #  Objective: Script to generate decision outputs for ground truth
-# parameters
+#  parameters; should be run after establishing the model sample size 
+#  in analysis/01_load_calibration_params.R, which
 ########################### <<<<<>>>>> ##############################################
 
 rm(list = ls()) # Clean environment

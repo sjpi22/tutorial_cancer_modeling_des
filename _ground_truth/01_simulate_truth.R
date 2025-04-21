@@ -98,9 +98,13 @@ l_censor_vars <- params_calib$l_censor_vars
 
 # Process outcome parameters
 for (target in names(l_params_outcome)) {
-  # Modify outcome list to change to cross-sectional functions
+  # Modify outcome list to output uncertainty with assigned confidence level
+  l_params_outcome[[target]][["lit_params"]][["output_uncertainty"]] <- TRUE
+  l_params_outcome[[target]][["lit_params"]][["conf_level"]] <- params_model$conf_level
+  
+  # Modify outcome list to change to cross-sectional functions if not already
   if (l_params_outcome[[target]][["outcome_type"]] %in% v_outcomes_cs) {
-    l_params_outcome[[target]][["outcome_type"]] <- paste0(l_params_outcome[[target]][["outcome_type"]], "_cs")
+    l_params_outcome[[target]][["lit_params"]][["method"]] <- "cs"
   }
   
   # If applicable, add age ranges for calculating outcomes

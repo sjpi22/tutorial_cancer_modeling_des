@@ -64,11 +64,6 @@ l_targets <- load_calibration_targets(params_calib$l_params_outcome)
 # Process incidence data
 for (target in names(params_calib$l_params_outcome)) {
   if (params_calib$l_params_outcome[[target]][["outcome_type"]] == "incidence") {
-    # Calculate approximate confidence intervals for incidence
-    l_targets[[target]] <- l_targets[[target]] %>%    
-      mutate(ci_lb = pmax(0, targets - qnorm((1 + conf_level)/2)*se),
-             ci_ub = targets + qnorm((1 + conf_level)/2)*se)
-    
     # Rescale incidence values by unit
     for (val in c(v_cols, "se")) {
       l_targets[[target]][[val]] <- l_targets[[target]][[val]] / l_targets[[target]]$unit
