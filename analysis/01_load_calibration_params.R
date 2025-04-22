@@ -2,6 +2,11 @@
 #
 #  Objective: Program to load general calibration parameters, perform Monte 
 #  Carlo error analysis for sample size, and check coverage of targets
+# 
+#  Note: If Monte Carlo standard error (MCSE) for prevalence or number of 
+#  lesions calculated cross-sectionally is greater than their targets' standard 
+#  error, then consider changing the calculation to longitudinal (method = 
+#  "long") for more power
 ########################### <<<<<>>>>> #########################################
 
 rm(list = ls()) # Clean environment
@@ -46,9 +51,6 @@ list2env(l_filepaths, envir = .GlobalEnv)
 list2env(configs$params_montecarlo, envir = .GlobalEnv)
 list2env(configs$params_coverage, envir = .GlobalEnv)
 
-###### 2.2 Other parameters
-v_outcomes_cs <- c("prevalence", "nlesions") # Outcome types that can be calculated cross-sectionally
-
 
 #### 3. Pre-processing  ===========================================
 
@@ -66,23 +68,6 @@ l_params_calib <- do.call(load_calib_params, c(
 # Load plot labels
 df_plot_labels <- read.csv(file_plot_labels)
 
-# Create cross-sectional version of outcome parameters
-l_params_outcome_cs <- l_params_calib$l_params_outcome
-v_labels_cs <- c()
-for (target in names(l_params_outcome_cs)) {
-  if (l_params_outcome_cs[[target]][["outcome_type"]] %in% v_outcomes_cs) {
-    # Change to cross-sectional function
-    l_params_outcome_cs[[target]][["outcome_type"]] <- paste0(l_params_outcome_cs[[target]][["outcome_type"]], "_cs")
-    
-    # Keep track of outcome labels that can be cross-sectional
-    v_labels_cs <- c(v_labels_cs, target)
-  }
-}
-
-# Create outcome list to compare longitudinal and cross-sectional calculations
-l_params_outcomes_cs_renamed <- l_params_outcome_cs[v_labels_cs]
-names(l_params_outcomes_cs_renamed) <- paste0(names(l_params_outcomes_cs_renamed), "_cs")
-
 # Set number of cores to use
 registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
 print(getDoParWorkers())
@@ -96,7 +81,7 @@ l_params_mc$n_cohort <- n_init
 l_params_mc$seed <- NULL # Remove seed that is reset every time model is run
 set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG") # Set seed externally; kind set for parallel package
 
-# Test sample size with longitudinally vs. cross-sectionally calculated vs. other outcomes
+# Run simulations to assess Monte Carlo error
 stime_mc <- system.time({
   df_res_mc <- foreach(
     i=1:n_mc_reps, 
@@ -105,7 +90,7 @@ stime_mc <- system.time({
     .packages=c("data.table","tidyverse")) %dopar% {
       # Calculate outputs in any order
       v_outputs_mc <- params_to_outputs(l_params_mc, 
-                                        l_params_outcome = c(l_params_calib$l_params_outcome, l_params_outcomes_cs_renamed),
+                                        l_params_outcome = l_params_calib$l_params_outcome,
                                         l_censor_vars = l_params_calib$l_censor_vars)
       
       # Call item to save
@@ -114,22 +99,19 @@ stime_mc <- system.time({
 })
 print(stime_mc)
   
-# Compare mean, SD, and required cohort size for longitudinal vs. cross-sectional outcomes
+# Compare mean, SD, and required cohort size for MCSE to be less than target SE
 df_sample <- data.frame(
-  rbind(l_params_calib$df_targets,
-        l_params_calib$df_targets[l_params_calib$df_targets$target_groups %in% v_labels_cs, ]),
+  l_params_calib$df_targets,
   mean_mc = colMeans(df_res_mc),
   sd_mc = apply(df_res_mc, 2, sd)
 ) %>%
-  mutate( # Calculate required cohort size
-    n_target = n_init * (sd_mc / se)^2,
-    label = c(rep("long", nrow(l_params_calib$df_targets)), rep("cs", sum(l_params_calib$df_targets$target_groups %in% v_labels_cs))),
-    cs_option = target_groups %in% v_labels_cs
+  mutate( # Calculate minimum required cohort size
+    n_target = n_init * (sd_mc / se)^2
   )
 
 # Get maximum cohort size per target group and calculation type
 df_sample_max <- df_sample %>%
-  group_by(target_groups, label, cs_option) %>%
+  group_by(target_groups) %>%
   summarise(n_max = max(n_target), .groups = "drop") %>%
   arrange(desc(n_max))
 
@@ -140,12 +122,6 @@ n_final <- ceiling(n_final / 10^(n_digits - 1)) * 10^(n_digits - 1)
 
 # Update calibration parameters
 l_params_calib$l_params_model$n_cohort <- n_final
-
-# If the faster cross-sectional calculations do not require a larger cohort size, update calibration outcome parameters
-# otherwise, need to choose cohort size by weighing speed increases of calculation against larger cohort size
-if (df_sample_max$cs_option[1] == F) {
-  l_params_calib$l_params_outcome <- l_params_outcome_cs
-}
 
 
 #### 5. Save parameters  ===========================================
@@ -197,9 +173,10 @@ if (check_coverage == T) {
   
   # Process targets
   df_targets <- l_params_calib$df_target %>%
-    mutate(target_index = factor(target_index),
-           ci_lb = ifelse(is.na(ci_lb), targets - se*qnorm(1 - alpha_ci/2), ci_lb),
-           ci_ub = ifelse(is.na(ci_ub), targets + se*qnorm(1 - alpha_ci/2), ci_ub)) %>% # Create plot labels
+    # Set CIs if not already set
+    mutate(ci_lb = ifelse(is.na(ci_lb), targets - se*qnorm(1 - alpha_ci/2), ci_lb),
+           ci_ub = ifelse(is.na(ci_ub), targets + se*qnorm(1 - alpha_ci/2), ci_ub)) %>% 
+    # Merge plot labels
     left_join(df_plot_labels, by = "target_groups")
   df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
   
@@ -208,6 +185,7 @@ if (check_coverage == T) {
                                 m_outputs = m_outputs, 
                                 file_fig_coverage = file_fig_coverage,
                                 target_range = "ci",
-                                plt_size_text = plt_size_text)
+                                plt_size_text = plt_size_text,
+                                labeller_multiplier = 6)
   plt_coverage
 }

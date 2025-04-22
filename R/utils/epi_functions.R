@@ -26,8 +26,8 @@
 #'   cross-sectional calculation. If \code{sample_var} and \code{dt_sample_ages}
 #'   are both populated, \code{sample_var} is used.
 #' @param output_uncertainty Binary indicator for whether to output standard
-#'   errors and confidence intervals. Formulas are still in development mode
-#'   for longitudinal and repeated cross-sectional formulations.
+#'   errors and confidence intervals. Only implemented for cross-sectional 
+#'   formulation so far.
 #' @param conf_level Confidence level for binomial confidence intervals, default is 0.95.
 #'
 #' @return A data table with estimated prevalence and confidence intervals at each age.
@@ -146,14 +146,9 @@ calc_prevalence <- function(m_patients,
     
     # If required to output uncertainty estimates
     if (output_uncertainty) {
-      # Calculate confidence intervals and merge to summary table
-      df_confint <- data.frame(t(mapply(function(x, y) prop.test(x, y, conf.level = conf_level)$conf.int, 
-                                        summ_prevalence$n_cases, 
-                                        summ_prevalence$n_total)))
-      summ_prevalence[, c("ci_lb", "ci_ub") := df_confint]
-      
-      # Estimate SE from CI
-      summ_prevalence[, se := (ci_ub - ci_lb) / (2 * qnorm((1 + conf_level)/2))]
+      ci_prop(summ_prevalence, 
+              conf_level = conf_level,
+              calc_se = TRUE)
     }
     
     # Reset or remove sample_age variable
@@ -194,18 +189,6 @@ calc_prevalence <- function(m_patients,
       }, dt_ages$age_start, dt_ages$age_end))) %>%
       mutate_all(~replace(., is.na(.), 0)) %>%
       setDT()
-    
-    # If required to output uncertainty estimates
-    if (output_uncertainty) {
-      # Generate confidence interval
-      df_confint <- data.frame(t(mapply(function(x, y) prop.test(x, y, conf.level = conf_level)$conf.int, 
-                                        summ_prevalence$person_years_cases / (summ_prevalence$age_end - summ_prevalence$age_start) * 2, 
-                                        summ_prevalence$person_years_total / (summ_prevalence$age_end - summ_prevalence$age_start) * 2)))
-      summ_prevalence[, c("ci_lb", "ci_ub") := df_confint]
-      
-      # Estimate SE from CI
-      summ_prevalence[, se := (ci_ub - ci_lb) / (2 * qnorm((1 + conf_level)/2))]
-    }
   } else if (method == "rcs") {
     # Create sequence of age ranges including (-Inf, 0] with 1-year intervals from min to max of v_ages
     v_ages_tabulate <- unique(c(-Inf, seq(min(v_ages), max(v_ages))))
@@ -255,21 +238,53 @@ calc_prevalence <- function(m_patients,
     
     # Calculate prevalence
     summ_prevalence[, value := person_years_cases/person_years_total]
-    
-    # If required to output uncertainty estimates
-    if (output_uncertainty) {
-      # Generate confidence interval
-      df_confint <- data.frame(t(mapply(function(x, y) prop.test(x, y, conf.level = conf_level)$conf.int, 
-                                        summ_prevalence$person_years_cases / (summ_prevalence$age_end - summ_prevalence$age_start) * 2, 
-                                        summ_prevalence$person_years_total / (summ_prevalence$age_end - summ_prevalence$age_start) * 2)))
-      summ_prevalence[, c("ci_lb", "ci_ub") := df_confint]
-      
-      # Estimate SE from CI
-      summ_prevalence[, se := (ci_ub - ci_lb) / (2 * qnorm((1 + conf_level)/2))]
-    }
   }
   
   return(summ_prevalence)
+}
+
+
+#' Calculate Confidence Interval and Standard Error of Proportion
+#'
+#' Calculates confidence interval and standard error of a proportion (e.g., 
+#' prevalence) with side effects.
+#'
+#' @param dt_cases A data table with columns for the number of cases, total 
+#'   population, and (if calculating standard error) the ratio of cases to 
+#'   population.
+#' @param rate_unit Quantity to divide incidence rate by for reporting.
+#' @param conf_level Confidence level for confidence intervals, default is 0.95.
+#' @param calc_se Indicator for whether to calculate standard error.
+#' @param var_cases Name of variable with number of cases.
+#' @param var_total Name of variable with total number of population.
+#' @param var_prop Name of variable with proportion (number of cases divided by 
+#'   population).
+#'
+#' @return NULL, updates \code{dt_cases} with confidence interval and standard 
+#'   error columns.
+#'   
+#' @import data.table
+#' @export
+ci_prop <- function(dt_cases, 
+                    conf_level = 0.95, 
+                    calc_se = FALSE,
+                    var_cases = "n_cases",
+                    var_total = "n_total",
+                    var_prop = "value") {
+  # Calculate standard error
+  if (calc_se) {
+    dt_cases[, se := sqrt(get(var_prop)*(1-get(var_prop))/get(var_total))]
+  }
+  
+  # Calculate confidence intervals and merge to summary table
+  df_confint <- with(dt_cases, {
+    data.frame(t(mapply(function(x, y) prop.test(x, y, conf.level = conf_level)$conf.int, 
+                        get(var_cases), 
+                        get(var_total))))
+  })
+  dt_cases[, c("ci_lb", "ci_ub") := df_confint]
+  
+  return(NULL)
 }
 
 
@@ -339,11 +354,6 @@ calc_nlesions <- function(m_lesions,
   # Ensure that key is set for cohort data
   if (is.null(key(m_lesions))) setkeyv(m_lesions, id_var)
   
-  # If end_age is NULL, set to max age in data
-  if (is.null(end_age)) {
-    end_age <- m_lesions[, max(get(censor_var))]
-  }
-  
   if (method == "cs") {
     # Account for case of null data
     if (!is.null(m_lesions)) {
@@ -382,11 +392,9 @@ calc_nlesions <- function(m_lesions,
       
       # Calculate confidence intervals and merge to summary table
       if (output_uncertainty) {
-        df_confint <- data.frame(t(mapply(function(x, y) prop.test(x, y, conf.level = conf_level)$conf.int, lesion_cts$n_cases, lesion_cts$n_total)))
-        lesion_cts[, c("ci_lb", "ci_ub") := df_confint]
-        
-        # Estimate SE from CI
-        lesion_cts[, se := (ci_ub - ci_lb) / (2 * qnorm((1 + conf_level)/2))]
+        ci_prop(lesion_cts,
+                conf_level = conf_level,
+                calc_se = TRUE)
       }
       
       # Ensure that all numbers from 0 to n_max are represented with count of 0 if necessary
@@ -412,8 +420,10 @@ calc_nlesions <- function(m_lesions,
     if (!is.null(m_lesions)) {
       # Convert data to lesion start and end events
       dt_events <- rbindlist(list(
-        m_lesions[get(start_var) < pmin(get(censor_var), end_age), .(get(id_var), event_time = pmax(get(start_var), start_age), delta = 1)],  # Start of lesion or eligible screening period
-        m_lesions[get(start_var) < pmin(get(censor_var), end_age), .(get(id_var), event_time = pmin(get(end_var), get(censor_var), end_age), delta = -1)] # End of lesion or eligible screening period
+        m_lesions[get(start_var) < pmin(get(censor_var), end_age), 
+                  .(get(id_var), event_time = pmax(get(start_var), start_age), delta = 1)],  # Start of lesion or eligible screening period
+        m_lesions[get(start_var) < pmin(get(censor_var), end_age), 
+                  .(get(id_var), event_time = pmin(get(end_var), get(censor_var), end_age), delta = -1)] # End of lesion or eligible screening period
       ))
       
       # Sort by patient and event time
@@ -571,38 +581,77 @@ calc_incidence <- function(m_patients,
       mutate(n_events = replace_na(n_events, 0)) %>%
       mutate(
         unit = rate_unit,
-        value = n_events / person_years_total * rate_unit,
-        se = sqrt(n_events) / person_years_total * rate_unit
+        value = n_events / person_years_total * rate_unit
       ) %>%
       setDT()
     
+    # Calculate standard error and confidence intervals
     if (output_uncertainty) {
-      # Calculate chi-squared critical values
-      event_counts[, `:=` (chi2_lb = qchisq((1-conf_level)/2, 2*n_events),
-                           chi2_ub = qchisq((1+conf_level)/2, 2*(n_events + 1)))]
-      event_counts[, `:=` (ci_lb = chi2_lb/2/person_years_total,
-                           ci_ub = chi2_ub/2/person_years_total)]
-      
-      # Adjust for rate unit
-      if (rate_unit != 1) {
-        event_counts[, `:=` (ci_lb = ci_lb * rate_unit,
-                             ci_ub = ci_ub * rate_unit)]
-      }
+      ci_rate(event_counts, 
+              conf_level = conf_level, 
+              rate_unit = rate_unit,
+              calc_se = TRUE)
     }
   } else {
     event_counts <- person_years_at_risk %>%
       mutate(n_events = 0,
              unit = rate_unit,
-             value = 0,
-             se = 0) %>%
+             value = 0) %>%
       setDT()
     
     if (output_uncertainty) {
+      event_counts[, se := 0]
       event_counts[, c("ci_lb", "ci_ub") := NA]
     }
   }
   
   return(event_counts)
+}
+
+#' Calculate Confidence Interval and Standard Error of Rate
+#'
+#' Calculates confidence interval and standard error of a rate (e.g., incidence 
+#' rate) with side effects.
+#'
+#' @param dt_event A data table with columns for the number of events 
+#'   and person-years of exposure.
+#' @param rate_unit Quantity to divide incidence rate by for reporting.
+#' @param conf_level Confidence level for confidence intervals, default is 0.95.
+#' @param calc_se Indicator for whether to calculate standard error.
+#' @param var_event Name of variable with number of events.
+#' @param var_total Name of variable with total number of population.
+#'
+#' @return NULL, updates \code{dt_event} with confidence interval and standard 
+#'   error columns.
+#' 
+#' @import data.table
+#' @export
+ci_rate <- function(dt_event, 
+                    conf_level = 0.95, 
+                    rate_unit = 1,
+                    calc_se = FALSE,
+                    var_event = "n_events",
+                    var_total = "person_years_total"
+) {
+  # Calculate standard error
+  if (calc_se) {
+    dt_event[, `:=` (se = sqrt(get(var_event))/get(var_total)*rate_unit)]
+  }
+  
+  # Calculate chi-squared critical values
+  dt_event[, `:=` (chi2_lb = qchisq((1-conf_level)/2, 2*get(var_event)),
+                   chi2_ub = qchisq((1+conf_level)/2, 2*(get(var_event) + 1)))]
+  
+  # Calculate CI from chi-squared critical values
+  dt_event[, `:=` (ci_lb = chi2_lb/2/get(var_total),
+                   ci_ub = chi2_ub/2/get(var_total))]
+  
+  # Adjust for rate unit
+  if (rate_unit != 1) {
+    dt_event[, `:=` (ci_lb = ci_lb * rate_unit,
+                     ci_ub = ci_ub * rate_unit)]
+  }
+  return(NULL)
 }
 
 

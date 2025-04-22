@@ -169,7 +169,8 @@ load_nlesions <- function(filepath, target_groups = NULL) {
     target_groups <- "nlesions"
   }
   filedata <- read.csv(filepath) %>%
-    rename(target_index = n_lesions) %>% 
+    rename(target_index = n_lesions,
+           target_index_cat = n_lesions_cat) %>% 
     mutate(target_groups = target_groups,
            target_names = paste(target_groups, target_index, sep="_"))
   return(filedata)

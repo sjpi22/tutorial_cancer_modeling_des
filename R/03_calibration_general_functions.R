@@ -33,7 +33,7 @@ load_calib_params <- function(l_params_model, # Model parameters to update
     # Subset columns for consolidated target dataframe
     l_targets[[label]] <- l_targets[[label]] %>%
       dplyr::select(any_of(c("target_names", "target_groups", 
-                             "target_index",  
+                             "target_index", "target_index_cat",
                              "age_start", "age_end",
                              "targets", "se", 
                              "ci_lb", "ci_ub", 
@@ -141,6 +141,7 @@ plot_coverage <- function(
     target_range = "se", # "se" for standard error and "ci" for confidence interval
     v_quantiles = c(50, 95), # Inner box and whisker quantiles for boxplot
     plt_size_text = 18, # Size of text in plot
+    labeller_multiplier = 4, # Multiplier for title label text size
     n_cols_max = 3 # Maximum number of columns in plot
 ) { 
   # Get range to plot for targets
@@ -183,7 +184,17 @@ plot_coverage <- function(
     }
     
     # Factorize target index
+    if ("target_index_cat" %in% colnames(df_targets_cat)) {
+      # Replace missing values of categorical target index values
+      v_target_index <- ifelse(is.na(df_targets_cat$target_index_cat), 
+                               df_targets_cat$target_index, 
+                               df_targets_cat$target_index_cat)
+      
+      # Replace column
+      df_targets_cat$target_index <- v_target_index
+    }
     df_targets_cat$target_index <- factor(df_targets_cat$target_index)
+    
   } else {
     # No categorical variables in df_targets - plot continuous only
     fl_plt["cat"] <- F
@@ -211,7 +222,7 @@ plot_coverage <- function(
                    width = 0.3,
                    position = position_nudge(x = 0.2)) +
       facet_wrap(~plot_grps, scales = "free", ncol = n_cols_max,
-                 labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*4/length(unique(df_targets_cat$plot_grps))))) +
+                 labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*labeller_multiplier/length(unique(df_targets_cat$plot_grps))))) +
       scale_y_continuous(breaks = number_ticks(5)) +
       theme_bw(base_size = plt_size_text + 5) +
       theme(plot.title = element_text(size = plt_size_text, face = "bold"),
@@ -245,7 +256,7 @@ plot_coverage <- function(
                   fill = "black",
                   alpha = 0.5) +
       facet_wrap(~plot_grps, scales = "free", ncol = n_cols_max,
-                 labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*4/length(unique(df_targets_cont$plot_grps))))) +
+                 labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*labeller_multiplier/length(unique(df_targets_cont$plot_grps))))) +
       scale_y_continuous(breaks = number_ticks(5)) +
       theme_bw(base_size = plt_size_text + 5) +
       theme(plot.title = element_text(size = plt_size_text, face = "bold"),
