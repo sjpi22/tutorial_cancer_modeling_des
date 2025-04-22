@@ -37,7 +37,8 @@ load_calib_params <- function(l_params_model, # Model parameters to update
                              "age_start", "age_end",
                              "targets", "se", 
                              "ci_lb", "ci_ub", 
-                             "total_atrisk", "n_events",
+                             "n_cases", "n_total",
+                             "n_events", "person_years_total",
                              "sex", "lesion_type")))
     
     # Subset targets to specified sex if applicable

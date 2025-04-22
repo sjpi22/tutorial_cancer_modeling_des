@@ -90,6 +90,7 @@ params_calib:
         time_var: "time_H_C"
         censor_var: "time_H_D"
         method: "long"
+        rate_unit: 100000
     stage_distr:
       file_path: "data/stage_distr_clinical_cancer.csv"
       outcome_type: "distr"

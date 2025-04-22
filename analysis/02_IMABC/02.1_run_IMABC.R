@@ -49,6 +49,9 @@ list2env(l_filepaths, envir = .GlobalEnv)
 # Load IMABC parameters from configs file
 list2env(configs$params_imabc, envir = .GlobalEnv)
 
+###### 2.2 Other parameters
+vars_rate <- c("incidence") # Variables whose CI is calculated as a rate CI (instead of proportion CI)
+
 
 #### 3. Pre-processing actions  ===========================================
 
@@ -70,12 +73,26 @@ priors <- as.priors(
   parameter_name = "name_var", dist_base_name = "dist_var"
 )
 
-# Calculate current and stopping bounds for targets given alpha values
-target_map <- l_params_calib$df_targets %>%
-  mutate(current_lower_bounds = targets - se*qnorm(1 - alpha_current/2),
-         current_upper_bounds = targets + se*qnorm(1 - alpha_current/2),
-         stopping_lower_bounds = ifelse(is.na(ci_lb), targets - se*qnorm(1 - alpha_stop/2), ci_lb),
-         stopping_upper_bounds = ifelse(is.na(ci_ub), targets + se*qnorm(1 - alpha_stop/2), ci_ub))
+# Set CIs as stopping bounds for targets
+target_map <- l_params_calib$df_targets 
+setnames(target_map, c("ci_lb", "ci_ub"), c("stopping_lower_bounds", "stopping_upper_bounds"))
+
+# Calculate starting CIs for rates
+dt_ci_rate <- target_map[target_groups %in% vars_rate]
+ci_rate(dt_ci_rate,
+        conf_level = 1 - alpha_current,
+        rate_unit = l_params_calib$l_params_outcome[[vars_rate[1]]]$lit_params$rate_unit)
+
+# Calculate starting CIs for proportions
+dt_ci_prop <- target_map[!target_groups %in% vars_rate]
+ci_prop(dt_ci_prop,
+        conf_level = 1 - alpha_current)
+
+# Merge to target map
+target_map[target_groups %in% vars_rate, `:=` (current_lower_bounds = dt_ci_rate$ci_lb,
+                                               current_upper_bounds = dt_ci_rate$ci_ub)]
+target_map[!target_groups %in% vars_rate, `:=` (current_lower_bounds = dt_ci_prop$ci_lb,
+                                                current_upper_bounds = dt_ci_prop$ci_ub)]
 
 # Define target values
 target_df <- target_map %>%

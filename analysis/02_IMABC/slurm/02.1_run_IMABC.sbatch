@@ -2,7 +2,7 @@
 #SBATCH --job-name=run_IMABC
 #SBATCH --nodes=1
 #SBATCH --time=10:00:00
-#SBATCH --mem=10G
+#SBATCH --mem=8G
 #SBATCH --ntasks-per-node=12
 #SBATCH --output=output/imabc_sherlock.log
 #SBATCH --mail-user=sjpi@stanford.edu
