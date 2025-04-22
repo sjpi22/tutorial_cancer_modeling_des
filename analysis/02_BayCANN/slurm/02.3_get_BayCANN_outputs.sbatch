@@ -9,7 +9,7 @@
 #SBATCH --mail-type=ALL
 
 #* To send the job to Sherlock use:
-# - sbatch analysis/02_BayCANN/02.3_get_BayCANN_outputs.sbatch
+# - sbatch analysis/02_BayCANN/slurm/02.3_get_BayCANN_outputs.sbatch
 
 # load R module
 ml R/4.3.2

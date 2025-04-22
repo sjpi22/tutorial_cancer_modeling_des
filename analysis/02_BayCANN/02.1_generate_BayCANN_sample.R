@@ -126,8 +126,7 @@ BayCANN_sample <- readRDS(file_sample)
 
 # Process targets
 df_targets <- l_params_calib$df_target %>%
-  mutate(target_index = factor(target_index),
-         ci_lb = ifelse(is.na(ci_lb), targets - se*qnorm(1 - alpha_ci/2), ci_lb),
+  mutate(ci_lb = ifelse(is.na(ci_lb), targets - se*qnorm(1 - alpha_ci/2), ci_lb),
          ci_ub = ifelse(is.na(ci_ub), targets + se*qnorm(1 - alpha_ci/2), ci_ub)) %>% # Create plot labels
   left_join(df_plot_labels, by = "target_groups")
 df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
