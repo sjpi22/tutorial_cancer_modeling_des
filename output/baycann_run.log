@@ -104,26 +104,28 @@ visible FALSE                   FALSE                 FALSE
 <environment: R_GlobalEnv>
 <environment: R_GlobalEnv>
 <environment: R_GlobalEnv>
+[1] "Running on Sherlock"
+[1] "# parallel workers: 20"
 <environment: R_GlobalEnv>
 72 total combinations of flags 
 (sampled to 22 combinations)
 
 Training run 1/22 (flags = list(2L, 64L, FALSE, 0.25, "sigmoid")) 
-Using run directory output/baycann_runs/2025-04-22T03-55-41Z
+Using run directory output/baycann_runs/2025-04-22T07-53-06Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
 +         TRUE), flag_numeric .... [TRUNCATED] 
 
 > input <- layer_input(shape = ncol(data_sim_param_train))
-2025-04-21 20:55:51.898000: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
-2025-04-21 20:55:53.760968: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
-2025-04-21 20:55:54.166230: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:485] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-2025-04-21 20:55:54.725173: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:8454] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-2025-04-21 20:55:54.808819: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1452] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-2025-04-21 20:55:55.748608: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+2025-04-22 00:53:14.502458: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2025-04-22 00:53:15.904436: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2025-04-22 00:53:16.324434: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:485] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-04-22 00:53:16.872986: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:8454] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-04-22 00:53:16.955640: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1452] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-04-22 00:53:17.631630: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2025-04-21 20:56:12.799242: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2025-04-22 00:53:33.583347: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
 
 > for (i in 1:FLAGS$n_hidden_layers) {
 +     if (i == 1) {
@@ -173,10 +175,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T03-55-41Z
+Run completed: output/baycann_runs/2025-04-22T07-53-06Z
 
 Training run 2/22 (flags = list(4L, 64L, TRUE, 0.25, "tanh")) 
-Using run directory output/baycann_runs/2025-04-22T04-00-11Z
+Using run directory output/baycann_runs/2025-04-22T07-56-50Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -244,10 +246,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-00-11Z
+Run completed: output/baycann_runs/2025-04-22T07-56-50Z
 
 Training run 3/22 (flags = list(4L, 128L, FALSE, 0.25, "tanh")) 
-Using run directory output/baycann_runs/2025-04-22T04-03-47Z
+Using run directory output/baycann_runs/2025-04-22T08-00-02Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -307,10 +309,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-03-47Z
+Run completed: output/baycann_runs/2025-04-22T08-00-02Z
 
 Training run 4/22 (flags = list(4L, 128L, FALSE, 0.25, "relu")) 
-Using run directory output/baycann_runs/2025-04-22T04-07-45Z
+Using run directory output/baycann_runs/2025-04-22T08-03-13Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -370,10 +372,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-07-45Z
+Run completed: output/baycann_runs/2025-04-22T08-03-13Z
 
 Training run 5/22 (flags = list(3L, 128L, TRUE, 0.25, "relu")) 
-Using run directory output/baycann_runs/2025-04-22T04-10-43Z
+Using run directory output/baycann_runs/2025-04-22T08-05-09Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -437,10 +439,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-10-43Z
+Run completed: output/baycann_runs/2025-04-22T08-05-09Z
 
 Training run 6/22 (flags = list(1L, 64L, TRUE, 0.25, "relu")) 
-Using run directory output/baycann_runs/2025-04-22T04-13-12Z
+Using run directory output/baycann_runs/2025-04-22T08-07-04Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -496,10 +498,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-13-12Z
+Run completed: output/baycann_runs/2025-04-22T08-07-04Z
 
 Training run 7/22 (flags = list(3L, 64L, FALSE, 0.25, "relu")) 
-Using run directory output/baycann_runs/2025-04-22T04-16-59Z
+Using run directory output/baycann_runs/2025-04-22T08-10-03Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -557,10 +559,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-16-59Z
+Run completed: output/baycann_runs/2025-04-22T08-10-03Z
 
 Training run 8/22 (flags = list(3L, 32L, FALSE, 0.25, "sigmoid")) 
-Using run directory output/baycann_runs/2025-04-22T04-20-38Z
+Using run directory output/baycann_runs/2025-04-22T08-13-07Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -618,10 +620,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-20-38Z
+Run completed: output/baycann_runs/2025-04-22T08-13-07Z
 
 Training run 9/22 (flags = list(3L, 128L, FALSE, 0.25, "relu")) 
-Using run directory output/baycann_runs/2025-04-22T04-24-17Z
+Using run directory output/baycann_runs/2025-04-22T08-16-09Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -679,10 +681,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-24-17Z
+Run completed: output/baycann_runs/2025-04-22T08-16-09Z
 
 Training run 10/22 (flags = list(3L, 64L, FALSE, 0.25, "tanh")) 
-Using run directory output/baycann_runs/2025-04-22T04-28-06Z
+Using run directory output/baycann_runs/2025-04-22T08-18-40Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -740,10 +742,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-28-06Z
+Run completed: output/baycann_runs/2025-04-22T08-18-40Z
 
 Training run 11/22 (flags = list(2L, 64L, TRUE, 0.25, "sigmoid")) 
-Using run directory output/baycann_runs/2025-04-22T04-31-40Z
+Using run directory output/baycann_runs/2025-04-22T08-21-45Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -803,10 +805,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-31-40Z
+Run completed: output/baycann_runs/2025-04-22T08-21-45Z
 
 Training run 12/22 (flags = list(2L, 32L, TRUE, 0.25, "sigmoid")) 
-Using run directory output/baycann_runs/2025-04-22T04-35-41Z
+Using run directory output/baycann_runs/2025-04-22T08-24-50Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -866,10 +868,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-35-41Z
+Run completed: output/baycann_runs/2025-04-22T08-24-50Z
 
 Training run 13/22 (flags = list(4L, 32L, TRUE, 0.25, "sigmoid")) 
-Using run directory output/baycann_runs/2025-04-22T04-39-12Z
+Using run directory output/baycann_runs/2025-04-22T08-27-54Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -937,10 +939,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-39-12Z
+Run completed: output/baycann_runs/2025-04-22T08-27-54Z
 
 Training run 14/22 (flags = list(3L, 128L, TRUE, 0.25, "sigmoid")) 
-Using run directory output/baycann_runs/2025-04-22T04-43-18Z
+Using run directory output/baycann_runs/2025-04-22T08-31-02Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -1004,10 +1006,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-43-18Z
+Run completed: output/baycann_runs/2025-04-22T08-31-02Z
 
 Training run 15/22 (flags = list(1L, 64L, FALSE, 0.25, "sigmoid")) 
-Using run directory output/baycann_runs/2025-04-22T04-47-45Z
+Using run directory output/baycann_runs/2025-04-22T08-34-16Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -1061,10 +1063,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-47-45Z
+Run completed: output/baycann_runs/2025-04-22T08-34-16Z
 
 Training run 16/22 (flags = list(2L, 64L, FALSE, 0.25, "tanh")) 
-Using run directory output/baycann_runs/2025-04-22T04-51-43Z
+Using run directory output/baycann_runs/2025-04-22T08-37-16Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -1120,10 +1122,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-51-43Z
+Run completed: output/baycann_runs/2025-04-22T08-37-16Z
 
 Training run 17/22 (flags = list(3L, 64L, FALSE, 0.25, "sigmoid")) 
-Using run directory output/baycann_runs/2025-04-22T04-55-51Z
+Using run directory output/baycann_runs/2025-04-22T08-40-20Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -1181,10 +1183,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-55-51Z
+Run completed: output/baycann_runs/2025-04-22T08-40-20Z
 
 Training run 18/22 (flags = list(1L, 128L, FALSE, 0.25, "tanh")) 
-Using run directory output/baycann_runs/2025-04-22T04-59-35Z
+Using run directory output/baycann_runs/2025-04-22T08-43-28Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -1238,10 +1240,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T04-59-35Z
+Run completed: output/baycann_runs/2025-04-22T08-43-28Z
 
 Training run 19/22 (flags = list(1L, 128L, FALSE, 0.25, "relu")) 
-Using run directory output/baycann_runs/2025-04-22T05-03-17Z
+Using run directory output/baycann_runs/2025-04-22T08-46-31Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -1295,10 +1297,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T05-03-17Z
+Run completed: output/baycann_runs/2025-04-22T08-46-31Z
 
 Training run 20/22 (flags = list(1L, 128L, TRUE, 0.25, "sigmoid")) 
-Using run directory output/baycann_runs/2025-04-22T05-07-11Z
+Using run directory output/baycann_runs/2025-04-22T08-49-32Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -1354,10 +1356,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T05-07-11Z
+Run completed: output/baycann_runs/2025-04-22T08-49-32Z
 
 Training run 21/22 (flags = list(1L, 64L, FALSE, 0.25, "relu")) 
-Using run directory output/baycann_runs/2025-04-22T05-11-29Z
+Using run directory output/baycann_runs/2025-04-22T08-52-38Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -1411,10 +1413,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T05-11-29Z
+Run completed: output/baycann_runs/2025-04-22T08-52-38Z
 
 Training run 22/22 (flags = list(3L, 128L, TRUE, 0.25, "tanh")) 
-Using run directory output/baycann_runs/2025-04-22T05-15-13Z
+Using run directory output/baycann_runs/2025-04-22T08-55-38Z
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
 +     flag_integer("n_hidden_nodes", 64), flag_boolean("dropout", 
@@ -1478,10 +1480,10 @@ Model: "functional"
 > history <- model %>% fit(x = xtrain_scaled, y = ytrain_scaled_reshape, 
 +     epochs = n_epochs, batch_size = n_batch_size, validation_split = 0.2,  .... [TRUNCATED] 
 
-Run completed: output/baycann_runs/2025-04-22T05-15-13Z
+Run completed: output/baycann_runs/2025-04-22T08-55-38Z
 
 elapsed 
-84.3338 
+65.8049 
 Using run directory output/baycann_run_best
 
 > FLAGS <- flags(flag_integer("n_hidden_layers", 2), 
@@ -1518,22 +1520,20 @@ Model: "functional"
 │ input_layer           │ (None, 13)        │           0 │ -                  │
 │ (InputLayer)          │                   │             │                    │
 ├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
-│ dense (Dense)         │ (None, 128)       │       1,792 │ input_layer[0][0]  │
+│ dense (Dense)         │ (None, 64)        │         896 │ input_layer[0][0]  │
 ├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
-│ dense_1 (Dense)       │ (None, 128)       │      16,512 │ dense[0][0]        │
+│ dense_1 (Dense)       │ (None, 64)        │       4,160 │ dense[0][0]        │
 ├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
-│ dense_2 (Dense)       │ (None, 128)       │      16,512 │ dense_1[0][0]      │
+│ dense_2 (Dense)       │ (None, 64)        │       4,160 │ dense_1[0][0]      │
 ├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
-│ dense_3 (Dense)       │ (None, 128)       │      16,512 │ dense_2[0][0]      │
+│ dense_3 (Dense)       │ (None, 16)        │       1,040 │ dense_2[0][0]      │
 ├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
-│ dense_4 (Dense)       │ (None, 16)        │       2,064 │ dense_3[0][0]      │
+│ dense_4 (Dense)       │ (None, 3)         │         195 │ dense_2[0][0]      │
 ├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
-│ dense_5 (Dense)       │ (None, 3)         │         387 │ dense_3[0][0]      │
-├───────────────────────┼───────────────────┼─────────────┼────────────────────┤
-│ dense_6 (Dense)       │ (None, 4)         │         516 │ dense_3[0][0]      │
+│ dense_5 (Dense)       │ (None, 4)         │         260 │ dense_2[0][0]      │
 └───────────────────────┴───────────────────┴─────────────┴────────────────────┘
- Total params: 54,295 (212.09 KB)
- Trainable params: 54,295 (212.09 KB)
+ Total params: 10,711 (41.84 KB)
+ Trainable params: 10,711 (41.84 KB)
  Non-trainable params: 0 (0.00 B)
 
 > model %>% compile(loss = loss_list, loss_weights = loss_weights, 
@@ -1545,18 +1545,18 @@ Model: "functional"
 Run completed: output/baycann_run_best
 
  elapsed 
-3.520133 
+3.275767 
 null device 
           1 
-[1m1/9[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m5s[0m 679ms/step - dense_4_loss: 2.7663e-04 - dense_4_mae: 0.0071 - dense_5_accuracy: 1.0000 - dense_5_loss: 1.0616 - dense_6_accuracy: 0.9688 - dense_6_loss: 1.3796 - loss: 2.4415[1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 2ms/step - dense_4_loss: 3.3521e-04 - dense_4_mae: 0.0073 - dense_5_accuracy: 0.9988 - dense_5_loss: 1.0531 - dense_6_accuracy: 0.9549 - dense_6_loss: 1.3799 - loss: 2.4335  
-[1m1/9[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 72ms/step[1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 7ms/step [1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 8ms/step
+[1m1/9[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m7s[0m 976ms/step - dense_3_loss: 3.3611e-04 - dense_3_mae: 0.0075 - dense_4_accuracy: 1.0000 - dense_4_loss: 1.0616 - dense_5_accuracy: 0.9375 - dense_5_loss: 1.3796 - loss: 2.4416[1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 4ms/step - dense_3_loss: 4.0536e-04 - dense_3_mae: 0.0079 - dense_4_accuracy: 0.9971 - dense_4_loss: 1.0531 - dense_5_accuracy: 0.9483 - dense_5_loss: 1.3799 - loss: 2.4336  
+[1m1/9[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 98ms/step[1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 10ms/step[1m9/9[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 10ms/step
 <environment: R_GlobalEnv>
 [1] TRUE
 
 SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
 Chain 1: 
-Chain 1: Gradient evaluation took 0.000532 seconds
-Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 5.32 seconds.
+Chain 1: Gradient evaluation took 0.000398 seconds
+Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 3.98 seconds.
 Chain 1: Adjust your expectations accordingly!
 Chain 1: 
 Chain 1: 
@@ -1564,8 +1564,8 @@ Chain 1: Iteration:      1 / 300000 [  0%]  (Warmup)
 
 SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
 Chain 2: 
-Chain 2: Gradient evaluation took 0.000522 seconds
-Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 5.22 seconds.
+Chain 2: Gradient evaluation took 0.000376 seconds
+Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 3.76 seconds.
 Chain 2: Adjust your expectations accordingly!
 Chain 2: 
 Chain 2: 
@@ -1573,8 +1573,8 @@ Chain 2: Iteration:      1 / 300000 [  0%]  (Warmup)
 
 SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
 Chain 3: 
-Chain 3: Gradient evaluation took 0.000497 seconds
-Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 4.97 seconds.
+Chain 3: Gradient evaluation took 0.000306 seconds
+Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 3.06 seconds.
 Chain 3: Adjust your expectations accordingly!
 Chain 3: 
 Chain 3: 
@@ -1582,75 +1582,75 @@ Chain 3: Iteration:      1 / 300000 [  0%]  (Warmup)
 
 SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
 Chain 4: 
-Chain 4: Gradient evaluation took 0.000462 seconds
-Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 4.62 seconds.
+Chain 4: Gradient evaluation took 0.000261 seconds
+Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 2.61 seconds.
 Chain 4: Adjust your expectations accordingly!
 Chain 4: 
 Chain 4: 
 Chain 4: Iteration:      1 / 300000 [  0%]  (Warmup)
-Chain 1: Iteration:  30000 / 300000 [ 10%]  (Warmup)
 Chain 2: Iteration:  30000 / 300000 [ 10%]  (Warmup)
-Chain 4: Iteration:  30000 / 300000 [ 10%]  (Warmup)
 Chain 3: Iteration:  30000 / 300000 [ 10%]  (Warmup)
+Chain 4: Iteration:  30000 / 300000 [ 10%]  (Warmup)
+Chain 1: Iteration:  30000 / 300000 [ 10%]  (Warmup)
 Chain 2: Iteration:  60000 / 300000 [ 20%]  (Warmup)
+Chain 3: Iteration:  60000 / 300000 [ 20%]  (Warmup)
 Chain 4: Iteration:  60000 / 300000 [ 20%]  (Warmup)
 Chain 1: Iteration:  60000 / 300000 [ 20%]  (Warmup)
-Chain 3: Iteration:  60000 / 300000 [ 20%]  (Warmup)
+Chain 3: Iteration:  90000 / 300000 [ 30%]  (Warmup)
 Chain 2: Iteration:  90000 / 300000 [ 30%]  (Warmup)
 Chain 4: Iteration:  90000 / 300000 [ 30%]  (Warmup)
 Chain 1: Iteration:  90000 / 300000 [ 30%]  (Warmup)
-Chain 3: Iteration:  90000 / 300000 [ 30%]  (Warmup)
-Chain 2: Iteration: 120000 / 300000 [ 40%]  (Warmup)
 Chain 4: Iteration: 120000 / 300000 [ 40%]  (Warmup)
-Chain 1: Iteration: 120000 / 300000 [ 40%]  (Warmup)
+Chain 2: Iteration: 120000 / 300000 [ 40%]  (Warmup)
 Chain 3: Iteration: 120000 / 300000 [ 40%]  (Warmup)
+Chain 1: Iteration: 120000 / 300000 [ 40%]  (Warmup)
 Chain 2: Iteration: 150000 / 300000 [ 50%]  (Warmup)
 Chain 2: Iteration: 150001 / 300000 [ 50%]  (Sampling)
+Chain 3: Iteration: 150000 / 300000 [ 50%]  (Warmup)
+Chain 3: Iteration: 150001 / 300000 [ 50%]  (Sampling)
 Chain 4: Iteration: 150000 / 300000 [ 50%]  (Warmup)
 Chain 4: Iteration: 150001 / 300000 [ 50%]  (Sampling)
 Chain 1: Iteration: 150000 / 300000 [ 50%]  (Warmup)
 Chain 1: Iteration: 150001 / 300000 [ 50%]  (Sampling)
-Chain 3: Iteration: 150000 / 300000 [ 50%]  (Warmup)
-Chain 3: Iteration: 150001 / 300000 [ 50%]  (Sampling)
-Chain 2: Iteration: 180000 / 300000 [ 60%]  (Sampling)
 Chain 3: Iteration: 180000 / 300000 [ 60%]  (Sampling)
+Chain 2: Iteration: 180000 / 300000 [ 60%]  (Sampling)
 Chain 4: Iteration: 180000 / 300000 [ 60%]  (Sampling)
 Chain 1: Iteration: 180000 / 300000 [ 60%]  (Sampling)
-Chain 2: Iteration: 210000 / 300000 [ 70%]  (Sampling)
 Chain 3: Iteration: 210000 / 300000 [ 70%]  (Sampling)
+Chain 2: Iteration: 210000 / 300000 [ 70%]  (Sampling)
 Chain 4: Iteration: 210000 / 300000 [ 70%]  (Sampling)
 Chain 1: Iteration: 210000 / 300000 [ 70%]  (Sampling)
-Chain 2: Iteration: 240000 / 300000 [ 80%]  (Sampling)
 Chain 3: Iteration: 240000 / 300000 [ 80%]  (Sampling)
+Chain 2: Iteration: 240000 / 300000 [ 80%]  (Sampling)
 Chain 4: Iteration: 240000 / 300000 [ 80%]  (Sampling)
 Chain 1: Iteration: 240000 / 300000 [ 80%]  (Sampling)
-Chain 2: Iteration: 270000 / 300000 [ 90%]  (Sampling)
 Chain 3: Iteration: 270000 / 300000 [ 90%]  (Sampling)
+Chain 2: Iteration: 270000 / 300000 [ 90%]  (Sampling)
 Chain 4: Iteration: 270000 / 300000 [ 90%]  (Sampling)
+Chain 3: Iteration: 300000 / 300000 [100%]  (Sampling)
+Chain 3: 
+Chain 3:  Elapsed Time: 246.814 seconds (Warm-up)
+Chain 3:                318.097 seconds (Sampling)
+Chain 3:                564.911 seconds (Total)
+Chain 3: 
 Chain 1: Iteration: 270000 / 300000 [ 90%]  (Sampling)
 Chain 2: Iteration: 300000 / 300000 [100%]  (Sampling)
 Chain 2: 
-Chain 2:  Elapsed Time: 2731.66 seconds (Warm-up)
-Chain 2:                3896.85 seconds (Sampling)
-Chain 2:                6628.51 seconds (Total)
+Chain 2:  Elapsed Time: 246.571 seconds (Warm-up)
+Chain 2:                382.304 seconds (Sampling)
+Chain 2:                628.875 seconds (Total)
 Chain 2: 
-Chain 3: Iteration: 300000 / 300000 [100%]  (Sampling)
-Chain 3: 
-Chain 3:  Elapsed Time: 2756.92 seconds (Warm-up)
-Chain 3:                4160.97 seconds (Sampling)
-Chain 3:                6917.89 seconds (Total)
-Chain 3: 
 Chain 4: Iteration: 300000 / 300000 [100%]  (Sampling)
 Chain 4: 
-Chain 4:  Elapsed Time: 2732.97 seconds (Warm-up)
-Chain 4:                4293.31 seconds (Sampling)
-Chain 4:                7026.27 seconds (Total)
+Chain 4:  Elapsed Time: 246.837 seconds (Warm-up)
+Chain 4:                389.31 seconds (Sampling)
+Chain 4:                636.147 seconds (Total)
 Chain 4: 
 Chain 1: Iteration: 300000 / 300000 [100%]  (Sampling)
 Chain 1: 
-Chain 1:  Elapsed Time: 2747.15 seconds (Warm-up)
-Chain 1:                4335.54 seconds (Sampling)
-Chain 1:                7082.69 seconds (Total)
+Chain 1:  Elapsed Time: 249.946 seconds (Warm-up)
+Chain 1:                398.38 seconds (Sampling)
+Chain 1:                648.326 seconds (Total)
 Chain 1: 
 ci_level: 0.8 (80% intervals)
 outer_level: 0.95 (95% intervals)
