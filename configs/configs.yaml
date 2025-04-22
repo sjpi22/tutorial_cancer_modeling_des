@@ -205,14 +205,14 @@ params_screen:
       lit_params:
         sum_var: "time_H_D"
         censor_var: "time_screen_censor"
-        age_min: 40
+        min_age: 40
     ntests:
       outcome_type: "ntests"
       get_params:
         m_patients: "m_patients"
       lit_params:
         censor_var: "time_screen_censor"
-        age_min: 40
+        min_age: 40
     dwell_time:
       outcome_type: "dwell_time"
       get_params:

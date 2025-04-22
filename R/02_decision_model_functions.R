@@ -1016,12 +1016,12 @@ calc_lyg <- function(res_base, res_screen, unit = 1) {
 # Calculate confirmatory tests in base case scenario
 calc_ntests <- function(m_patients,
                         censor_var = "time_screen_censor",
-                        age_min = 0,
+                        min_age = 0,
                         test_var_pattern = "ct_tests_"
 ) {
   # Calculate confirmatory tests
-  if (age_min > 0 | !is.null(age_min)) {
-    ct_tests <- m_patients[get(censor_var) > age_min, colSums(.SD, na.rm = T), .SDcols = patterns("ct_")]
+  if (min_age > 0 | !is.null(min_age)) {
+    ct_tests <- m_patients[get(censor_var) > min_age, colSums(.SD, na.rm = T), .SDcols = patterns("ct_")]
   } else {
     ct_tests <- m_patients[, colSums(.SD, na.rm = T), .SDcols = patterns(test_var_pattern)]
   }
