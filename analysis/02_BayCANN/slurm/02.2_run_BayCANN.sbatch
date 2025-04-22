@@ -1,8 +1,8 @@
 #!/usr/bin/bash
 #SBATCH --job-name=run_baycann
 #SBATCH --nodes=1
-#SBATCH --time=12:00:00
-#SBATCH --mem=20G
+#SBATCH --time=4:00:00
+#SBATCH --mem=4G
 #SBATCH --ntasks-per-node=1
 #SBATCH --output=output/baycann_run.log
 #SBATCH --mail-user=sjpi@stanford.edu
