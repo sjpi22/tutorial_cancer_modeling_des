@@ -139,7 +139,18 @@ seed <- l_params_calib$l_params_model$seed
 set.seed(seed)
 
 # Set cores
-options(mc.cores = parallel::detectCores() - l_params_calib$n_cores_reserved_local)
+if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) {
+  # If using Sherlock, use environment variable to set the number of cores to use
+  options(mc.cores = Sys.getenv("SLURM_NTASKS_PER_NODE"))
+  print("Running on Sherlock")
+} else {
+  # If running locally, use all available cores except for reserved ones
+  options(mc.cores = parallel::detectCores() - l_params_calib$n_cores_reserved_local)
+  print("Running locally")
+}
+
+# Show the number of parallel workers to be used
+print(paste("# parallel workers:", parallel::detectCores())) 
 
 
 #### 4. Load the training and test data for the simulations =======================
