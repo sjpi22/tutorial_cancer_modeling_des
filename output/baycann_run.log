@@ -1628,3 +1628,65 @@ Chain 2: Iteration: 270000 / 300000 [ 90%]  (Sampling)
 Chain 3: Iteration: 270000 / 300000 [ 90%]  (Sampling)
 Chain 4: Iteration: 270000 / 300000 [ 90%]  (Sampling)
 Chain 1: Iteration: 270000 / 300000 [ 90%]  (Sampling)
+Chain 2: Iteration: 300000 / 300000 [100%]  (Sampling)
+Chain 2: 
+Chain 2:  Elapsed Time: 2731.66 seconds (Warm-up)
+Chain 2:                3896.85 seconds (Sampling)
+Chain 2:                6628.51 seconds (Total)
+Chain 2: 
+Chain 3: Iteration: 300000 / 300000 [100%]  (Sampling)
+Chain 3: 
+Chain 3:  Elapsed Time: 2756.92 seconds (Warm-up)
+Chain 3:                4160.97 seconds (Sampling)
+Chain 3:                6917.89 seconds (Total)
+Chain 3: 
+Chain 4: Iteration: 300000 / 300000 [100%]  (Sampling)
+Chain 4: 
+Chain 4:  Elapsed Time: 2732.97 seconds (Warm-up)
+Chain 4:                4293.31 seconds (Sampling)
+Chain 4:                7026.27 seconds (Total)
+Chain 4: 
+Chain 1: Iteration: 300000 / 300000 [100%]  (Sampling)
+Chain 1: 
+Chain 1:  Elapsed Time: 2747.15 seconds (Warm-up)
+Chain 1:                4335.54 seconds (Sampling)
+Chain 1:                7082.69 seconds (Total)
+Chain 1: 
+ci_level: 0.8 (80% intervals)
+outer_level: 0.95 (95% intervals)
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+Warning message:
+Removed 2 rows containing missing values or values outside the scale range
+(`geom_bar()`). 
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+Error in doWithOneRestart(return(expr), restart) : bad error message
+Calls: melt ... signal -> withRestarts -> withOneRestart -> doWithOneRestart
+Execution halted
