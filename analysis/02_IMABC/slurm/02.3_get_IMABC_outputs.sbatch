@@ -9,7 +9,7 @@
 #SBATCH --mail-type=ALL
 
 #* To send the job to Sherlock use:
-# - sbatch analysis/02_IMABC/02.3_get_IMABC_outputs.sbatch
+# - sbatch analysis/02_IMABC/slurm/02.3_get_IMABC_outputs.sbatch
 
 # load R module
 ml R/4.3.2
