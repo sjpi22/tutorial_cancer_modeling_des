@@ -46,8 +46,7 @@ visible FALSE                     FALSE
         R/utils/epi_functions.R R/utils/query_distr.R R/utils/sum_of_cdfs.R
 value   ?                       ?                     ?                    
 visible FALSE                   FALSE                 FALSE                
-<environment: R_GlobalEnv>
 [1] "Running on Sherlock"
 [1] "# parallel workers: 4"
     user   system  elapsed 
-2493.747    8.305  836.816 
+2210.229    8.932  800.681 
