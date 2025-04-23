@@ -37,12 +37,9 @@ params_screen <- configs$params_screen
 params_calib <- configs$params_calib
 seed <- params_calib$seed_calib
 
-# Get list of BayCANN output file paths and load to global environment
-l_filepaths <- update_config_paths("files_baycann", configs$paths)
-list2env(l_filepaths, envir = .GlobalEnv)
-
 ###### 2.2 File paths
 file_true_params <- file.path("_ground_truth", "true_params.xlsx")
+file_outputs <- file.path("_ground_truth", "true_decision_outputs.rds")
 
 ###### 2.3 Other parameters
 n_cores_reserved_local <- 2
