@@ -109,11 +109,6 @@ for (method in names(v_methods)) {
         
         # Save data
         l_outcomes[[method]][[outcome]][["base"]] <- m_outputs_base
-        
-        # Truncate length of weights (if unable to produce data for whole posterior)
-        if (length(l_wts[[method]]) > 1) {
-          l_wts[[method]] <- l_wts[[method]][1:nrow(m_outputs_base)]
-        }
       }
       
       # Extract screening scenario decision outputs to matrix

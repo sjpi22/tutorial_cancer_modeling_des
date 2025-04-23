@@ -644,23 +644,24 @@ simulate_screening_L <- function(m_patients,
     m_lesions[screen_age < time_lesion_censor, fl_screen := 1]
     
     # Flag lesions that are present in eligible screeners at current screen time
-    m_lesions[fl_screen == 1 & time_H_Lj <= screen_age & fl_removed == 0,
-              fl_present := 1]
+    # and initialize positive flag and confirmatory test flag to 0
+    m_lesions[fl_screen == 1,
+              `:=` (fl_present = (time_H_Lj <= screen_age & fl_removed == 0),
+                    fl_positive = 0,
+                    fl_conf = 0)]
     
     # Set modality based on routine vs. surveillance screening
     m_lesions[!is.na(screen_age), modality := v_mod[screen_type], by = screen_type]
     
     ###### 2.1 Flag whether eligible lesions would be detected
     #### Sample whether eligible lesions produce positive test result
-    if (sum(m_lesions$fl_present, na.rm = T) > 0) {
+    if (any(m_lesions$fl_present > 0, na.rm = T)) {
       m_lesions[fl_present == 1, `:=` (
         fl_positive = rbinom(
           .N,
           size = 1,
           prob = l_test_chars[[modality]][["p_sens"]][["L"]]
         )), by = modality]
-    } else {
-      m_lesions[, fl_positive := NA_integer_]
     }
     
     #### Apply downstream effect of positive result depending on test type (direct, targeted, indirect) ####
@@ -668,11 +669,6 @@ simulate_screening_L <- function(m_patients,
     if ("direct" %in% names(l_test_types)) {
       m_lesions[fl_present == 1 & fl_positive == 1 & modality %in% l_test_types[["direct"]], `:=` (
         fl_removed = 1
-      )]
-      
-      # Set confirmatory test flag to 0 for aggregation to work
-      m_lesions[fl_screen == 1 & modality %in% l_test_types[["direct"]], `:=` (
-        fl_conf = 0
       )]
     }
     
@@ -685,7 +681,6 @@ simulate_screening_L <- function(m_patients,
           size = 1,
           prob = l_test_chars[[v_mod_conf[screen_type]]][["p_sens"]][["L"]]
         )), by = screen_type]
-      # print("targeted")
     }
     
     ### If test is indirect (non-targeted), apply confirmatory tests to all lesions if at least one produces positive result
@@ -706,7 +701,6 @@ simulate_screening_L <- function(m_patients,
           size = 1,
           prob = l_test_chars[[v_mod_conf[screen_type]]][["p_sens"]][["L"]]
         )), by = screen_type]
-      # print("indirect")
     }
     
     # For removed lesions, set time to cancer onset to Inf, and set detection time
@@ -717,11 +711,11 @@ simulate_screening_L <- function(m_patients,
     # Check number of eligible lesions and removed lesions among individuals screened at this round
     # and update time to onset of preclinical cancer
     m_lesions_summary <- m_lesions[fl_screen == 1, 
-                                   .(screen_type = max(screen_type, na.rm = T), # Screening type (routine vs. surveillance)
-                                     ct_eligible = sum(fl_present, na.rm = T), # Number of lesions present
-                                     fl_positive = as.integer(if(all(is.na(fl_positive))) NA_integer_ else max(fl_positive, na.rm = TRUE)), # Whether any lesions produced a positive screen result
-                                     fl_conf = as.integer(if(all(is.na(fl_conf))) NA_integer_ else max(fl_conf, na.rm = TRUE)), # Whether confirmatory test was conducted
-                                     ct_removed = sum(fl_present == 1 & fl_removed == 1, na.rm = T), # Count number of lesions removed during screening round
+                                   .(screen_type = screen_type[1], # Screening type (routine vs. surveillance)
+                                     ct_eligible = sum(fl_present), # Number of lesions present
+                                     fl_positive = max(fl_positive), # Whether any lesions produced a positive screen result
+                                     fl_conf = max(fl_conf), # Whether confirmatory test was conducted
+                                     ct_removed = sum(fl_present == 1 & fl_removed == 1), # Count number of lesions removed during screening round
                                      time_H_P = min(time_H_Pj, na.rm = T)), 
                                    by = pt_id]
     
@@ -948,6 +942,7 @@ simulate_screening_P <- function(m_patients,
     }
     
     # Set next test time for negatives cases that were routinely screened
+    m_patients[, int_test_next := NA_integer_]
     m_patients[!is.na(screen_age) & !fl_detected %in% 1 & screen_type == "screen", `:=` (
       int_test_next = ifelse(!fl_conf %in% 1, 
                              l_params_strategy[["int_screen"]],

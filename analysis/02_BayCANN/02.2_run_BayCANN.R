@@ -533,8 +533,6 @@ write.csv(Xq_lp,
           file = file_posterior,
           row.names = FALSE)
 
-cal_mdl_1 <- file_posterior
-
 
 # 10. Save BayCANN statistics and run final diagnostic plots ---------------------
 
@@ -557,6 +555,7 @@ if (exists("t_calibration")) {
 saveRDS(baycann_stats, file = file_baycann_stats)
 
 ### Load ANN posterior
+cal_mdl_1 <- file_posterior
 Xq_lp <- read.csv(file = cal_mdl_1)
 n_col <- ncol(Xq_lp)
 lp <- Xq_lp[, n_col]
@@ -574,11 +573,11 @@ gg_calib_post_pair_corr
 
 #### Prior and posterior graph
 n_samp <- min(1000, nrow(data_sim_param_train))
-df_samp_prior <- melt(cbind(Distribution = "Prior",
+df_samp_prior <- reshape2::melt(cbind(Distribution = "Prior",
                             as.data.frame(data_sim_param_train[1:n_samp, ])),
                       variable.name = "Parameter")
 
-df_samp_post_ann   <- melt(cbind(Distribution = "Posterior BayCANN",
+df_samp_post_ann   <- reshape2::melt(cbind(Distribution = "Posterior BayCANN",
                                  as.data.frame(df_post_ann[1:n_samp, ])),
                            variable.name = "Parameter")
 
