@@ -91,7 +91,18 @@ l_censor_vars <- params_calib$l_censor_vars
 set.seed(seed, kind = "L'Ecuyer-CMRG")
 
 # Set number of cores to use
-registerDoParallel(cores = detectCores(logical = TRUE) - n_cores_reserved_local)
+if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) {
+  # If using Sherlock, use environment variable to set the number of cores to use
+  registerDoParallel(cores = (Sys.getenv("SLURM_NTASKS_PER_NODE")))
+  print("Running on Sherlock")
+} else {
+  # If running locally, use all available cores except for reserved ones
+  registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
+  print("Running locally")
+}
+
+# Show the number of parallel workers to be used
+print(paste("# parallel workers:", getDoParWorkers())) 
 
 
 #### 4. Generate BayCANN outputs  ===========================================
