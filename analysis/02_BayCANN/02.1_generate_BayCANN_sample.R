@@ -136,5 +136,6 @@ plt_coverage <- plot_coverage(df_targets = df_targets,
                               m_outputs = BayCANN_sample$m_calib_outputs, 
                               file_fig_coverage = file_fig_coverage,
                               target_range = "ci",
-                              plt_size_text = plt_size_text)
+                              plt_size_text = plt_size_text,
+                              labeller_multiplier = 6)
 plt_coverage

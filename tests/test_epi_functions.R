@@ -15,7 +15,7 @@ library(tidyverse)
 library(readxl)
 library(data.table)
 
-###### 1.1 Load functions
+###### 1.2 Load functions
 
 # Load functions
 distr.sources <- list.files("R", 
