@@ -5,8 +5,6 @@
 #SBATCH --mem=8G
 #SBATCH --ntasks-per-node=12
 #SBATCH --output=output/imabc_sherlock.log
-#SBATCH --mail-user=sjpi@stanford.edu
-#SBATCH --mail-type=ALL
 
 #* To send the job to Sherlock use:
 # - sbatch analysis/02_IMABC/slurm/02.1_run_IMABC.sbatch

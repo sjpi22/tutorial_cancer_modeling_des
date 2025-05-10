@@ -5,8 +5,6 @@
 #SBATCH --mem=3G
 #SBATCH --ntasks-per-node=4
 #SBATCH --output=output/true_outputs.log
-#SBATCH --mail-user=sjpi@stanford.edu
-#SBATCH --mail-type=ALL
 
 #* To send the job to Sherlock use:
 # - sbatch _ground_truth/slurm/02_get_true_outcomes.sbatch

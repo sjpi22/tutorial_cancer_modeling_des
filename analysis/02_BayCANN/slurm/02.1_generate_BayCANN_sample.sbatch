@@ -5,8 +5,6 @@
 #SBATCH --mem=3G
 #SBATCH --ntasks-per-node=4
 #SBATCH --output=output/baycann_sample.log
-#SBATCH --mail-user=sjpi@stanford.edu
-#SBATCH --mail-type=ALL
 
 #* To send the job to Sherlock use:
 # - sbatch analysis/02_BayCANN/slurm/02.1_generate_BayCANN_sample.sbatch
