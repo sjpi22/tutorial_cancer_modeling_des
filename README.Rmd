@@ -6,9 +6,15 @@ output: github_document
 
 # Discrete-Event Simulation Model for Cancer Interventions and Population Health in R (DESCIPHR)
 
-This GitHub repository is the companion codebase to our manuscript on the Discrete-Event Simulation Model for Cancer Interventions and Population Health in R (DESCIPHR) modeling pipeline. Together, they serve as a tutorial on building, calibrating, and applying a discrete-event simulation cancer model.
 
-![Cancer natural history and screening model schema](figs/model_schema_screening.png){#id .class width="70%" height="70%"}
+- [File directory](#file-directory)
+- [Installation](#installation)
+- [Citation](#citation)
+- [Acknowledgments](#acknowledgments)
+
+This GitHub repository is the companion codebase to our [manuscript](https://doi.org/10.1101/2025.05.12.25327470) on the Discrete-Event Simulation Model for Cancer Interventions and Population Health in R (DESCIPHR) modeling pipeline. Together, they serve as a tutorial on building, calibrating, and applying a discrete-event simulation cancer model with the structure illustrated in Figure 1.
+
+![**Figure 1**. Cancer natural history and screening model schema](figs/model_schema_screening.png){#id .class width="70%" height="70%"}
 
 ## File directory
 
@@ -44,13 +50,29 @@ git clone https://github.com/sjpi22/tutorial_cancer_modeling_des.git
 ```
 
 3.  Open the RStudio project `tutorial_cancer_modeling_des.Rproj`.
-4.  Modify the analysis scripts and data inputs as needed.
+4.  Download the packages required in each script and modify the analysis scripts and data inputs as needed. You may refer to the [manuscript](https://doi.org/10.1101/2025.05.12.25327470) appendix for guidance on adapting the model.
 
 ## Citation
 
-You can cite the R code in this repository using "we based our analysis using the R code from Pi S et al. (2025)". Here is the full bibliographic reference to include in your reference list for the R code (don't forget to update the 'last accessed' date):
+If you use this code or find it helpful, you can cite our preprint using the following bibliographic reference (Vancouver style) or BibTeX entry (don't forget to update the 'last accessed' date):
 
-> Pi S, Rutter CM, Pineda-Antunez C, Chen JH, Goldhaber-Fiebert JD, Alarid-Escudero F. GitHub. sjpi22/tutorial_cancer_modeling_des: Code for tutorial on cancer modeling with discrete event simulation. Available from: <https://github.com/sjpi22/tutorial_cancer_modeling_des>
+> Pi S, Rutter C, Pineda-Antunez C, Chen JH, Goldhaber-Fiebert JD, Alarid-Escudero F. Discrete-Event Simulation Model for Cancer Interventions and Population Health in R (DESCIPHR): An Open-Source Pipeline. medRxiv [Preprint]; 2025. Available from: https://www.medrxiv.org/content/10.1101/2025.05.12.25327470v1
+
+```bibtex
+@article {pi_discrete-event_2025,
+	author = {Pi, Selina and Rutter, Carolyn and Pineda-Antunez, Carlos and Chen, Jonathan  H. and Goldhaber-Fiebert, Jeremy D and Alarid-Escudero, Fernando},
+	title = {Discrete-Event Simulation Model for Cancer Interventions and Population Health in R (DESCIPHR): An Open-Source Pipeline},
+	elocation-id = {2025.05.12.25327470},
+	year = {2025},
+	doi = {10.1101/2025.05.12.25327470},
+	publisher = {Cold Spring Harbor Laboratory Press},
+	URL = {https://www.medrxiv.org/content/early/2025/05/13/2025.05.12.25327470},
+	eprint = {https://www.medrxiv.org/content/early/2025/05/13/2025.05.12.25327470.full.pdf},
+	journal = {medRxiv}
+}
+```
+
+You can reference the code by writing "we based our analysis using the R code from Pi S et al. (2025)." If you adapted the code, you should indicate "Adapted from:" or "Based on" so it is understood that you modified the code. For more information on how to cite computer code, we refer the user to review [Writing Code (from MIT Research Guide)](https://integrity.mit.edu/handbook/writing-code), which provides examples of how and when to cite computer code.
 
 If using Incremental Mixture Approximate Bayesian Computation (IMABC) to calibrate, please also cite:
 
@@ -64,9 +86,10 @@ and
 
 > Pineda-Antunez C, Seguin C, van Duuren LA, Knudsen AB, Davidi B, Nascimento de Lima P, et al. Emulator-Based Bayesian Calibration of the CISNET Colorectal Cancer Models. Med Decis Making. 2024 Jul 1;44(5):543–53.
 
-If you adapted the code, you should indicate "Adapted from:" or "Based on" so it is understood that you modified the code. For more information on how to cite computer code, we refer the user to review [Writing Code (from MIT Research Guide)](https://integrity.mit.edu/handbook/writing-code), which provides examples of how and when to cite computer code.
 
 ## Acknowledgments
+
+SP was supported by the US National Institutes of Health (NIH Grant T15LM007033) and the National Science Foundation (NSF) Graduate Research Fellowship Program (Grant DGE-2146755). CMR was supported by grants U01-CA253913 from the National Cancer Institute (NCI) as part of the Cancer Intervention and Surveillance Modeling Network (CISNET). FAE was supported by grants U01-CA253913 and U01-CA265750 from the NCI as part of CISNET. Any opinions, findings, and conclusions or recommendations expressed in this material are those of the authors and do not necessarily reflect the views of the NIH, NSF, NCI, or CISNET. Authors have no conflicts of interest to declare.
 
 This README file was adapted from the README.Rmd file of 
 
