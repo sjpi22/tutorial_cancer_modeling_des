@@ -25,17 +25,18 @@ sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
 
-###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+###### 2.1 File paths
+file_configs <- file.path("configs", "configs_simulated.yaml")
+file_true_params <- file.path("_ground_truth", "true_params.xlsx")
+file_constant_priors <- file.path("_ground_truth", "constant_priors.xlsx")
+
+###### 2.2 Configurations
+# Load configs
+configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
 params_model <- configs$params_model
 params_calib <- configs$params_calib
-
-###### 2.2 File paths
-file_true_params <- file.path("_ground_truth", "true_params.xlsx")
-file_constant_priors <- file.path("_ground_truth", "constant_priors.xlsx")
 
 ###### 2.3 Other parameters
 # Simulation parameters and outcome reporting

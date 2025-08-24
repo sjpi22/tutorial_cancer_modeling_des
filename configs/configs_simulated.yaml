@@ -4,9 +4,9 @@
 paths:
   root_dir: # Root directories
     data: "data"
-    output: "output"
+    output: "output/simulated"
     figs: "figs"
-  file_params_calib: "output/params_calib_updated.rds" # File to save list of calibration parameters updated with cohort size
+  file_params_calib: "output/simulated/params_calib_updated.rds" # File to save list of calibration parameters updated with cohort size
   file_plot_labels: "data/target_plot_labels.csv" # File path with plot labels for calibration targets and outcomes
   files_coverage: # File names for coverage analysis outputs
     output:
@@ -61,16 +61,16 @@ params_model:
   lesion_state: TRUE      # Indicator to include precancerous lesion state
   v_cancer: [1, 2, 3, 4]  # Cancer stages in order
   conf_level: 0.95        # Confidence level for outputs
-  file.mort: "data/background_mortality.xlsx" # File path for background mortality data
-  file.surv: "data/relative_survival_cancer.csv" # File path for relative survival from cancer diagnosis data
+  file.mort: "data/simulated/background_mortality.xlsx" # File path for background mortality data
+  file.surv: "data/simulated/relative_survival_cancer.csv" # File path for relative survival from cancer diagnosis data
 
 # Calibration parameters (inputs to load_calib_params() in R/03_calibration_general_functions.R after modifications in configs/process_configs.R for lesion model)
 params_calib:
   seed_calib: 42
-  file_priors: "data/priors.csv" # File path for prior distributions for calibration parameters
+  file_priors: "data/simulated/priors.csv" # File path for prior distributions for calibration parameters
   l_params_outcome: # Parameters for calculating calibration outcomes
     prevalence:
-      file_path: "data/prevalence_preclinical_cancer.csv"
+      file_path: "data/simulated/prevalence_preclinical_cancer.csv"
       outcome_type: "prevalence"
       categorical: FALSE
       get_params:
@@ -81,7 +81,7 @@ params_calib:
         censor_var: "time_screen_censor"
         method: "cs"
     incidence:
-      file_path: "data/incidence_clinical_cancer.csv"
+      file_path: "data/simulated/incidence_clinical_cancer.csv"
       outcome_type: "incidence"
       categorical: FALSE
       get_params:
@@ -92,7 +92,7 @@ params_calib:
         method: "long"
         rate_unit: 100000
     stage_distr:
-      file_path: "data/stage_distr_clinical_cancer.csv"
+      file_path: "data/simulated/stage_distr_clinical_cancer.csv"
       outcome_type: "distr"
       categorical: TRUE
       get_params:
@@ -109,7 +109,7 @@ params_calib:
   lesion_state_true: # Parameters to add for lesion model
     l_params_outcome: # Parameters for calculating lesion-model-specific calibration outcomes
       prevalence_lesion:
-        file_path: "data/prevalence_lesion.csv"
+        file_path: "data/simulated/prevalence_lesion.csv"
         outcome_type: "prevalence"
         categorical: FALSE
         get_params:
@@ -119,7 +119,7 @@ params_calib:
           end_var: "time_H_P"
           censor_var: "time_screen_censor"
       n_lesions:
-        file_path: "data/n_lesions.csv"
+        file_path: "data/simulated/n_lesions.csv"
         outcome_type: "nlesions"
         categorical: TRUE
         get_params:

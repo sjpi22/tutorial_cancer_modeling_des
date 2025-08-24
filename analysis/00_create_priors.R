@@ -31,8 +31,9 @@ ir_clinical <- function(x) {
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+# Load configs
+file_configs <- file.path("configs", "configs_simulated.yaml")
+configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
 params_model <- configs$params_model

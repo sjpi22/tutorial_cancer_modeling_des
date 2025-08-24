@@ -7,22 +7,27 @@
 library(yaml)
 
 # Read configuration file
-configs <- read_yaml(file.path("configs", "configs.yaml")) # Load configuration parameters
-
-# Make updates for lesion model if necessary
-if ("lesion_state" %in% names(configs$params_model)) {
-  if (configs$params_model$lesion_state == T) {
-    for (item_name in names(configs$params_calib$lesion_state_true)) {
-      configs$params_calib[[item_name]] <- c(configs$params_calib$lesion_state_true[[item_name]], configs$params_calib[[item_name]])
+load_configs <- function(path) {
+  # Read YAML file
+  configs <- read_yaml(path) # Load configuration parameters
+  
+  # Make updates for lesion model if necessary
+  if ("lesion_state" %in% names(configs$params_model)) {
+    if (configs$params_model$lesion_state == T) {
+      for (item_name in names(configs$params_calib$lesion_state_true)) {
+        configs$params_calib[[item_name]] <- c(configs$params_calib$lesion_state_true[[item_name]], configs$params_calib[[item_name]])
+      }
     }
   }
+  
+  # Remove calibration parameters specific to lesion model
+  configs$params_calib$lesion_state_true <- NULL
+  
+  # Set expected groups for stage distribution calibration outcome to be cancer stages
+  configs$params_calib$l_params_outcome$stage_distr$lit_params$groups_expected <- configs$params_model$v_cancer
+  
+  return(configs)
 }
-
-# Remove calibration parameters specific to lesion model
-configs$params_calib$lesion_state_true <- NULL
-
-# Set expected groups for stage distribution calibration outcome to be cancer stages
-configs$params_calib$l_params_outcome$stage_distr$lit_params$groups_expected <- configs$params_model$v_cancer
 
 # Define function to update output file paths
 update_config_paths <- function(label, paths) {
