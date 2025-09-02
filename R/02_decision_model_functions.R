@@ -1101,6 +1101,7 @@ params_to_outputs <- function(l_params_model,
                               conf_level = 0.95
 ) {
   # Update parameters
+  browser()
   if (!is.null(v_params_update)) {
     if (is.null(param_map)) {
       stop("Input parameter map")

@@ -10,6 +10,7 @@ options(scipen = 999) # View data without scientific notation
 
 ###### 1.1 Load packages
 library(readxl)
+library(tools)
 library(tidyverse)
 library(assertthat)
 library(data.table)
@@ -32,18 +33,19 @@ ir_clinical <- function(x) {
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_simulated.yaml")
+file_configs <- file.path("configs", "configs_colorectal.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
 params_model <- configs$params_model
 params_calib <- configs$params_calib
+file_targets <- configs$params_calib$file_targets
 
 ###### 2.2 Other parameters
 conf_level <- 0.95 # For generating bounds
 multiplier_bounds <- 0.2
 age_interval <- 0.25
-v_cols <- c("targets", "ci_lb", "ci_ub")
+v_cols <- c("targets", "stopping_lower_bounds", "stopping_upper_bounds")
 v_colors <- c("green", "red", "orange")
 var_index <- "target_index"
 
@@ -60,14 +62,25 @@ l_params_model <- do.call(load_model_params, c(
 ))
 
 # Load targets
-l_targets <- load_calibration_targets(params_calib$l_params_outcome)
+df_targets <- load_calibration_targets(file_targets)
 
-# Process incidence data
+# Calculate SE from bounds
+if (!"se" %in% colnames(df_targets)) {
+  df_targets <- df_targets %>%
+    mutate(se = (stopping_upper_bounds - stopping_lower_bounds) / (2 * qnorm((1 + conf_level)/2)))
+}
+
+# Separate targets into list
+l_targets <- list()
 for (target in names(params_calib$l_params_outcome)) {
+  l_targets[[target]] <- df_targets %>%
+    filter(target_groups == target)
+  
+  # Process incidence data
   if (params_calib$l_params_outcome[[target]][["outcome_type"]] == "incidence") {
     # Rescale incidence values by unit
     for (val in c(v_cols, "se")) {
-      l_targets[[target]][[val]] <- l_targets[[target]][[val]] / l_targets[[target]]$unit
+      l_targets[[target]][[val]] <- l_targets[[target]][[val]] / params_calib$l_params_outcome[[target]]$lit_params$rate_unit
     }
   }
 }
@@ -151,7 +164,7 @@ for (i in l_params_model$v_cancer) {
   
   # Plot for verification
   plot(fit_spline_Dc, xlim = c(0, 20),
-       xlab = "Proportion dead", ylab = "Time to death",
+       xlab = "Time to death", ylab = "Proportion dead",
        main = paste0("Stage ", i))
   
   # Calculate CDF from 0 to max_age bounding at 1
@@ -214,8 +227,8 @@ for (val in v_cols) {
     # Plot spline fit
     plot(fit_spline, xlab = "Age", ylab = "Incidence", main = paste("Spline fit:", label),
          xlim = c(0, max(df_incidence$age_end) + 1))
-    arrows(df_incidence[[var_index]], df_incidence$ci_lb, 
-           df_incidence[[var_index]], df_incidence$ci_ub, length = 0.05, angle = 90, code = 3)
+    arrows(df_incidence[[var_index]], df_incidence[[v_cols[2]]], 
+           df_incidence[[var_index]], df_incidence[[v_cols[3]]], length = 0.05, angle = 90, code = 3)
     
     # Integrate spline to estimate cumulative hazard of clinical cancer at ages in preclinical cancer data
     chaz_clinical <- sapply(df_prevalence[[-1]][[var_index]],
@@ -267,12 +280,12 @@ for (val in v_cols) {
   if (val == v_cols[1]) {
     # Plot estimated disease onset CDF
     plot(df_prevalence[[1]][[var_index]], df_prevalence[[1]]$p_targets,
-         col = v_colors[1], type = "p", ylim = c(0, max(df_prevalence[[1]]$p_ci_ub)),
+         col = v_colors[1], type = "p", ylim = c(0, max(df_prevalence[[1]][[v_cols[3]]])),
          xlab = "Age", ylab = "Probability")
     
     # Plot prevalence for comparison
-    arrows(df_prevalence[[1]][[var_index]], df_prevalence[[1]]$ci_lb, 
-           df_prevalence[[1]][[var_index]], df_prevalence[[1]]$ci_ub, length = 0.05, angle = 90, code = 3,
+    arrows(df_prevalence[[1]][[var_index]], df_prevalence[[1]][[v_cols[2]]], 
+           df_prevalence[[1]][[var_index]], df_prevalence[[1]][[v_cols[3]]], length = 0.05, angle = 90, code = 3,
            col = v_colors[1], lty = 3)
     
     # Plot preclinical cancer CDF if model includes lesion state
@@ -280,13 +293,13 @@ for (val in v_cols) {
       points(df_prevalence[[-1]][[var_index]], df_prevalence[[-1]]$p_targets, col = v_colors[3])
       
       # Plot prevalence for comparison
-      arrows(df_prevalence[[-1]][[var_index]], df_prevalence[[-1]]$ci_lb, 
-             df_prevalence[[-1]][[var_index]], df_prevalence[[-1]]$ci_ub, length = 0.05, angle = 90, code = 3,
+      arrows(df_prevalence[[-1]][[var_index]], df_prevalence[[-1]][[v_cols[2]]], 
+             df_prevalence[[-1]][[var_index]], df_prevalence[[-1]][[v_cols[3]]], length = 0.05, angle = 90, code = 3,
              col = v_colors[3], lty = 3)
     }
     
     # Plot estimated clinical cancer CDF
-    points(df_prevalence[[1]][[var_index]], l_p_clinical[[val]], col = v_colors[2])
+    points(df_prevalence[[-1]][[var_index]], l_p_clinical[[val]], col = v_colors[2])
     
   } else {
     # Plot error bounds
@@ -294,7 +307,7 @@ for (val in v_cols) {
     if (params_model$lesion_state == T) {
       lines(df_prevalence[[-1]][[var_index]], df_prevalence[[-1]][[paste("p", val, sep = "_")]], col = v_colors[3], type = "l", lty = 2)
     }
-    lines(df_prevalence[[1]][[var_index]], l_p_clinical[[val]], col = v_colors[2], type = "l", lty = 2)
+    lines(df_prevalence[[-1]][[var_index]], l_p_clinical[[val]], col = v_colors[2], type = "l", lty = 2)
   }
 }
 
@@ -325,7 +338,7 @@ for (val in v_cols) {
 
 # Get Weibull estimates using weighted linear regression
 fit_lm_mean <- lm(y_targets ~ x_transformed, data = df_prevalence[[1]], 
-                  weights = 1/(y_ci_ub - y_ci_lb)^2) # Weight scales CI to log level
+                  weights = 1/(get(paste("y", v_cols[3], sep = "_")) - get(paste("y", v_cols[2], sep = "_")))^2) # Weight scales CI to log level
 
 # Get shape and scale estimates for time to disease onset distribution
 coefs_onset <- fit_lm_mean$coefficients

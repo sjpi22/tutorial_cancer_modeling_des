@@ -1,51 +1,109 @@
 ################################################################################
-# Functions to load and process individual data input files
+# Functions to load and process data
 ################################################################################
 
 ################### Background mortality ###################
+
+#' Read lifetable text file from Human Mortality Database
+#'
+#' \code{read_lifetable} is used to load life table data from a Human Mortality 
+#' Database .txt file into a data.table when called by 
+#' \code{load_lifetables}
+#'
+#' @param filepath String with the location and name of the file with life table 
+#' data
+#' @param skip Number of rows to skip before reading data
+#' @param header Whether data has header with variable names
+#' 
+#' @return A data.table object with the life table's raw data
+#' 
+#' @import data.table
+#' 
+#' @export
+read_lifetable <- function(filepath, skip=2, header=TRUE) {
+  lifetable <- data.table(read.table(filepath, skip=skip, header=header))
+  return(lifetable)
+}
+
+
+#' Process lifetable data frame (Human Mortality Database format)
+#'
+#' \code{process_lifetable} processes the Human Mortality Database life tables 
+#' to include additional variables used in downstream analysis. These include 
+#' \code{Age} in numeric form
+#' \code{yob} as year of birth
+#' \code{S} as the probability of survival to the given age
+#' \code{neg_log_S} as negative log survival (for exponential fit)
+#' \code{log_hr} as the log of the hazard (for Gompertz fit)
+#' \code{Fx} as the probability of death before the given age (complement of S)
+#'
+#' @param lifetable_df Dataframe or data table with life table data
+#' 
+#' @return A life table in the format of the inputted life table with additional
+#' variables (listed in function description)
+#' 
+#' @import dplyr
+#' 
+#' @export
+process_lifetable <- function(lifetable_df, radix=100000) {
+  processed_lifetable_df <- lifetable_df  %>%
+    mutate(Age = as.integer(gsub("\\+", "", as.character(Age))),
+           S = lx / radix,
+           neg_log_S = -log(lx / radix),
+           Fx = 1 - S)
+  
+  # Process depending on whether Year is in data
+  if ("Year" %in% colnames(processed_lifetable_df)) {
+    processed_lifetable_df <- processed_lifetable_df %>%
+      mutate(yob = Year - Age) %>%
+      group_by(Year) %>%
+      mutate(px = c(diff(Fx), 1 - Fx[n()])) %>% # Probability mass
+      ungroup()
+  } else {
+    processed_lifetable_df <- processed_lifetable_df %>%
+      mutate(px = c(diff(Fx), 1 - Fx[n()])) # Probability mass
+  }
+  
+  return(processed_lifetable_df)
+}
+
+
 #' Load list of life tables from list of filepaths
 #'
-#' \code{load_lifetables} loads and processes Excel workbook with sex-specific 
-#' life tables
+#' \code{load_lifetables} loads and processes Human Mortality Database life 
+#' tables
 #'
 #' @param l_filepaths A list of file paths for life tables; items can 
 #' optionally have names that will be carried down to the list of results
 #' 
 #' @return A labeled list of processed life tables
 #' 
-#' @import tidyverse
-#' @import readxl
+#' @import dplyr
 #' 
 #' @export
-load_lifetables <- function(filepath) {
-  if(!is.null(filepath)) {
-    # Read sheet names
-    sheet_names <- excel_sheets(filepath)
-    
-    # Read data
-    l_lifetables <- list()
-    for(nm in sheet_names) {
-      df_lifetable <- read_excel(filepath, sheet = nm)
-      l_lifetables <- c(l_lifetables, list(df_lifetable))
-    }
-    names(l_lifetables) <- sheet_names
-    
-    # Return list of data tables if there were >1 sheets, otherwise return singular data table
-    if(length(sheet_names) > 1) return(l_lifetables)
-    else return(l_lifetables[[1]])
-  } else {
-    # Return nothing if no filepath given
-    return()
+load_lifetables <- function(l_filepaths, skip=2, header=TRUE, radix=100000) {
+  # Read lifetables and add to list
+  l_lifetables <- c()
+  for (filepath in l_filepaths) {
+    lifetable <- read_lifetable(filepath=filepath, skip=skip, header=header) %>%
+      process_lifetable(radix = radix)
+    l_lifetables <- c(l_lifetables, list(lifetable))
   }
+  
+  # Set names of lifetables as names of input list
+  if (!is.null(names(l_filepaths))) names(l_lifetables) <- names(l_filepaths)
+  return(l_lifetables)
 }
 
 
-#' Set background mortality distribution from a life table 
+#' Set background mortality distribution for a specific year from a life table 
 #'
-#' \code{set_mort_distr} sets mortality distributions from a life table
+#' \code{set_mort_distr} sets mortality distributions from Human Mortality Database lifetables
+#' tables
 #'
-#' @param l_lifetables A list of life tables with columns age and p_death (probability of death in each age year)
+#' @param l_lifetables A list of life tables
 #' @param label Label for desired life table (default first table in list)
+#' @param year Year for life table
 #' 
 #' @return Distribution object with distribution type and parameters
 #' 
@@ -53,14 +111,25 @@ load_lifetables <- function(filepath) {
 #' 
 #' @export
 # 
-set_mort_distr <- function(l_lifetables, label = 1) {
-  
+set_mort_distr <- function(l_lifetables, label = 1, year = NULL) {
   lifetable_dat <- l_lifetables[[label]]
   
+  # Filter to year if necessary
+  if ("Year" %in% colnames(lifetable_dat)) {
+    if (is.null(year)) { # If null, use most recent year
+      lifetable_dat <- lifetable_dat %>%
+        filter(Year == max(year))
+    } else {
+      lifetable_dat <- lifetable_dat %>%
+        filter(Year == year)
+    }
+  }
+  
+  # Create distribution
   distr <- list(distr = "empirical",
-                params = list(xs = lifetable_dat$age, 
-                              probs = lifetable_dat$p_death,
-                              max_x = max(lifetable_dat$age) + 1),
+                params = list(xs = lifetable_dat$Age, 
+                              probs = lifetable_dat$px,
+                              max_x = max(lifetable_dat$Age) + 1),
                 src = "known")
   return(distr)
 }
@@ -68,12 +137,12 @@ set_mort_distr <- function(l_lifetables, label = 1) {
 
 ################### Survival from diagnosis ###################
 
-#' Load survival from diagnosis data
+#' Read survival from diagnosis data downloaded from SEER
 #'
-#' \code{load_surv_data} reads survival from diagnosis data
+#' \code{read_CRC_surv} reads survival from diagnosis data downloaded from SEER
 #' 
-#' @param filepath String with the location and name of the data file
-#' @param max_age Maximum age to use for survival data
+#' @param filepath String with the location and name of the file with CRC
+#' incidence data
 #' 
 #' @return A data frame with survival from diagnosis by stage
 #' 
@@ -83,12 +152,92 @@ set_mort_distr <- function(l_lifetables, label = 1) {
 #' 
 #' @export
 load_surv_data <- function(
-    filepath,
+    l_filepaths,
+    version = c("SEER", "simulated"),
     max_age = 110
 ){
-  surv_data <- read.csv(filepath) %>%
-    mutate(pct_died = 1 - surv)
-  return(surv_data)
+  if (version == "simulated") {
+    # Read data and calculate CDF of death
+    surv_data <- read.csv(l_filepaths) %>%
+      mutate(pct_died = 1 - surv)
+    
+    # Set distribution for each stage
+    l_distr_surv <- list()
+    for (i in unique(surv_data$stage)) {
+      distr_surv <- set_surv_distr(surv_data, i, max_age)
+      l_distr_surv[[i]] <- distr_surv
+    }
+    
+    # Return as data.table
+    return(list(l_data_surv = surv_data, l_distr_surv = l_distr_surv))
+  } else {
+    # Read survival data tables and add to list
+    l_data_surv <- c()
+    l_distr_surv <- list()
+    data_names <- c("relative_survival", "lb_95ci", "ub_95ci")
+    
+    for (filepath in l_filepaths) {
+      # Read survival data and clean NAs
+      surv_data <- read_csv(filepath, skip = 3) %>%
+        drop_na() %>%
+        slice(-1)
+      surv_data[surv_data == "^"] <- NA
+      
+      # Change column names
+      orig_cols <- names(surv_data)
+      cols_add <- c("", paste("__", rep(c(1, 2, 3), (length(orig_cols) - 1)/3), sep = ""))
+      
+      new_cols <- paste(sub("\\...+", '', orig_cols), cols_add, sep = "")
+      new_cols[1] <- "time_char"
+      names(surv_data) <- new_cols
+      
+      # Change from wide to long
+      surv_data_long <- surv_data %>%
+        pivot_longer(cols = -"time_char", 
+                     names_to = c("age_group", ".value"), 
+                     names_sep = "__") %>%
+        mutate(time_char = sub("Diagnosis", "0", time_char)) %>%
+        mutate(time = as.integer(sub("(\\w+).*", "\\1", time_char)),
+               age_min = as.integer(substr(age_group, 5, 7)),
+               age_max = as.integer(substring(age_group, nchar(age_group)-1)),
+               age_group = gsub("&lt; ", "<", age_group)) %>%
+        mutate(age_group = gsub("Ages ", "", age_group)) %>%
+        mutate(age_group = gsub(" Ages", "", age_group))
+      
+      # Correct NAs
+      surv_data_long$age_min <- surv_data_long$age_min %>%
+        replace_na(0)
+      surv_data_long$age_max <- surv_data_long$age_max %>%
+        replace_na(max_age)
+      
+      # Change column names for data and set to numeric
+      names(surv_data_long)[3:5] <- data_names
+      surv_data_long <- surv_data_long %>%
+        filter(!is.na(relative_survival)) %>%
+        mutate_at(data_names, as.numeric) %>%
+        mutate(cdf = 1 - relative_survival/100) %>%
+        group_by(age_group) %>%
+        mutate(pmf = c(diff(cdf), 1 - max(cdf)))
+      
+      # Filter initially to all ages and set distribution@@@
+      surv_data_all <- surv_data_long %>%
+        filter(age_group == "All")  
+      
+      distr_surv <- list(distr = "empirical",
+                         params = list(xs = surv_data_all$time,
+                                       probs = surv_data_all$pmf,
+                                       max_x = max_age),
+                         src = "known")
+      l_distr_surv <- c(l_distr_surv, list(distr_surv))
+      
+      l_data_surv <- c(l_data_surv, list(surv_data_long))
+    }
+    names(l_distr_surv) <- names(l_filepaths)
+    names(l_data_surv) <- names(l_filepaths)
+    
+    # Return as data.table
+    return(list(l_data_surv = l_data_surv, l_distr_surv = l_distr_surv))
+  }
 }
 
 
@@ -126,56 +275,6 @@ set_surv_distr <- function(df_surv, stage, max_age) {
 
 ################### Target data ###################
 
-# Load preclinical cancer prevalence data
-load_prevalence <- function(filepath, target_groups = NULL) {
-  if (is.null(target_groups)) {
-    target_groups <- "prevalence"
-  }
-  filedata <- read.csv(filepath) %>%
-    mutate(target_index = (age_start + age_end)/2,
-           target_groups = target_groups,
-           target_names = paste(target_groups, age_start, age_end, sep="_"))
-  return(filedata)
-}
-
-# Load cancer incidence data
-load_incidence <- function(filepath, target_groups = NULL) {
-  if (is.null(target_groups)) {
-    target_groups <- "incidence"
-  }
-  filedata <- read.csv(filepath) %>%
-    mutate(target_index = (age_start + age_end)/2,
-           target_groups = target_groups,
-           target_names = paste(target_groups, age_start, age_end, sep="_"))
-  return(filedata)
-}
-
-# Load cancer stage distribution and other distribution data
-load_distr <- function(filepath, target_groups = NULL) {
-  if (is.null(target_groups)) {
-    target_groups <- "stage_distr"
-  }
-  filedata <- read.csv(filepath) 
-  colnames(filedata)[1] <- "target_index"
-  filedata <- filedata %>% 
-    mutate(target_groups = target_groups,
-           target_names = paste(target_groups, target_index, sep="_"))
-  return(filedata)
-}
-
-# Load lesion multiplicity data
-load_nlesions <- function(filepath, target_groups = NULL) {
-  if (is.null(target_groups)) {
-    target_groups <- "nlesions"
-  }
-  filedata <- read.csv(filepath) %>%
-    rename(target_index = n_lesions,
-           target_index_cat = n_lesions_cat) %>% 
-    mutate(target_groups = target_groups,
-           target_names = paste(target_groups, target_index, sep="_"))
-  return(filedata)
-}
-
 #' Load calibration targets
 #'
 #' @param filepath String with the location and name of the file with data
@@ -184,15 +283,16 @@ load_nlesions <- function(filepath, target_groups = NULL) {
 #' 
 #' @import tidyverse
 #' @import readxl
+#' @import tools
 #' 
 #' @export
-load_calibration_targets <- function(l_outcome_params){
-  # Read files into list of data files
-  l_true_targets <- list()
-  for (label in names(l_outcome_params)) {
-    filedata <- do.call(paste0("load_", l_outcome_params[[label]][["outcome_type"]]), 
-                        list(l_outcome_params[[label]][["file_path"]], label))
-    l_true_targets[[label]] <- filedata 
+load_calibration_targets <- function(file_targets){
+  # Read file
+  if (file_ext(file_targets) %in% c("xls", "xlsx")) {
+    df_targets <- read_excel(file_targets)  
+  } else {
+    df_targets <- read.csv(file_targets)
   }
-  return(l_true_targets)
+  
+  return(df_targets)
 }

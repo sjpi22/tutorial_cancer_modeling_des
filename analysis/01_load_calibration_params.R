@@ -34,7 +34,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_simulated.yaml")
+file_configs <- file.path("configs", "configs_colorectal.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
@@ -100,12 +100,22 @@ stime_mc <- system.time({
 })
 print(stime_mc)
   
+# Calculate SE from bounds
+
+
 # Compare mean, SD, and required cohort size for MCSE to be less than target SE
 df_sample <- data.frame(
   l_params_calib$df_targets,
   mean_mc = colMeans(df_res_mc),
   sd_mc = apply(df_res_mc, 2, sd)
-) %>%
+) 
+
+if (!"se" %in% colnames(df_sample)) {
+  df_sample <- df_sample %>%
+    mutate(se = (stopping_upper_bounds - stopping_lower_bounds) / (2 * qnorm((1 + alpha_ci)/2)))
+}
+
+df_sample <- df_sample %>%
   mutate( # Calculate minimum required cohort size
     n_target = n_init * (sd_mc / se)^2
   )

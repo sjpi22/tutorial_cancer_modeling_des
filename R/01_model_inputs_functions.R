@@ -8,11 +8,16 @@
 #' 
 #' @export
 load_model_params <- function(
+    file.mort,     # Path to background mortality data
+    file.surv,     # Path to relative survival data
     seed          = 123,                   # Random seed
     n_cohort      = 100000,                # Cohort size
     conf_level    = 0.95,                  # Confidence level
     sex           = c("male", "female"),   # Determines which mortality table(s) to use - male only, female only, or male and female
     p_male        = 0.5,                   # Proportion of males born in population - only used if sex is c("male", "female")
+    year_base     = NULL,                  # Year for background mortality lifetable; if NULL, uses most recent year available
+    lifetable_skip= 2,                     # Number of rows to skip when reading lifetable file
+    surv_version  = "SEER",                # Flag to read SEER vs simulated survival data
     lesion_state  = FALSE,                 # Indicator to include precancerous lesion state
     n_lesions_max = 20,                    # Maximum number of precancerous lesions
     v_cancer      = seq(4),                # Cancer stages to model in order of disease progression
@@ -20,9 +25,8 @@ load_model_params <- function(
     hr_cancer     = c(1, 1, 1, 1),         # Hazard ratios for progression from one preclinical cancer stage to the next, or detection for stage IV; set to NULL to update cancer progression variables directly
     v_cancer_surv = NULL,                  # Cancer stages from relative survival data corresponding to each modeled cancer stage; if NULL, assumed to be the same as v_cancer
     v_death       = c("o", "c"),           # Death causes
-    file.distr    = NULL,                  # Path to distribution file if loading from file
-    file.mort     = "data/background_mortality.xlsx",     # Path to background mortality data
-    file.surv     = "data/relative_survival_cancer.csv"){ # Path to relative survival data
+    file.distr    = NULL                   # Path to distribution file if loading from file
+){ 
   
   #### General setup ####
   # Assign health states and reset max number of lesions depending on whether lesions are included
@@ -59,7 +63,7 @@ load_model_params <- function(
   )
   
   #### Load input data ####
-  l_lifetables <- load_lifetables(file.mort) # Background mortality
+  l_lifetables <- load_lifetables(l_filepaths=file.mort, skip=lifetable_skip) # Background mortality
   
   #### Create background mortality distributions and get maximum age ####
   d_time_H_Do <- list()
@@ -68,26 +72,26 @@ load_model_params <- function(
     d_time_H_Do[[label]] <- with(l_params_model, {
       l_distr <- set_mort_distr(
         l_lifetables, 
-        label
+        label, 
+        year_base
       )
     })
-    max_age <- max(max_age, l_lifetables[[label]]$age)
+    max_age <- max(max_age, l_lifetables[[label]]$Age)
   }
   max_age <- max_age + 1
   
   # If survival data filepath is given, load disease-specific relative survival 
   # and create distributions
-  l_d_time_C_Dc <- list()
   if (!is.null(file.surv)) {
-    df_surv <- load_surv_data(file.surv)
-    for (i in unique(v_cancer_surv)) {
-      # Create distribution data
-      l_d_time_C_Dc[[i]] <- set_surv_distr(df_surv, i, max_age)
-    }
+    l_surv_data <- load_surv_data(file.surv, version = surv_version, max_age = max_age)
+    
+    # Create distribution data
+    l_d_time_C_Dc <- l_surv_data$l_distr_surv
   } else {
     # If no survival file, create placeholder for true survival distribution 
     # from diagnosis. Manually input parameters after running function in the 
     # form distr = <string> and params = <list of named parameters>
+    l_d_time_C_Dc <- list()
     for (i in unique(v_cancer_surv)) {
       l_d_time_C_Dc[[i]] <- list(distr = NULL,
                                  params = NULL,
