@@ -1,9 +1,9 @@
 #!/usr/bin/bash
 #SBATCH --job-name=generate_baycann_sample
 #SBATCH --nodes=1
-#SBATCH --time=2:00:00
-#SBATCH --mem=3G
-#SBATCH --ntasks-per-node=4
+#SBATCH --time=12:00:00
+#SBATCH --mem=32G
+#SBATCH --ntasks-per-node=8
 #SBATCH --output=output/baycann_sample.log
 
 #* To send the job to Sherlock use:
