@@ -5,7 +5,7 @@ paths:
   root_dir: # Root directories
     data: "data"
     output: "output/colorectal"
-    figs: "figs"
+    figs: "figs/colorectal"
   file_params_calib: "output/colorectal/params_calib_updated.rds" # File to save list of calibration parameters updated with cohort size
   file_plot_labels: "data/target_plot_labels.csv" # File path with plot labels for calibration targets and outcomes
   files_coverage: # File names for coverage analysis outputs
@@ -70,7 +70,27 @@ params_calib:
   file_priors: "data/colorectal/priors.csv" # File path for prior distributions for calibration parameters
   file_targets: "data/colorectal/targets.xlsx" # File path for calibration targets
   l_params_outcome: # Parameters for calculating calibration outcomes
-    prevalence:
+    prevalence_lesion:
+      outcome_type: "prevalence"
+      categorical: FALSE
+      get_params:
+        m_patients: "m_patients"
+      lit_params:
+        start_var: "time_H_L"
+        end_var: "time_H_P"
+        censor_var: "time_screen_censor"
+    n_lesion:
+      outcome_type: "nlesions"
+      categorical: TRUE
+      get_params:
+        m_lesions: "m_lesions"
+      lit_params:
+        start_var: "time_H_Lj"
+        end_var: "time_H_P"
+        censor_var: "time_screen_censor"
+        n_max: 3
+        method: "cs"
+    prevalence_preclin:
       outcome_type: "prevalence"
       categorical: FALSE
       get_params:
@@ -80,7 +100,7 @@ params_calib:
         end_var: "time_H_C"
         censor_var: "time_screen_censor"
         method: "cs"
-    incidence:
+    incidence_clin:
       outcome_type: "incidence"
       categorical: FALSE
       get_params:
@@ -99,28 +119,6 @@ params_calib:
         grouping_var: "stage_dx"
         event_var: "time_H_C"
         censor_var: "time_H_D"
-    prevalence_lesion:
-      outcome_type: "prevalence"
-      categorical: FALSE
-      get_params:
-        m_patients: "m_patients"
-      lit_params:
-        start_var: "time_H_L"
-        end_var: "time_H_P"
-        censor_var: "time_screen_censor"
-    n_lesions:
-      outcome_type: "nlesions"
-      categorical: TRUE
-      get_params:
-        m_lesions: "m_lesions"
-      lit_params:
-        start_var: "time_H_Lj"
-        end_var: "time_H_P"
-        censor_var: "time_screen_censor"
-        start_age: 50
-        end_age: 80
-        n_max: 3
-        method: "cs"
   l_censor_vars:
     m_patients:
       time_screen_censor: ["time_H_C", "time_H_D"]
@@ -129,13 +127,13 @@ params_calib:
         
 # Parameters for Monte Carlo analysis to set sample size
 params_montecarlo:
-  n_init: 50000
-  n_mc_reps: 50
+  n_init: 500000
+  n_mc_reps: 100
   mc_multiplier: 2
   
 # Parameters for initial coverage analysis and internal validation
 params_coverage:
-  check_coverage: TRUE # Indicator to (re)run coverage analysis
+  check_coverage: FALSE # Indicator to (re)run coverage analysis
   n_samp_coverage: 100
   v_quantiles: [50, 95]
   plt_size_text: 18

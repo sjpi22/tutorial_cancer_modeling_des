@@ -1,6 +1,6 @@
 target_groups,plot_grps
 prevalence_lesion,Lesion prevalence by age
-prevalence,Preclinical cancer prevalence by age
-incidence,"Clinical cancer incidence by age (per 100,000)"
+prevalence_preclin,Preclinical cancer prevalence by age
+incidence_clin,"Clinical cancer incidence by age (per 100,000)"
 stage_distr,Cancer stage at detection
-n_lesions,Lesion multiplicity
+n_lesion,Lesion multiplicity

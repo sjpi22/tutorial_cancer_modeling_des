@@ -1,6 +1,6 @@
 "var_name","idx","var_distr","param_name","var_id","distr","min","max"
-"d_time_H_L",NA,"weibull","shape","d_time_H_L.shape","unif",1.05900726093489,1.93804784544004
-"d_time_H_L",NA,"weibull","scale","d_time_H_L.scale","unif",78.8358134716674,125.503697175641
+"d_time_H_L",NA,"weibull","shape","d_time_H_L.shape","unif",1.06389502244741,6.02064598916451
+"d_time_H_L",NA,"weibull","scale","d_time_H_L.scale","unif",46.0527648003178,135.411622353143
 "d_time_L_P",NA,"weibull","shape","d_time_L_P.shape","unif",1.47,5.08
 "d_time_L_P",NA,"weibull","scale","d_time_L_P.scale","unif",23.95,83.92
 "d_n_L",NA,"pois","lambda","d_n_L.lambda","unif",0.04,0.12

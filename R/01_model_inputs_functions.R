@@ -25,6 +25,9 @@ load_model_params <- function(
     hr_cancer     = c(1, 1, 1, 1),         # Hazard ratios for progression from one preclinical cancer stage to the next, or detection for stage IV; set to NULL to update cancer progression variables directly
     v_cancer_surv = NULL,                  # Cancer stages from relative survival data corresponding to each modeled cancer stage; if NULL, assumed to be the same as v_cancer
     v_death       = c("o", "c"),           # Death causes
+    smooth_surv   = list(smooth = TRUE,    # Flag to smooth empirical relative survival distributions and associated parameters for smoothing function
+                         idx_start = 2,      
+                         constraints = c("increase", "concave")),    
     file.distr    = NULL                   # Path to distribution file if loading from file
 ){ 
   
@@ -86,7 +89,17 @@ load_model_params <- function(
     l_surv_data <- load_surv_data(file.surv, version = surv_version, max_age = max_age)
     
     # Create distribution data
-    l_d_time_C_Dc <- l_surv_data$l_distr_surv
+    if (smooth_surv$smooth) {
+      l_d_time_C_Dc <- list()
+      for (distr in names(l_surv_data$l_distr_surv)) {
+        l_d_time_C_Dc[[distr]] <- smooth_empirical_distr(l_surv_data$l_distr_surv[[distr]], 
+                                                         max_age = max_age,
+                                                         idx_start = smooth_surv$idx_start,
+                                                         constraints = smooth_surv$constraints)
+      }
+    } else {
+      l_d_time_C_Dc <- l_surv_data$l_distr_surv
+    }
   } else {
     # If no survival file, create placeholder for true survival distribution 
     # from diagnosis. Manually input parameters after running function in the 

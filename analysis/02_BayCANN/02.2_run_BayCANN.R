@@ -46,7 +46,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_simulated.yaml")
+file_configs <- file.path("configs", "configs_colorectal.yaml")
 configs <- load_configs(file_configs)
 
 # Extract calibration parameters from configs
@@ -215,7 +215,13 @@ for (grp in df_fn_grp_chars$fn_grp) {
 
 # Load targets and SE
 true_targets_mean  <- l_params_calib$df_target$targets
-true_targets_se   <- l_params_calib$df_target$se
+if ("se" %in% l_params_calib$df_target) {
+  true_targets_se   <- l_params_calib$df_target$se
+} else {
+  # If no SE provided, estimate from CI bounds
+  true_targets_se   <- (l_params_calib$df_target$ci_ub - l_params_calib$df_target$ci_lb) / (2 * qnorm((1 + configs$params_model$conf_level)/2))
+}
+
 
 # Scale targets and SE
 if (scale_type==1) {

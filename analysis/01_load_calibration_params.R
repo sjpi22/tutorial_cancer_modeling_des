@@ -15,9 +15,11 @@ options(scipen = 999) # View data without scientific notation
 #### 1.Libraries and functions  ==================================================
 
 ###### 1.1 Load packages
+library(tools)
 library(readxl)
 library(data.table)
 library(tidyverse)
+library(cobs)
 library(lhs)
 library(doParallel)
 library(foreach)
@@ -99,9 +101,6 @@ stime_mc <- system.time({
     }
 })
 print(stime_mc)
-  
-# Calculate SE from bounds
-
 
 # Compare mean, SD, and required cohort size for MCSE to be less than target SE
 df_sample <- data.frame(
@@ -110,9 +109,10 @@ df_sample <- data.frame(
   sd_mc = apply(df_res_mc, 2, sd)
 ) 
 
+# Calculate SE from bounds
 if (!"se" %in% colnames(df_sample)) {
   df_sample <- df_sample %>%
-    mutate(se = (stopping_upper_bounds - stopping_lower_bounds) / (2 * qnorm((1 + alpha_ci)/2)))
+    mutate(se = (ci_ub - ci_lb) / (2 * qnorm(1 - alpha_ci/2)))
 }
 
 df_sample <- df_sample %>%
@@ -137,6 +137,8 @@ l_params_calib$l_params_model$n_cohort <- n_final
 
 #### 5. Save parameters  ===========================================
 
+# Check if data directory exists, make if not
+dir.create(dirname(file_params_calib), showWarnings = FALSE)
 saveRDS(l_params_calib, file = file_params_calib)
 
 
@@ -200,3 +202,4 @@ if (check_coverage == T) {
                                 labeller_multiplier = 6)
   plt_coverage
 }
+

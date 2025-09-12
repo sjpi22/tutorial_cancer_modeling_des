@@ -344,8 +344,7 @@ calc_nlesions <- function(m_lesions,
                           end_var, 
                           censor_var,
                           id_var = "pt_id",
-                          start_age = 0, 
-                          end_age = NULL, 
+                          v_ages = c(0, NULL),
                           n_max = 3,
                           method = "cs",
                           dt_sample_ages = NULL, 
@@ -353,6 +352,10 @@ calc_nlesions <- function(m_lesions,
                           conf_level = 0.95) {
   # Ensure that key is set for cohort data
   if (is.null(key(m_lesions))) setkeyv(m_lesions, id_var)
+  
+  # Set start and end ages
+  start_age <- v_ages[1]
+  end_age <- ifelse(is.null(v_ages[2]), m_lesions[, max(get(censor_var))], v_ages[2])
   
   if (method == "cs") {
     # Account for case of null data

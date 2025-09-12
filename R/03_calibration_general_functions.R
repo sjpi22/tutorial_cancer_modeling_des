@@ -43,13 +43,17 @@ load_calib_params <- function(l_params_model, # Model parameters to update
     
     # Augment parameters with v_ages for calculating outcomes
     if (any(!is.na(df_targets$age_start))) {
-      l_params_outcome[[label]]$lit_params$v_ages <- c(df_targets$age_start, 
+      l_params_outcome[[label]]$lit_params$v_ages <- c(unique(df_targets$age_start), 
                                                        tail(df_targets$age_end, 1))
     }
     
     # Keep list of categorical variables
     if (l_params_outcome[[label]]$categorical == T) v_outcomes_categorical <- c(v_outcomes_categorical, label)
   }
+  
+  # Reorder outcomes to be consistent with targets
+  v_target_groups <- unique(df_targets_flattened$target_groups)
+  l_params_outcome <- l_params_outcome[v_target_groups]
   
   # Create directory if it does not exist
   outpath_split <- unlist(strsplit(outpath, split = "/"))
@@ -149,10 +153,10 @@ plot_coverage <- function(
   
   # Calculate simulated output mean and box plot quantiles
   if (!is.null(m_outputs)) {
-    df_targets[["model_mean"]] <- colMeans(m_outputs)
+    df_targets[["model_mean"]] <- colMeans(m_outputs, na.rm = T)
     for (i in v_quantiles) {
-      df_targets[[paste0("model_LB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 - i/100)/2, simplify = TRUE)
-      df_targets[[paste0("model_UB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 + i/100)/2, simplify = TRUE)
+      df_targets[[paste0("model_LB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 - i/100)/2, simplify = TRUE, na.rm = T)
+      df_targets[[paste0("model_UB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 + i/100)/2, simplify = TRUE, na.rm = T)
     }
   }
   
