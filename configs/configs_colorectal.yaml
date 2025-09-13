@@ -127,8 +127,8 @@ params_calib:
         
 # Parameters for Monte Carlo analysis to set sample size
 params_montecarlo:
-  n_init: 500000
-  n_mc_reps: 100
+  n_init: 300000
+  n_mc_reps: 50
   mc_multiplier: 2
   
 # Parameters for initial coverage analysis and internal validation
