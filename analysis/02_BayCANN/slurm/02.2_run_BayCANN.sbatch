@@ -10,7 +10,7 @@
 # - sbatch analysis/02_BayCANN/slurm/02.2_run_BayCANN.sbatch
 
 # load modules for BayCANN and activate Python virtual environment
-ml python/3 gcc R/4.3.2
+ml python/3 gcc R/4.4.2
 source $HOME/tensorflow/bin/activate
 
 # run R code

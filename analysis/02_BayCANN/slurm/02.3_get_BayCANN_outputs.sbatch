@@ -10,7 +10,7 @@
 # - sbatch analysis/02_BayCANN/slurm/02.3_get_BayCANN_outputs.sbatch
 
 # load R module
-ml R/4.3.2
+ml R/4.4.2
 
 # run R code
 Rscript analysis/02_BayCANN/02.3_get_BayCANN_outputs.R
