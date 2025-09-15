@@ -220,6 +220,11 @@ for (val in v_cols) {
 df_priors <- read.csv(params_calib$file_prior)
 for (param in names(params_onset_scaled)) {
   df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".", param), c("min", "max")] <- as.list(params_onset_scaled[[param]])
+  
+  # Add mean if there is an initial guess column
+  if ("param_val" %in% colnames(df_priors)) {
+    df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".", param), "param_val"] <- params_onset[[1]][[param]]
+  }
 }
 
 # Overwrite prior file

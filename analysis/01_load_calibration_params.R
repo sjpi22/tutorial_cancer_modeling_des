@@ -84,6 +84,15 @@ l_params_mc$n_cohort <- n_init
 l_params_mc$seed <- NULL # Remove seed that is reset every time model is run
 set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG") # Set seed externally; kind set for parallel package
 
+# Process targets
+df_targets <- l_params_calib$df_target %>%
+  # Set CIs if not already set
+  mutate(ci_lb = ifelse(is.na(ci_lb), targets - se*qnorm(1 - alpha_ci/2), ci_lb),
+         ci_ub = ifelse(is.na(ci_ub), targets + se*qnorm(1 - alpha_ci/2), ci_ub)) %>% 
+  # Merge plot labels
+  left_join(df_plot_labels, by = "target_groups")
+df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
+
 # Run simulations to assess Monte Carlo error
 stime_mc <- system.time({
   df_res_mc <- foreach(
@@ -101,6 +110,14 @@ stime_mc <- system.time({
     }
 })
 print(stime_mc)
+
+# Verify that outputs are close to targets
+plt_coverage_mc <- plot_coverage(df_targets = df_targets, 
+                              m_outputs = df_res_mc, 
+                              target_range = "ci",
+                              plt_size_text = plt_size_text,
+                              labeller_multiplier = 6)
+plt_coverage_mc
 
 # Compare mean, SD, and required cohort size for MCSE to be less than target SE
 df_sample <- data.frame(
@@ -183,16 +200,7 @@ if (check_coverage == T) {
                m_calib_outputs = m_outputs,
                runtime = stime), 
           file = file_coverage)
-  
-  # Process targets
-  df_targets <- l_params_calib$df_target %>%
-    # Set CIs if not already set
-    mutate(ci_lb = ifelse(is.na(ci_lb), targets - se*qnorm(1 - alpha_ci/2), ci_lb),
-           ci_ub = ifelse(is.na(ci_ub), targets + se*qnorm(1 - alpha_ci/2), ci_ub)) %>% 
-    # Merge plot labels
-    left_join(df_plot_labels, by = "target_groups")
-  df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
-  
+
   # Plot and save coverage
   plt_coverage <- plot_coverage(df_targets = df_targets, 
                                 m_outputs = m_outputs, 

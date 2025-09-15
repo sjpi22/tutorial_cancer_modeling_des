@@ -129,7 +129,7 @@ params_calib:
 params_montecarlo:
   n_init: 300000
   n_mc_reps: 50
-  mc_multiplier: 2
+  mc_multiplier: 1.2
   
 # Parameters for initial coverage analysis and internal validation
 params_coverage:
