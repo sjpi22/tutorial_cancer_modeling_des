@@ -43,7 +43,6 @@ file_targets <- configs$params_calib$file_targets
 v_state_targets <- c(C = "incidence_clin",
                      P = "prevalence_preclin",
                      L = "prevalence_lesion")
-v_multiplicity <- c(L = "multiplicity_lesion")
 conf_level <- 0.95 # For generating bounds
 multiplier_bounds <- 0.2
 v_cols <- c("targets", "ci_lb", "ci_ub")
