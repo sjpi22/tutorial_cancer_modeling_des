@@ -64,6 +64,23 @@ params_model:
     regional: "data/colorectal/SEER_Explore/CRC_surv_regional.csv"
     distant: "data/colorectal/SEER_Explore/CRC_surv_distant.csv"
 
+# Prior parameters
+params_priors:
+  v_state_targets: 
+    C: "incidence_clin"
+    P: "prevalence_preclin"
+    L: "prevalence_lesion"
+  multiplier_bounds: 0.2 # Factor by which to expand estimated prior bounds
+  var_index: "target_index" # Column name of index (e.g., age) associated with target
+  v_cols: # Names of columns in target data for target, lower bound, and upper bound
+    - "targets" 
+    - "ci_lb"
+    - "ci_ub"
+  v_colors: # Colors to label states listed in v_state_targets
+    - "green"
+    - "red"
+    - "orange"
+  
 # Calibration parameters (inputs to load_calib_params() in R/03_calibration_general_functions.R after modifications in configs/process_configs.R for lesion model)
 params_calib:
   seed_calib: 42
@@ -281,12 +298,6 @@ params_screen:
       age_screen_stop: 71
       int_screen: 10
       mod_conf: ~
-    strategy_c_int20: # Effectively two-time screening at age 50 and 70
-      mod: "confirm"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 20
-      mod_conf: ~
     strategy_c_int30: # Effectively one-time screening at age 50
       mod: "confirm"
       age_screen_start: 50
@@ -298,13 +309,6 @@ params_screen:
       age_screen_start: 50
       age_screen_stop: 71
       int_screen: 1
-      mod_conf: "confirm"
-      int_conf: 10
-    strategy_s_int3:
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 3
       mod_conf: "confirm"
       int_conf: 10
     strategy_s_int5:
@@ -321,13 +325,6 @@ params_screen:
       int_screen: 10
       mod_conf: "confirm"
       int_conf: 10
-    strategy_s_int20: # Effectively two-time screening at age 50 and 70
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 20
-      mod_conf: "confirm"
-      int_conf: 20
     strategy_s_int30: # Effectively one-time screening at age 50
       mod: "screen"
       age_screen_start: 50

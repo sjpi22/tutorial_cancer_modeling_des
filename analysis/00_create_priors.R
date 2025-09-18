@@ -30,29 +30,17 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_colorectal.yaml")
+file_configs <- file.path("configs", "configs_bladder.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
 params_model <- configs$params_model
+params_priors <- configs$params_priors
 params_calib <- configs$params_calib
 file_targets <- configs$params_calib$file_targets
 
-###### 2.2 Other parameters
-# Health states working backwards from latest to earliest and associated target group names
-v_state_targets <- c(C = "incidence_clin",
-                     P = "prevalence_preclin",
-                     L = "prevalence_lesion")
-conf_level <- 0.95 # For generating bounds
-multiplier_bounds <- 0.2
-v_cols <- c("targets", "ci_lb", "ci_ub")
-v_colors <- c("green", "red", "orange")
-var_index <- "target_index"
-
-# Parameters for deconvolution
-delta <- 1
-penalty1 <- 0 # Penalty for large changes (spikes) in discrete values of PDF
-penalty2 <- 1 # Penalty for changes in sign in PDF
+# Load prior parameters to global environment
+list2env(params_priors, envir = .GlobalEnv)
 
 
 #### 3. Load data  ===========================================
@@ -75,19 +63,19 @@ x_states <- list()
 cdf_states <- list()
 v_target_indices <- c()
 for (state in names(v_state_targets)) {
-  if (!is.null(v_state_targets[state])) {
+  if (!is.null(v_state_targets[[state]])) {
     # Select targets
     l_targets[[state]] <- df_targets %>%
-      filter(target_groups == v_state_targets[state])
+      filter(target_groups == v_state_targets[[state]])
     
     # Append target indices
     v_target_indices <- c(v_target_indices, unique(l_targets[[state]][[var_index]]))
     
     # Process incidence data
-    if (params_calib$l_params_outcome[[v_state_targets[state]]][["outcome_type"]] == "incidence") {
+    if (params_calib$l_params_outcome[[v_state_targets[[state]]]][["outcome_type"]] == "incidence") {
       # Rescale incidence values by unit
       for (val in c(v_cols)) {
-        l_targets[[state]][[val]] <- l_targets[[state]][[val]] / params_calib$l_params_outcome[[v_state_targets[state]]]$lit_params$rate_unit
+        l_targets[[state]][[val]] <- l_targets[[state]][[val]] / params_calib$l_params_outcome[[v_state_targets[[state]]]]$lit_params$rate_unit
       }
     }
     

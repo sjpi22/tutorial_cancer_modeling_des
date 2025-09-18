@@ -49,16 +49,15 @@ paths:
       
 # Model parameters (inputs to load_model_params() in R/01_load_model_inputs.R)
 params_model:
-  lesion_state: TRUE      # Indicator to include precancerous lesion state
+  lesion_state: FALSE      # Indicator to include precancerous lesion state
   sex: "both"
-  v_cancer: [0, 1, 2, 3]  # Cancer stages in order
-  v_cancer_surv: ["insitu", "localized", "regional", "distant"] # Cancer survival categories in order
+  v_cancer: [1, 2, 3]  # Cancer stages in order
+  v_cancer_surv: ["localized", "regional", "distant"] # Cancer survival categories in order
   conf_level: 0.95        # Confidence level for outputs
   year_base: 1980         # Base year for background mortality rates
   file.mort: # File path(s) for background mortality data
     both: "data/general/HMD_lifetables/bltper_1x1.txt"
   file.surv: # File path for relative survival from cancer diagnosis data
-    insitu: "data/bladder/SEER_Explore/bladder_surv_insitu.csv"
     localized: "data/bladder/SEER_Explore/bladder_surv_localized.csv"
     regional: "data/bladder/SEER_Explore/bladder_surv_regional.csv"
     distant: "data/bladder/SEER_Explore/bladder_surv_distant.csv"
@@ -68,7 +67,15 @@ params_priors:
   v_state_targets: 
     C: "incidence_clin"
     P: "prevalence_preclin"
-    L: "prevalence_lesion"
+  multiplier_bounds: 0.2 # Factor by which to expand estimated prior bounds
+  var_index: "target_index" # Column name of index (e.g., age) associated with target
+  v_cols: # Names of columns in target data for target, lower bound, and upper bound
+    - "targets" 
+    - "ci_lb"
+    - "ci_ub"
+  v_colors: # Colors to label states listed in v_state_targets
+    - "green"
+    - "red"
 
 # Calibration parameters (inputs to load_calib_params() in R/03_calibration_general_functions.R after modifications in configs/process_configs.R for lesion model)
 params_calib:
@@ -108,18 +115,16 @@ params_calib:
   l_censor_vars:
     m_patients:
       time_screen_censor: ["time_H_C", "time_H_D"]
-    m_lesions:
-      time_screen_censor: ["time_H_P", "time_H_Do"]
         
 # Parameters for Monte Carlo analysis to set sample size
 params_montecarlo:
   n_init: 500000
-  n_mc_reps: 100
-  mc_multiplier: 2
+  n_mc_reps: 60
+  mc_multiplier: 1.5
   
 # Parameters for initial coverage analysis and internal validation
 params_coverage:
-  check_coverage: FALSE # Indicator to (re)run coverage analysis
+  check_coverage: TRUE # Indicator to (re)run coverage analysis
   n_samp_coverage: 100
   v_quantiles: [50, 95]
   plt_size_text: 18
