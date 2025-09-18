@@ -4,7 +4,7 @@
 #SBATCH --time=6:00:00
 #SBATCH --mem=24G
 #SBATCH --ntasks-per-node=8
-#SBATCH --output=output/imabc_sherlock.log
+#SBATCH --output=output/coverage_analysis.log
 #SBATCH --mail-user=sjpi@stanford.edu
 #SBATCH --mail-type=ALL
 
@@ -16,7 +16,7 @@
 #SBATCH --mail-type=ALL
 
 # load R module
-ml R/4.3.2
+ml R/4.4.2
 
 # run R code
 Rscript analysis/02_IMABC/02.1_coverage_analysis.R
