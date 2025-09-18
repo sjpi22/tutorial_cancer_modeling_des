@@ -1,4 +1,126 @@
 - One or more packages recorded in the lockfile are not installed.
 - Use `renv::status()` for more details.
-Error in library(data.table) : there is no package called ‘data.table’
-Execution halted
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.1.4     ✔ readr     2.1.5
+✔ forcats   1.0.0     ✔ stringr   1.5.2
+✔ ggplot2   4.0.0     ✔ tibble    3.3.0
+✔ lubridate 1.9.4     ✔ tidyr     1.3.1
+✔ purrr     1.1.0     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ purrr::accumulate()  masks foreach::accumulate()
+✖ dplyr::between()     masks data.table::between()
+✖ dplyr::filter()      masks stats::filter()
+✖ dplyr::first()       masks data.table::first()
+✖ lubridate::hour()    masks data.table::hour()
+✖ lubridate::isoweek() masks data.table::isoweek()
+✖ dplyr::lag()         masks stats::lag()
+✖ dplyr::last()        masks data.table::last()
+✖ lubridate::mday()    masks data.table::mday()
+✖ lubridate::minute()  masks data.table::minute()
+✖ lubridate::month()   masks data.table::month()
+✖ lubridate::quarter() masks data.table::quarter()
+✖ lubridate::second()  masks data.table::second()
+✖ dplyr::select()      masks MASS::select()
+✖ purrr::transpose()   masks data.table::transpose()
+✖ lubridate::wday()    masks data.table::wday()
+✖ lubridate::week()    masks data.table::week()
+✖ purrr::when()        masks foreach::when()
+✖ lubridate::yday()    masks data.table::yday()
+✖ lubridate::year()    masks data.table::year()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+Loading required package: iterators
+
+Attaching package: ‘assertthat’
+
+The following object is masked from ‘package:tibble’:
+
+    has_name
+
+        R/00_process_configs.R R/00a_prior_functions.R
+value   ?                      ?                      
+visible FALSE                  FALSE                  
+        R/01_model_inputs_functions.R R/02_decision_model_functions.R
+value   ?                             ?                              
+visible FALSE                         FALSE                          
+        R/03_calibration_general_functions.R R/03a_baycann_functions.R
+value   ?                                    ?                        
+visible FALSE                                FALSE                    
+        R/utils/data_processing.R R/utils/distr_empirical.R
+value   ?                         ?                        
+visible FALSE                     FALSE                    
+        R/utils/epi_functions.R R/utils/query_distr.R R/utils/sum_of_cdfs.R
+value   ?                       ?                     ?                    
+visible FALSE                   FALSE                 FALSE                
+<environment: R_GlobalEnv>
+<environment: R_GlobalEnv>
+NULL
+NULL
+[1] "Running on Sherlock"
+[1] "# parallel workers: 12"
+----- Thu Sep 18 04:36:21 PM 2025 -----
+New IMABC with specifications:
+Max iterations                           = 2000
+Starting simulation size                 = 7000
+Number of centers of mass                = 10
+Number of samples around each center     = 50
+Minimum valid samples to end calibration = 1000
+Current bound info:
+---- prevalence_preclin ----
+prevalence_preclin_71: 0.00000210358193403827 - 0.0360756120570628
+prevalence_preclin_80: 0.0000254549762219016 - 0.0507192905979615
+prevalence_preclin_90: 0.000660505428264432 - 0.155801144105067
+---- incidence_clin ----
+incidence_clin_2: 0.00139304988377731 - 0.612822776567935
+incidence_clin_7: 0.00224167675793485 - 0.556095306858218
+incidence_clin_12: 0 - 0.28917344808536
+incidence_clin_17: 0.00195741995087383 - 0.572334282353522
+incidence_clin_22: 0.0406316178194609 - 1.00710283595435
+incidence_clin_27: 0.0980990623611433 - 1.44824579448474
+incidence_clin_32: 0.362135288509853 - 2.48548813125929
+incidence_clin_37: 1.03237514256202 - 4.03605479632542
+incidence_clin_42: 2.60582139367312 - 6.61511562264752
+incidence_clin_47: 6.85838965389657 - 12.7571111703212
+incidence_clin_52: 14.5453258124755 - 23.1279062268652
+incidence_clin_57: 28.5166983846988 - 40.8351024772605
+incidence_clin_62: 45.1105164528738 - 61.5614247689378
+incidence_clin_67: 71.9174474283389 - 94.7593136205954
+incidence_clin_72: 94.9348168467345 - 124.64842167332
+incidence_clin_77: 113.691471625241 - 152.669456427959
+incidence_clin_82: 124.091002234178 - 177.79121379398
+incidence_clin_92: 111.980829402012 - 176.368070884192
+---- stage_distr ----
+stage_distr_1: 0.758216154433538 - 0.798374820218819
+stage_distr_2: 0.171231582090105 - 0.209167220782026
+stage_distr_3: 0.0241363739294638 - 0.0412135235197846
+
+---------- Start Iter 1 ----------
+Starting at: 2025-09-18 16:36:21.857199
+Current in range draws = 0
+Current bound info:
+---- prevalence_preclin ----
+prevalence_preclin_71: 0.00000210358193403827 - 0.0360756120570628
+prevalence_preclin_80: 0.0000254549762219016 - 0.0507192905979615
+prevalence_preclin_90: 0.000660505428264432 - 0.155801144105067
+---- incidence_clin ----
+incidence_clin_2: 0.00139304988377731 - 0.612822776567935
+incidence_clin_7: 0.00224167675793485 - 0.556095306858218
+incidence_clin_12: 0 - 0.28917344808536
+incidence_clin_17: 0.00195741995087383 - 0.572334282353522
+incidence_clin_22: 0.0406316178194609 - 1.00710283595435
+incidence_clin_27: 0.0980990623611433 - 1.44824579448474
+incidence_clin_32: 0.362135288509853 - 2.48548813125929
+incidence_clin_37: 1.03237514256202 - 4.03605479632542
+incidence_clin_42: 2.60582139367312 - 6.61511562264752
+incidence_clin_47: 6.85838965389657 - 12.7571111703212
+incidence_clin_52: 14.5453258124755 - 23.1279062268652
+incidence_clin_57: 28.5166983846988 - 40.8351024772605
+incidence_clin_62: 45.1105164528738 - 61.5614247689378
+incidence_clin_67: 71.9174474283389 - 94.7593136205954
+incidence_clin_72: 94.9348168467345 - 124.64842167332
+incidence_clin_77: 113.691471625241 - 152.669456427959
+incidence_clin_82: 124.091002234178 - 177.79121379398
+incidence_clin_92: 111.980829402012 - 176.368070884192
+---- stage_distr ----
+stage_distr_1: 0.758216154433538 - 0.798374820218819
+stage_distr_2: 0.171231582090105 - 0.209167220782026
+stage_distr_3: 0.0241363739294638 - 0.0412135235197846
