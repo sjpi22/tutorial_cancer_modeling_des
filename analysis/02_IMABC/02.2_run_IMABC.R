@@ -37,7 +37,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_simulated.yaml")
+file_configs <- file.path("configs", "configs_bladder.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
@@ -49,9 +49,6 @@ list2env(l_filepaths, envir = .GlobalEnv)
 
 # Load IMABC parameters from configs file
 list2env(configs$params_imabc, envir = .GlobalEnv)
-
-###### 2.2 Other parameters
-vars_rate <- c("incidence") # Variables whose CI is calculated as a rate CI (instead of proportion CI)
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -82,7 +79,9 @@ setnames(target_map, c("ci_lb", "ci_ub"), c("stopping_lower_bounds", "stopping_u
 dt_ci_rate <- target_map[target_groups %in% vars_rate]
 ci_rate(dt_ci_rate,
         conf_level = 1 - alpha_current,
-        rate_unit = l_params_calib$l_params_outcome[[vars_rate[1]]]$lit_params$rate_unit)
+        rate_unit = l_params_calib$l_params_outcome[[vars_rate[1]]]$lit_params$rate_unit,
+        var_event = "n_cases",
+        var_total = "n_total")
 
 # Calculate starting CIs for proportions
 dt_ci_prop <- target_map[!target_groups %in% vars_rate]

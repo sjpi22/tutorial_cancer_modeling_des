@@ -270,7 +270,7 @@ ci_prop <- function(dt_cases,
                     calc_se = FALSE,
                     var_cases = "n_cases",
                     var_total = "n_total",
-                    var_prop = "value") {
+                    var_prop = "targets") {
   # Calculate standard error
   if (calc_se) {
     dt_cases[, se := sqrt(get(var_prop)*(1-get(var_prop))/get(var_total))]
@@ -633,8 +633,8 @@ ci_rate <- function(dt_event,
                     conf_level = 0.95, 
                     rate_unit = 1,
                     calc_se = FALSE,
-                    var_event = "n_events",
-                    var_total = "person_years_total"
+                    var_event = "n_cases",
+                    var_total = "n_total"
 ) {
   # Calculate standard error
   if (calc_se) {
