@@ -66,8 +66,18 @@ df_targets <- l_params_calib$df_target %>%
 df_targets$plot_grps <- factor(df_targets$plot_grps, levels = df_plot_labels$plot_grps)
 
 # Set number of cores to use
-registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
-print(getDoParWorkers())
+if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) {
+  # If using Sherlock, use environment variable to set the number of cores to use
+  registerDoParallel(cores = (Sys.getenv("SLURM_NTASKS_PER_NODE")))
+  print("Running on Sherlock")
+} else {
+  # If running locally, use all available cores except for reserved ones
+  registerDoParallel(cores = detectCores(logical = TRUE) - l_params_calib$n_cores_reserved_local)
+  print("Running locally")
+}
+
+# Show the number of parallel workers to be used
+print(paste("# parallel workers:", getDoParWorkers())) 
 
 
 #### 4. Coverage analysis  ===========================================
