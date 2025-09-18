@@ -11,7 +11,6 @@ options(scipen = 999) # View data without scientific notation
 
 ###### 1.1 Load packages
 library(tools)
-library(readxl)
 library(data.table)
 library(tidyverse)
 library(cobs)
@@ -51,16 +50,8 @@ list2env(configs$params_coverage, envir = .GlobalEnv)
 
 #### 3. Pre-processing  ===========================================
 
-# Load model parameters
-l_params_init <- do.call(load_model_params, c(
-  params_model
-))
-
-# Load calibration parameters
-l_params_calib <- do.call(load_calib_params, c(
-  l_params_model = list(l_params_init),
-  params_calib
-))
+# Load model and calibration parameters
+l_params_calib <- readRDS(file_params_calib)
 
 # Load plot labels
 df_plot_labels <- read.csv(file_plot_labels)
