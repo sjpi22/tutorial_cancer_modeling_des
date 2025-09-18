@@ -152,7 +152,7 @@ params_imabc:
 # Parameters specific to BayCANN
 params_baycann:
   params_sampling: # Parameters for sampling from priors
-    n_samp_per_param: 100 # Number of samples per parameter; try 100 on desktop or 1000 if you can run on a computing cluster
+    n_samp_per_param: 500 # Number of samples per parameter; try 100 on desktop or 1000 if you can run on a computing cluster
   params_data: # Parameters for data preparation
     scale_type: 3 # 1: scale from -1 to 1; 2: standardization; 3: scale from 0 to 1
     train_split: 0.8 # Train vs. test split
