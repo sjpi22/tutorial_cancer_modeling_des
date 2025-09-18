@@ -1,0 +1,4 @@
+- One or more packages recorded in the lockfile are not installed.
+- Use `renv::status()` for more details.
+Error in library(data.table) : there is no package called ‘data.table’
+Execution halted
