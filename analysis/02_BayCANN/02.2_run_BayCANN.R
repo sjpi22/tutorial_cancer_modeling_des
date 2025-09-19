@@ -66,8 +66,8 @@ list2env(configs$params_baycann$params_stan, envir = .GlobalEnv)
 log_dir <- file_logs
 
 ###### 2.2 Other parameters
-rerun_training <- TRUE # Switch to false to load data without rerunning ANN training
-rerun_stan <- TRUE # Switch to false to load data without rerunning Stan
+rerun_training <- FALSE # Switch to false to load data without rerunning ANN training
+rerun_stan <- FALSE # Switch to false to load data without rerunning Stan
 
 
 #### 3. Pre-processing actions  ===========================================

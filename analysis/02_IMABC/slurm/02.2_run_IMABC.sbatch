@@ -1,8 +1,8 @@
 #!/usr/bin/bash
 #SBATCH --job-name=run_IMABC
 #SBATCH --nodes=1
-#SBATCH --time=10:00:00
-#SBATCH --mem=8G
+#SBATCH --time=12:00:00
+#SBATCH --mem=24G
 #SBATCH --ntasks-per-node=8
 #SBATCH --output=output/logs/02.2_run_IMABC.log
 #SBATCH --mail-user=sjpi@stanford.edu
