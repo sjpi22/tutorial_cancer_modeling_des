@@ -135,7 +135,7 @@ df_sample <- df_sample %>%
     n_target = n_init * (sd_mc / se)^2
   )
 
-# Get maximum cohort size per target group and calculation type
+# Get maximum cohort size per target group andK calculation type
 df_sample_max <- df_sample %>%
   group_by(target_groups) %>%
   summarise(n_max = max(n_target), .groups = "drop") %>%

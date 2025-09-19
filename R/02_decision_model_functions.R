@@ -473,55 +473,56 @@ simulate_screening_H <- function(m_patients,
     
     # Reset first screening age to NA if after end date
     m_patients[screen_age >= time_screen_stop, screen_age := NA]
-  } else { 
+  } else { # If screening interval changes after a confirmatory test
     # Initialize test counts to 0
     m_patients[, `:=` (ct_tests_screen = 0,
                        ct_tests_screen_FP = 0,
                        ct_tests_conf = 0)]
     
     # Initialize running screening age at screening start age for individuals eligible to receive screening at that age
-    m_patients[l_params_strategy$age_screen_start < time_screen_censor, screen_age := l_params_strategy$age_screen_start]
-    
+    # and time that screening in the healthy state would end
+    m_patients[l_params_strategy$age_screen_start < time_screen_censor, `:=` (screen_age = l_params_strategy$age_screen_start,
+                                                                              time_screen_end_H = pmin(get(var_onset), time_screen_stop, na.rm = T))]
+
     # Calculate number of healthy patients remaining to screen
     if (verbose) print("Number of healthy individuals remaining to be screened:")
-    n_healthy_screen <- m_patients[screen_age < pmin(get(var_onset), time_screen_stop, na.rm = T), .N]
+    n_healthy_screen <- m_patients[screen_age < time_screen_end_H, .N]
     
     # Run while loop
     while (n_healthy_screen > 0) {
       if (verbose) print(n_healthy_screen)
-      # For individuals in healthy state, increment number of screening tests and sample whether test produces a false positive result
-      m_patients[screen_age < pmin(get(var_onset), time_screen_stop, na.rm = T), `:=` (
-        ct_tests_screen = ct_tests_screen + 1,
-        fl_positive = rbinom(
+      # Generate number of screening tests before first false positive
+      m_patients[, `:=` (
+        ct_tests_screen_before_FP = rgeom(
           .N,
           size = 1,
           prob = 1 - p_spec
         ))]
       
-      # For false positives, increment number of false positive screening tests
-      m_patients[fl_positive == 1, `:=` (ct_tests_screen_FP = ct_tests_screen_FP + 1)]
-      
-      # Set next screening interval and increment confirmatory tests depending on type of test used
-      if (is.null(mod_conf)) { 
-        m_patients[!is.na(fl_positive), `:=` (int_test_next = int_screen)]
-      } else {
-        # Increment confirmatory tests and set next test to confirmatory test interval for false positives
-        m_patients[fl_positive == 1, `:=` (ct_tests_conf = ct_tests_conf + 1,
-                                           int_test_next = int_conf)]
+      # Calculate number of additional screening tests in healthy state
+      m_patients[time_screen_end_H > screen_age, `:=` (ct_tests_screen_add = pmin(ct_tests_screen_before_FP + 1, 
+                                                                                  (time_screen_end_H - screen_age) %/% int_screen) + ((time_screen_end_H - screen_age) %% int_screen > 0))] 
         
-        # Set next test to screening interval for true negatives
-        m_patients[fl_positive == 0, `:=` (int_test_next = int_screen)]
-      }
+      # Increment number of screening tests and false positive tests for individuals with screening age before end of healthy state
+      m_patients[time_screen_end_H > screen_age, `:=` (
+        ct_tests_screen = ct_tests_screen + ct_tests_screen_add,
+        ct_tests_screen_FP = ct_tests_screen_FP + fifelse(ct_tests_screen_add < ct_tests_screen_before_FP + 1, 0, 1),
+        screen_age = screen_age + fifelse(ct_tests_screen_add < ct_tests_screen_before_FP + 1, 
+                                          ct_tests_screen_add*int_screen, 
+                                          (ct_tests_screen_add - 1)*int_screen + int_conf)
+      )]
       
       # Update screen age, reset to NA if after stop date, and reset temporary variables
-      m_patients[!is.na(fl_positive), screen_age := screen_age + int_test_next]
       m_patients[screen_age >= time_screen_stop, screen_age := NA]
-      m_patients[, `:=` (fl_positive = NULL,
-                         int_test_next = NULL)]
+      m_patients[, `:=` (ct_tests_screen_before_FP = NULL,
+                         ct_tests_screen_add = NULL)]
       
       # Recalculate number of healthy patients remaining to screen
-      n_healthy_screen <- m_patients[screen_age < pmin(get(var_onset), time_screen_stop, na.rm = T), .N]
+      n_healthy_screen <- m_patients[screen_age < time_screen_end_H, .N]
     }
+    
+    # Set number of FP as number of confirmatory tests
+    m_patients[, ct_tests_conf := ct_tests_screen_FP]
   }
   
   # Rename test variables

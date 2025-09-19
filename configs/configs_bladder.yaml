@@ -67,7 +67,7 @@ params_priors:
   v_state_targets: 
     C: "incidence_clin"
     P: "prevalence_preclin"
-  multiplier_bounds: 0.2 # Factor by which to expand estimated prior bounds
+  multiplier_bounds: 0.4 # Factor by which to expand estimated prior bounds
   var_index: "target_index" # Column name of index (e.g., age) associated with target
   v_cols: # Names of columns in target data for target, lower bound, and upper bound
     - "targets" 
@@ -131,10 +131,10 @@ params_coverage:
 
 # Parameters specific to IMABC
 params_imabc:
-  alpha_current: 0.000000000000001
+  alpha_current: 1.0e-15
   alpha_stop: 0.05
   fn_use_seed: FALSE
-  N_start_multiplier: 1000 # Number of initial samples per parameter
+  N_start_multiplier: 2000 # Number of initial samples per parameter
   vars_rate: "incidence_clin" # Target group names for any targets calculated as rates instead of proportions
   optional_args:
     N_centers: 10
