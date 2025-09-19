@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --time=10:00:00
 #SBATCH --mem=8G
-#SBATCH --ntasks-per-node=12
+#SBATCH --ntasks-per-node=8
 #SBATCH --output=output/logs/02.2_run_IMABC.log
 #SBATCH --mail-user=sjpi@stanford.edu
 #SBATCH --mail-type=ALL
