@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 #SBATCH --job-name=coverage_analysis
 #SBATCH --nodes=1
-#SBATCH --time=2:00:00
+#SBATCH --time=1:00:00
 #SBATCH --mem=24G
 #SBATCH --ntasks-per-node=8
 #SBATCH --output=output/logs/02.1_coverage_analysis.log
