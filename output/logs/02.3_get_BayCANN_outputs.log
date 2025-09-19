@@ -54,3 +54,5 @@ visible FALSE                   FALSE                 FALSE
 <environment: R_GlobalEnv>
 [1] "Running on Sherlock"
 [1] "# parallel workers: 12"
+slurmstepd: error: *** JOB 5984291 ON sh02-01n45 CANCELLED AT 2025-09-19T10:01:44 DUE TO TIME LIMIT ***
+slurmstepd: error: Detected 9 oom_kill events in StepId=5984291.batch. Some of the step tasks have been OOM Killed.
