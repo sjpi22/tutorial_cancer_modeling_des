@@ -148,7 +148,8 @@ calc_prevalence <- function(m_patients,
     if (output_uncertainty) {
       ci_prop(summ_prevalence, 
               conf_level = conf_level,
-              calc_se = TRUE)
+              calc_se = TRUE,
+              var_prop = "value")
     }
     
     # Reset or remove sample_age variable
@@ -397,7 +398,8 @@ calc_nlesions <- function(m_lesions,
       if (output_uncertainty) {
         ci_prop(lesion_cts,
                 conf_level = conf_level,
-                calc_se = TRUE)
+                calc_se = TRUE,
+                var_prop = "value")
       }
       
       # Ensure that all numbers from 0 to n_max are represented with count of 0 if necessary
@@ -424,10 +426,13 @@ calc_nlesions <- function(m_lesions,
       # Convert data to lesion start and end events
       dt_events <- rbindlist(list(
         m_lesions[get(start_var) < pmin(get(censor_var), end_age), 
-                  .(get(id_var), event_time = pmax(get(start_var), start_age), delta = 1)],  # Start of lesion or eligible screening period
+                  .(get(id_var), pmax(get(start_var), start_age), 1)],  # Start of lesion or eligible screening period
         m_lesions[get(start_var) < pmin(get(censor_var), end_age), 
-                  .(get(id_var), event_time = pmin(get(end_var), get(censor_var), end_age), delta = -1)] # End of lesion or eligible screening period
+                  .(get(id_var), pmin(get(end_var), get(censor_var), end_age), -1)] # End of lesion or eligible screening period
       ))
+      
+      # Set names
+      setnames(dt_events, c("V1", "V2", "V3"), c(id_var, "event_time", "delta"))
       
       # Sort by patient and event time
       setorderv(dt_events, c(id_var, "event_time"))

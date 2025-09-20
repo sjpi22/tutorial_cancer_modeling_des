@@ -146,7 +146,7 @@ params_calib:
 params_montecarlo:
   n_init: 300000
   n_mc_reps: 50
-  mc_multiplier: 1.2
+  mc_multiplier: 1.5
   
 # Parameters for initial coverage analysis and internal validation
 params_coverage:
@@ -157,7 +157,7 @@ params_coverage:
 
 # Parameters specific to IMABC
 params_imabc:
-  alpha_current: 0.000000000000001
+  alpha_current: 1.0e-15
   alpha_stop: 0.05
   fn_use_seed: FALSE
   N_start_multiplier: 1000 # Number of initial samples per parameter
@@ -186,8 +186,8 @@ params_baycann:
   params_ann: # Parameters for training ANN
     verbose: 0
     n_batch_size: 128
-    n_epochs: 1000
-    patience: 100
+    n_epochs: 5000
+    patience: 30
     init_W_type: 0
   params_hyperparameters: # Parameters for ANN hyperparameter tuning
     run_hp_tuning: TRUE # Indicator to run hyperparameter tuning; if FALSE, train model with the first hyperparameter set
@@ -287,12 +287,6 @@ params_screen:
       type: "indirect"
       cost_ratio: 0.1
   strats: # Screening test strategies 
-    strategy_c_int5:
-      mod: "confirm"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 5
-      mod_conf: ~
     strategy_c_int10:
       mod: "confirm"
       age_screen_start: 50
@@ -305,13 +299,6 @@ params_screen:
       age_screen_stop: 71
       int_screen: 30
       mod_conf: ~
-    strategy_s_int1:
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 1
-      mod_conf: "confirm"
-      int_conf: 10
     strategy_s_int5:
       mod: "screen"
       age_screen_start: 50

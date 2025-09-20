@@ -41,21 +41,18 @@ get_el <- function(distr, lb, ub) {
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+# Load configs
+file_configs <- file.path("configs", "configs_colorectal.yaml")
+configs <- load_configs(file_configs)
 list2env(configs, envir = .GlobalEnv)
 
-###### 2.2 File paths
-path_truth <- "_ground_truth"
-path_data <- paths$data
-file_distr <- file.path(path_truth, "true_params.xlsx")
-
-###### 2.3 Other parameters
+###### 2.2 Other parameters
 seed <- 2025 # Random seed
 conf_level <- 0.95
 n_sim <- 40
 time_1_2 <- 5 # Artificial time from disease onset to next state
-v_outcomes_cs <- c("prevalence", "num_lesions") # Outcome types to calculate cross-sectionally
+target_prevalence <- "prevalence_lesion"
+target_nlesion <- "n_lesion"
 
 
 #### 3. Pre-processing  ===========================================
@@ -125,15 +122,18 @@ for (i in 1:n_sim) {
     var_onset, 
     "time_H_Inf", 
     "time_H_Inf", 
-    v_ages = l_params_calib$l_params_outcome$prevalence$lit_params$v_ages)
+    v_ages = l_params_calib$l_params_outcome[[target_prevalence]]$lit_params$v_ages,
+    method = "long")
   
   # Calculate prevalence (cross-sectional)
-  summ_prevalence_cs <- calc_prevalence_cs(
+  summ_prevalence_cs <- calc_prevalence(
     m_patients, 
     var_onset, 
     "time_H_Inf", 
     "time_H_Inf",
-    v_ages = l_params_calib$l_params_outcome$prevalence$lit_params$v_ages)
+    v_ages = l_params_calib$l_params_outcome[[target_prevalence]]$lit_params$v_ages,
+    method = "cs",
+    output_uncertainty = TRUE)
   
   # Merge longitudinal and cross-sectional
   summ_prevalence <- merge(summ_prevalence,
@@ -156,15 +156,18 @@ for (i in 1:n_sim) {
     var_onset, 
     "time_H_2", 
     "time_H_Inf", 
-    v_ages = l_params_calib$l_params_outcome$prevalence$lit_params$v_ages)
+    v_ages = l_params_calib$l_params_outcome[[target_prevalence]]$lit_params$v_ages,
+    method = "long")
   
   # Calculate prevalence (cross-sectional)
-  summ_prevalence_cs_bounded <- calc_prevalence_cs(
+  summ_prevalence_cs_bounded <- calc_prevalence(
     m_patients, 
     var_onset, 
     "time_H_2",
     "time_H_Inf",
-    v_ages = l_params_calib$l_params_outcome$prevalence$lit_params$v_ages)
+    v_ages = l_params_calib$l_params_outcome[[target_prevalence]]$lit_params$v_ages,
+    method = "cs",
+    output_uncertainty = TRUE)
   
   # Merge longitudinal and cross-sectional
   summ_prevalence_bounded <- merge(summ_prevalence_bounded,
@@ -186,18 +189,25 @@ for (i in 1:n_sim) {
   
   ###### 4.3 Compare longitudinal and cross-sectional lesion count
   if (params_model$lesion_state == T) {
+    # Extract parameters for number of lesions
+    l_lesion_params <- c(lapply(l_params_calib$l_params_outcome[[target_nlesion]][["get_params"]], get, envir = sys.frame(sys.parent(0))), 
+                         l_params_calib$l_params_outcome[[target_nlesion]][["lit_params"]])
+    
+    # Remove method parameters
+    l_lesion_params$method <- NULL
+    
     # Calculate lesion count (longitudinal)
-    outcome <- "n_lesions"
     summ_nlesions <- do.call(
       calc_nlesions,  
-      c(lapply(l_params_calib$l_params_outcome[[outcome]][["get_params"]], get, envir = sys.frame(sys.parent(0))), 
-        l_params_calib$l_params_outcome[[outcome]][["lit_params"]]))
+      c(l_lesion_params,
+        list(method = "long")))
     
     # Calculate lesion count (cross-sectional)
     summ_nlesions_cs <- do.call(
-      calc_nlesions_cs,  
-      c(lapply(l_params_calib$l_params_outcome[[outcome]][["get_params"]], get, envir = sys.frame(sys.parent(0))), 
-        l_params_calib$l_params_outcome[[outcome]][["lit_params"]]))
+      calc_nlesions,  
+      c(l_lesion_params,
+        list(method = "cs",
+             output_uncertainty = TRUE)))
     
     # Merge longitudinal and cross-sectional
     summ_nlesions <- merge(summ_nlesions,
@@ -207,7 +217,6 @@ for (i in 1:n_sim) {
     
     # Append to full data table
     full_summ_nlesions <- rbind(full_summ_nlesions, summ_nlesions)
-    
   }
 }
 

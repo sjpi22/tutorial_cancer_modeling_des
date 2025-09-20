@@ -76,23 +76,25 @@ target_map <- l_params_calib$df_targets
 setnames(target_map, c("ci_lb", "ci_ub"), c("stopping_lower_bounds", "stopping_upper_bounds"))
 
 # Calculate starting CIs for rates
-dt_ci_rate <- target_map[target_groups %in% vars_rate]
-ci_rate(dt_ci_rate,
-        conf_level = 1 - alpha_current,
-        rate_unit = l_params_calib$l_params_outcome[[vars_rate[1]]]$lit_params$rate_unit,
-        var_event = "n_cases",
-        var_total = "n_total")
-
-# Calculate starting CIs for proportions
-dt_ci_prop <- target_map[!target_groups %in% vars_rate]
-ci_prop(dt_ci_prop,
-        conf_level = 1 - alpha_current)
-
-# Merge to target map
-target_map[target_groups %in% vars_rate, `:=` (current_lower_bounds = dt_ci_rate$ci_lb,
-                                               current_upper_bounds = dt_ci_rate$ci_ub)]
-target_map[!target_groups %in% vars_rate, `:=` (current_lower_bounds = dt_ci_prop$ci_lb,
-                                                current_upper_bounds = dt_ci_prop$ci_ub)]
+if (!("current_lower_bounds" %in% colnames(target_map) & "current_upper_bounds" %in% colnames(target_map))) {
+  dt_ci_rate <- target_map[target_groups %in% vars_rate]
+  ci_rate(dt_ci_rate,
+          conf_level = 1 - alpha_current,
+          rate_unit = l_params_calib$l_params_outcome[[vars_rate[1]]]$lit_params$rate_unit,
+          var_event = "n_cases",
+          var_total = "n_total")
+  
+  # Calculate starting CIs for proportions
+  dt_ci_prop <- target_map[!target_groups %in% vars_rate]
+  ci_prop(dt_ci_prop,
+          conf_level = 1 - alpha_current)
+  
+  # Merge to target map
+  target_map[target_groups %in% vars_rate, `:=` (current_lower_bounds = dt_ci_rate$ci_lb,
+                                                 current_upper_bounds = dt_ci_rate$ci_ub)]
+  target_map[!target_groups %in% vars_rate, `:=` (current_lower_bounds = dt_ci_prop$ci_lb,
+                                                  current_upper_bounds = dt_ci_prop$ci_ub)]
+}
 
 # Define target values
 target_df <- target_map %>%
