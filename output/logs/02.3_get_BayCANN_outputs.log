@@ -54,5 +54,11 @@ visible FALSE                   FALSE                 FALSE
 <environment: R_GlobalEnv>
 [1] "Running on Sherlock"
 [1] "# parallel workers: 12"
-slurmstepd: error: *** JOB 5984291 ON sh02-01n45 CANCELLED AT 2025-09-19T10:01:44 DUE TO TIME LIMIT ***
-slurmstepd: error: Detected 9 oom_kill events in StepId=5984291.batch. Some of the step tasks have been OOM Killed.
+Error in { : task 4 failed - "unused argument (size = 1)"
+Calls: system.time -> %dopar% -> <Anonymous>
+In addition: Warning message:
+In mclapply(argsList, FUN, mc.preschedule = preschedule, mc.set.seed = set.seed,  :
+  scheduled cores 1, 2, 3, 5, 6, 8, 10, 11, 12 did not deliver results, all values of the jobs will be affected
+Timing stopped at: 7.055e+04 824.7 3.575e+04
+Execution halted
+slurmstepd: error: Detected 9 oom_kill events in StepId=6109302.batch. Some of the step tasks have been OOM Killed.
