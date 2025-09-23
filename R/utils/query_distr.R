@@ -35,9 +35,46 @@ query_distr <- function(target, x, distr, params, ...) {
   # Call function based on target and distribution name if function exists
   function_name <- paste0(target, distr_name)
   if(is.function(match.fun(function_name))) {
+    # If cure_max parameter exists, save cure parameter
+    if ("cure_max" %in% names(params)) {
+      cure_max <- params$cure_max
+      params$cure_max <- NULL
+      
+      # If target is quantile, adjust probability for unscaled model
+      if (target == "q") {
+        x <- x / cure_max
+        x[x > 1] <- NA
+      }
+    }
+    
+    # Calculate distribution results
     val <- do.call(match.fun(function_name), c(list(x), params, ...))
+    
+    # If cure_max parameter exists, adjust for cure model
+    if (exists("cure_max")) {
+      val <- cure_adjust(target, val, cure_max)
+    }
     return(val)
   } else {
     stop(paste0("Function ", function_name, " not found"))
   }
+}
+
+
+# Function to adjust outputs for cure model (where CDF_final = cure_max*CDF_initial)
+cure_adjust <- function(target,
+                        val,
+                        cure_max) {
+  # If sampling from distribution, randomly select values to keep or set NA
+  if (target == "r") {
+    v_keep <- rbinom(length(val), 1, cure_max)
+    val[v_keep == 0] <- NA
+  } else if (target %in% c("p", "d")) {
+    # If calculating PDF or CDF, scale by cure_max
+    val <- val * cure_max
+  } else if (!target %in% "q") {
+    # Adjustment assumed to already be made for quantile
+    stop("target must be 'r', 'q', 'p', or 'd'")
+  }
+  return(val)
 }
