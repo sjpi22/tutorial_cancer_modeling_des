@@ -93,6 +93,7 @@ l_params_mc$seed <- NULL # Remove seed that is reset every time model is run
 set.seed(l_params_calib$l_params_model$seed, kind = "L'Ecuyer-CMRG") # Set seed externally; kind set for parallel package
 
 # Run simulations to assess Monte Carlo error
+n_mc_reps = 10 ##### PLACEHOLDER
 stime_mc <- system.time({
   df_res_mc <- foreach(
     i=1:n_mc_reps, 

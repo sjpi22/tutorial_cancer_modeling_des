@@ -17,6 +17,7 @@ library(data.table)
 library(cobs) # For fitting constrained B-splines
 library(sandwich) # For heteroskedasticity-robust linear model standard errors
 library(CVXR) # For deconvolution
+library(flexsurv) # If using log-logistic
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 
@@ -56,6 +57,9 @@ l_params_model <- do.call(load_model_params, c(
 
 # Load targets
 df_targets <- load_calibration_targets(file_targets)
+
+# Read prior data frame
+df_priors <- read.csv(params_calib$file_prior)
 
 # Extract relevant targets and create containers for CDFs
 l_targets <- list()
@@ -151,15 +155,17 @@ for (val in v_cols) {
 }
 
 
-##### 4.2 Fit Weibull distribution for time to onset
+##### 4.2 Fit distribution for time to onset
+
+# Get distribution for onset variable
+distr_onset <- unique(df_priors[df_priors$var_name == paste0("d_", var_onset), "var_distr"])
 
 # Loop over disease states
 params_onset <- list()
 for (val in v_cols) {
-  # Fit Weibull linear model
+  # Fit linear model to transformed CDF
   params_onset[[val]] <- with(l_targets[[n_states]], {
-    fit_weibull(x_states[[n_states]],
-                cdf_states[[n_states]][[val]])
+    do.call(paste0("fit_", distr_onset), list(x_states[[n_states]], cdf_states[[n_states]][[val]]))
   })
 }
 
@@ -180,7 +186,7 @@ for (i in seq(cdf_states)) {
 
   # Plot estimated CDF
   if (i == 1) {
-    plot(x_states[[i]], state[[v_cols[1]]], ylim = c(0, 1), col = v_colors[i],
+    plot(x_states[[i]], state[[v_cols[1]]], col = v_colors[i],
          xlab = "Age", ylab = "Probability", main = "CDFs of time to event")
   } else {
     points(x_states[[i]], state[[v_cols[1]]], col = v_colors[i])
@@ -196,22 +202,74 @@ for (i in seq(cdf_states)) {
 # Plot Weibull fit for onset
 for (val in v_cols) {
   lines(v_ages, 
-        pweibull(v_ages, 
-                 shape = params_onset[[val]]$shape, 
-                 scale = params_onset[[val]]$scale), 
+        do.call(paste0("p", distr_onset),
+                list(q = v_ages, 
+                     shape = params_onset[[val]]$shape, 
+                     scale = params_onset[[val]]$scale)), 
         lty = ifelse(val == v_cols[1], 1, 2),
         col = v_colors[n_states])
 }
 
-##### 4.3 Update prior distribution
+
+##### 4.3 Fit distributions for times between subsequent states
+# Fit distributions to time from lesion to cancer onset
+if (params_model$lesion_state == T) {
+  # Set index of cancer onset state from v_state_targets
+  state_P <- 2
+  
+  # Loop over targets, lower, and upper bounds
+  params_L_P <- list()
+  for (val in v_cols) {
+    # Set bound to take for previous state (same for target, opposite for lower and upper bound)
+    if (val == v_cols[1]) {
+      val_prev = v_cols[1]
+    } else if (val == v_cols[2]) {
+      val_prev = v_cols[3]
+    } else if (val == v_cols[3]) {
+      val_prev = v_cols[2]
+    }
+    
+    # Perform deconvolution using CDFs of lesion and cancer onset to get PDF of time between states
+    pdf_L_P <- deconvolve(x_target = x_states[[state_P]],
+                          y_target = cdf_states[[state_P]][[val]],
+                          fn_cdf_1 = function(x) do.call(paste0("p", distr_onset), list(q = x, shape = params_onset[[val_prev]]$shape, scale = params_onset[[val_prev]]$scale)),
+                          delta = delta,
+                          penalty_jump = penalty1,
+                          penalty_flip = penalty2)
+    
+    # Fit distribution
+    params_L_P[[val]] = do.call(paste0("fit_", distr_onset), list(x_vals = pdf_L_P$x, y_vals = cumsum(pdf_L_P$pdf)))
+  }
+  
+  # Get min and max parameters for priors 
+  params_L_P_reshaped <- list(
+    shape = range(sapply(params_L_P, function(x) x$shape)),
+    scale = range(sapply(params_L_P, function(x) x$scale))
+  )
+  
+  # Multiply by bounds multiplier
+  params_L_P_scaled <- lapply(params_L_P_reshaped, 
+                              function(x) x*c(1 - multiplier_bounds, 1 + multiplier_bounds))
+} else {
+  # Perform deconvolution using CDFs of lesion and cancer onset to get PDF of time between states
+  pdf_P_C <- deconvolve(x_target = x_states[["C"]],
+                        y_target = cdf_states[["C"]][[1]],
+                        fn_cdf_1 = function(x) do.call(paste0("p", distr_onset), list(q = x, shape = params_onset[[1]]$shape, scale = params_onset[[1]]$scale)),
+                        delta = delta,
+                        penalty_jump = penalty1,
+                        penalty_flip = penalty2)
+  plot(pdf_P_C$x, pdf_P_C$pdf)
+}
+
+
+##### 4.4 Update prior distribution
 # Update prior dataframe
-df_priors <- read.csv(params_calib$file_prior)
 for (param in names(params_onset_scaled)) {
-  df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".", param), c("min", "max")] <- as.list(params_onset_scaled[[param]])
+  df_priors[df_priors$var_id == paste0("d_", var_onset, ".", param), c("min", "max")] <- as.list(params_onset_scaled[[param]])
   
   # Add mean if there is an initial guess column
   if ("param_val" %in% colnames(df_priors)) {
-    df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".", param), "param_val"] <- params_onset[[1]][[param]]
+    df_priors[df_priors$var_id == paste0("d_", var_onset, ".", param), "param_val"] <- params_onset[[1]][[param]]
   }
 }
 

@@ -473,7 +473,7 @@ simulate_screening_H <- function(m_patients,
     
     # Reset first screening age to NA if after end date
     m_patients[screen_age >= time_screen_stop, screen_age := NA]
-  } else { # If screening interval changes after a confirmatory test
+  } else { 
     # Initialize test counts to 0
     m_patients[, `:=` (ct_tests_screen = 0,
                        ct_tests_screen_FP = 0,
@@ -483,7 +483,7 @@ simulate_screening_H <- function(m_patients,
     # and time that screening in the healthy state would end
     m_patients[l_params_strategy$age_screen_start < time_screen_censor, `:=` (screen_age = l_params_strategy$age_screen_start,
                                                                               time_screen_end_H = pmin(get(var_onset), time_screen_stop, na.rm = T))]
-
+    
     # Calculate number of healthy patients remaining to screen
     if (verbose) print("Number of healthy individuals remaining to be screened:")
     n_healthy_screen <- m_patients[screen_age < time_screen_end_H, .N]
@@ -492,22 +492,20 @@ simulate_screening_H <- function(m_patients,
     while (n_healthy_screen > 0) {
       if (verbose) print(n_healthy_screen)
       # Generate number of screening tests before first false positive
-      m_patients[, `:=` (
+      m_patients[time_screen_end_H > screen_age, `:=` (
         ct_tests_screen_before_FP = rgeom(
           .N,
-          size = 1,
           prob = 1 - p_spec
         ))]
       
       # Calculate number of additional screening tests in healthy state
       m_patients[time_screen_end_H > screen_age, `:=` (ct_tests_screen_add = pmin(ct_tests_screen_before_FP + 1, 
-                                                                                  (time_screen_end_H - screen_age) %/% int_screen) + ((time_screen_end_H - screen_age) %% int_screen > 0))] 
-        
+                                                                                  (time_screen_end_H - screen_age) %/% int_screen + ((time_screen_end_H - screen_age) %% int_screen > 0)))] 
       # Increment number of screening tests and false positive tests for individuals with screening age before end of healthy state
       m_patients[time_screen_end_H > screen_age, `:=` (
         ct_tests_screen = ct_tests_screen + ct_tests_screen_add,
-        ct_tests_screen_FP = ct_tests_screen_FP + fifelse(ct_tests_screen_add < ct_tests_screen_before_FP + 1, 0, 1),
-        screen_age = screen_age + fifelse(ct_tests_screen_add < ct_tests_screen_before_FP + 1, 
+        ct_tests_screen_FP = ct_tests_screen_FP + fifelse(ct_tests_screen_add <= ct_tests_screen_before_FP, 0, 1),
+        screen_age = screen_age + fifelse(ct_tests_screen_add <= ct_tests_screen_before_FP, 
                                           ct_tests_screen_add*int_screen, 
                                           (ct_tests_screen_add - 1)*int_screen + int_conf)
       )]
@@ -923,7 +921,6 @@ simulate_screening_P <- function(m_patients,
             prob = l_test_chars[[v_mod_conf[screen_type]]][["p_sens"]][["P"]]
           )), by = screen_type]
       }
-      # print("confirm")
     }
     
     # Add primary modality counts and delete flags
