@@ -131,6 +131,41 @@ fit_weibull <- function(x_vals,
 }
 
 
+# Fit log-logistic parameters to a cumulative distribution function
+fit_llogis <- function(x_vals,
+                       y_vals,
+                       wt = 1) {
+  # Calculate log-logistic x transformation
+  x_transformed = log(x_vals)
+  
+  # Calculate log-logistic y transformation
+  y_transformed <- log(y_vals/(1 - y_vals))
+  
+  # Exclude non-finite values
+  nonzero_indices <- which(is.finite(x_transformed) & is.finite(y_transformed))
+  x_transformed <- x_transformed[nonzero_indices]
+  y_transformed <- y_transformed[nonzero_indices]
+  
+  # Set weights
+  if (length(wt) != length(x_transformed)) {
+    wt <- rep(wt, length(x_transformed))
+  } else {
+    wt <- wt[nonzero_indices]
+  }
+  
+  # Get Weibull estimates using weighted linear regression
+  llogis_lm <- lm(y_transformed ~ x_transformed,
+                  weights = wt)
+  
+  # Get shape and scale estimates for time to disease onset distribution
+  params <- list(
+    shape = llogis_lm$coefficients[2],
+    scale = exp(-llogis_lm$coefficients[1]/llogis_lm$coefficients[2])
+  )
+  return(params)
+}
+
+
 # Perform deconvolution to calculate PDF of addend variable
 deconvolve <- function(x_target,
                        y_target,
@@ -138,8 +173,6 @@ deconvolve <- function(x_target,
                        delta = 1,
                        penalty_jump = 0,
                        penalty_flip = 0) {
-  
-  
   # Set times to evaluate time to first state
   v_times_1 <- seq(0, max(x_target), by = delta)
   

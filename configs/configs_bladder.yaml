@@ -54,7 +54,7 @@ params_model:
   v_cancer: [1, 2, 3]  # Cancer stages in order
   v_cancer_surv: ["localized", "regional", "distant"] # Cancer survival categories in order
   conf_level: 0.95        # Confidence level for outputs
-  year_base: 1980         # Base year for background mortality rates
+  year_base: 1933         # Base year for background mortality rates
   file.mort: # File path(s) for background mortality data
     both: "data/general/HMD_lifetables/bltper_1x1.txt"
   file.surv: # File path for relative survival from cancer diagnosis data
@@ -76,6 +76,9 @@ params_priors:
   v_colors: # Colors to label states listed in v_state_targets
     - "green"
     - "red"
+  delta: 0.5
+  penalty1: 0
+  penalty2: 0
 
 # Calibration parameters (inputs to load_calib_params() in R/03_calibration_general_functions.R after modifications in configs/process_configs.R for lesion model)
 params_calib:
@@ -91,8 +94,10 @@ params_calib:
       lit_params:
         start_var: "time_H_P"
         end_var: "time_H_C"
-        censor_var: "time_screen_censor"
+        censor_var: "time_H_D"
+        condition_var: "time_H_P"
         method: "cs"
+        sample_var: "time_H_D"
     incidence_clin:
       outcome_type: "incidence"
       categorical: FALSE

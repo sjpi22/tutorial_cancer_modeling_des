@@ -17,6 +17,7 @@ library(data.table)
 library(cobs) # For fitting constrained B-splines
 library(sandwich) # For heteroskedasticity-robust linear model standard errors
 library(CVXR) # For deconvolution
+library(flexsurv) # If using log-logistic
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 
@@ -56,6 +57,9 @@ l_params_model <- do.call(load_model_params, c(
 
 # Load targets
 df_targets <- load_calibration_targets(file_targets)
+
+# Read prior data frame
+df_priors <- read.csv(params_calib$file_prior)
 
 # Extract relevant targets and create containers for CDFs
 l_targets <- list()
@@ -104,8 +108,8 @@ var_censor <- params_calib$l_params_outcome$incidence$lit_params$censor_var
 
 ##### 4.1 Derive time-to-event distributions from targets using splines
 # Loop over targets, lower bounds, and upper bounds
+x_states[[1]] <- v_target_indices
 for (val in v_cols) {
-  x_states[[1]] <- v_target_indices
   cdf_states[[1]][[val]] <- with(l_targets[[1]], {
     # Calculate CDF of clinical cancer
     incidence_rate_to_cdf(
@@ -120,7 +124,15 @@ for (val in v_cols) {
   # Calculate probabilities for time to preclinical cancer by adding and scaling preclinical prevalence and clinical probability
   x_states[[2]] <- v_target_indices[v_target_indices %in% l_targets[[2]][[var_index]]]
   cdf_clin <- cdf_states[[1]][[val]][v_target_indices %in% l_targets[[2]][[var_index]]] # Subset to preclinical target indices
-  cdf_states[[2]][[val]] <- l_targets[[2]][[val]] * (1 - cdf_clin) + cdf_clin
+  if (!"condition_var" %in% names(params_calib$l_params_outcome[[v_state_targets[[2]]]][["lit_params"]])) {
+    # If preclinical target is prevalence out of total population, use directly
+    cdf_states[[2]][[val]] <- l_targets[[2]][[val]] * (1 - cdf_clin) + cdf_clin
+  } else {
+    # Otherwise if preclinical target is conditional on cancer onset before death
+    # (e.g., proportion of cancer cases that are incidental), CDF of preclinical
+    # times proportion of known cases equals CDF of clinical
+    cdf_states[[2]][[val]] <- cdf_clin / (1 - l_targets[[2]][[val]])
+  }
   
   # Calculate probabilities for time to precancerous lesion by adding and scaling lesion prevalence and preclinical probability
   # Note - multiplied by clinical CDF rather than preclinical CDF because lesion screening study includes preclinical cases in the denominator
@@ -150,16 +162,48 @@ for (val in v_cols) {
   }
 }
 
+# Find maximum upper bound for plotting
+max_ub <- max(sapply(cdf_states, function(x) max(x[[v_cols[3]]])))
 
-##### 4.2 Fit Weibull distribution for time to onset
+# Plot fitted CDFs from targets
+for (i in seq(cdf_states)) {
+  # Subset to state CDF and x-values for plotting
+  state <- cdf_states[[i]]
+  
+  # Plot estimated CDF
+  if (i == 1) {
+    plot(x_states[[i]], state[[v_cols[1]]], col = v_colors[i], ylim = c(0, max_ub),
+         xlab = "Age", ylab = "Probability", main = "CDFs of time to event")
+  } else {
+    points(x_states[[i]], state[[v_cols[1]]], col = v_colors[i])
+  }
+  
+  # Plot lower and upper bounds
+  arrows(x_states[[i]], state[[v_cols[2]]], 
+         x_states[[i]], state[[v_cols[3]]], 
+         col = v_colors[i], 
+         length = 0.05, angle = 90, code = 3)
+}
+
+
+##### 4.2 Fit distribution for time to onset
+
+# Get distribution for onset variable
+distr_onset <- unique(df_priors[df_priors$var_name == paste0("d_", var_onset), "var_distr"])
+
+# Set max for cure model
+if ("cure_max" %in% df_priors[df_priors$var_name == paste0("d_", var_onset), "param_name"]) {
+  cure_max <- df_priors[df_priors$var_name == paste0("d_", var_onset) & df_priors$param_name == "cure_max", "param_val"]
+} else {
+  cure_max <- 1
+}
 
 # Loop over disease states
 params_onset <- list()
 for (val in v_cols) {
-  # Fit Weibull linear model
+  # Fit linear model to transformed CDF
   params_onset[[val]] <- with(l_targets[[n_states]], {
-    fit_weibull(x_states[[n_states]],
-                cdf_states[[n_states]][[val]])
+    do.call(paste0("fit_", distr_onset), list(x_states[[n_states]], pmin(1, cdf_states[[n_states]][[val]] / cure_max)))
   })
 }
 
@@ -173,45 +217,77 @@ params_onset_reshaped <- list(
 params_onset_scaled <- lapply(params_onset_reshaped, 
                               function(x) x*c(1 - multiplier_bounds, 1 + multiplier_bounds))
 
-# Plot fitted CDFs from targets
-for (i in seq(cdf_states)) {
-  # Subset to state CDF and x-values for plotting
-  state <- cdf_states[[i]]
-
-  # Plot estimated CDF
-  if (i == 1) {
-    plot(x_states[[i]], state[[v_cols[1]]], ylim = c(0, 1), col = v_colors[i],
-         xlab = "Age", ylab = "Probability", main = "CDFs of time to event")
-  } else {
-    points(x_states[[i]], state[[v_cols[1]]], col = v_colors[i])
-  }
-  
-  # Plot lower and upper bounds
-  arrows(x_states[[i]], state[[v_cols[2]]], 
-         x_states[[i]], state[[v_cols[3]]], 
-         col = v_colors[i], 
-         length = 0.05, angle = 90, code = 3)
-}
-
-# Plot Weibull fit for onset
+# Plot distribution fit for onset
 for (val in v_cols) {
   lines(v_ages, 
-        pweibull(v_ages, 
-                 shape = params_onset[[val]]$shape, 
-                 scale = params_onset[[val]]$scale), 
+        query_distr("p", v_ages, distr = distr_onset, 
+                    params = list(shape = params_onset[[val]]$shape, 
+                                  scale = params_onset[[val]]$scale, 
+                                  cure_max = cure_max)), 
         lty = ifelse(val == v_cols[1], 1, 2),
         col = v_colors[n_states])
 }
 
-##### 4.3 Update prior distribution
+
+##### 4.3 Fit distributions for times between subsequent states
+# Fit distributions to time from lesion to cancer onset
+if (params_model$lesion_state == T) {
+  # Set index of cancer onset state from v_state_targets
+  state_P <- 2
+  
+  # Loop over targets, lower, and upper bounds
+  params_L_P <- list()
+  for (val in v_cols) {
+    # Set bound to take for previous state (same for target, opposite for lower and upper bound)
+    if (val == v_cols[1]) {
+      val_prev = v_cols[1]
+    } else if (val == v_cols[2]) {
+      val_prev = v_cols[3]
+    } else if (val == v_cols[3]) {
+      val_prev = v_cols[2]
+    }
+    
+    # Perform deconvolution using CDFs of lesion and cancer onset to get PDF of time between states
+    pdf_L_P <- deconvolve(x_target = x_states[[state_P]],
+                          y_target = cdf_states[[state_P]][[val]],
+                          fn_cdf_1 = function(x) function(x) query_distr("p", x, distr = distr_onset, params = list(shape = params_onset[[1]]$shape, scale = params_onset[[1]]$scale, cure_max = cure_max)),
+                          delta = delta,
+                          penalty_jump = penalty1,
+                          penalty_flip = penalty2)
+    
+    # Fit distribution
+    params_L_P[[val]] = do.call(paste0("fit_", distr_onset), list(x_vals = pdf_L_P$x, y_vals = cumsum(pdf_L_P$pdf)))
+  }
+  
+  # Get min and max parameters for priors 
+  params_L_P_reshaped <- list(
+    shape = range(sapply(params_L_P, function(x) x$shape)),
+    scale = range(sapply(params_L_P, function(x) x$scale))
+  )
+  
+  # Multiply by bounds multiplier
+  params_L_P_scaled <- lapply(params_L_P_reshaped, 
+                              function(x) x*c(1 - multiplier_bounds, 1 + multiplier_bounds))
+} else {
+  # Perform deconvolution using CDFs of lesion and cancer onset to get PDF of time between states
+  pdf_P_C <- deconvolve(x_target = x_states[["C"]],
+                        y_target = cdf_states[["C"]][[1]],
+                        fn_cdf_1 = function(x) query_distr("p", x, distr = distr_onset, params = list(shape = params_onset[[1]]$shape, scale = params_onset[[1]]$scale, cure_max = cure_max)),
+                        delta = delta,
+                        penalty_jump = penalty1,
+                        penalty_flip = penalty2)
+  plot(pdf_P_C$x, pdf_P_C$pdf)
+}
+
+
+##### 4.4 Update prior distribution
 # Update prior dataframe
-df_priors <- read.csv(params_calib$file_prior)
 for (param in names(params_onset_scaled)) {
-  df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".", param), c("min", "max")] <- as.list(params_onset_scaled[[param]])
+  df_priors[df_priors$var_id == paste0("d_", var_onset, ".", param), c("min", "max")] <- as.list(params_onset_scaled[[param]])
   
   # Add mean if there is an initial guess column
   if ("param_val" %in% colnames(df_priors)) {
-    df_priors[df_priors$var_id == paste0("d_time_H_", l_params_model$v_states[2], ".", param), "param_val"] <- params_onset[[1]][[param]]
+    df_priors[df_priors$var_id == paste0("d_", var_onset, ".", param), "param_val"] <- params_onset[[1]][[param]]
   }
 }
 
