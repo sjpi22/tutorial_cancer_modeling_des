@@ -108,8 +108,8 @@ var_censor <- params_calib$l_params_outcome$incidence$lit_params$censor_var
 
 ##### 4.1 Derive time-to-event distributions from targets using splines
 # Loop over targets, lower bounds, and upper bounds
+x_states[[1]] <- v_target_indices
 for (val in v_cols) {
-  x_states[[1]] <- v_target_indices
   cdf_states[[1]][[val]] <- with(l_targets[[1]], {
     # Calculate CDF of clinical cancer
     incidence_rate_to_cdf(
@@ -124,7 +124,15 @@ for (val in v_cols) {
   # Calculate probabilities for time to preclinical cancer by adding and scaling preclinical prevalence and clinical probability
   x_states[[2]] <- v_target_indices[v_target_indices %in% l_targets[[2]][[var_index]]]
   cdf_clin <- cdf_states[[1]][[val]][v_target_indices %in% l_targets[[2]][[var_index]]] # Subset to preclinical target indices
-  cdf_states[[2]][[val]] <- l_targets[[2]][[val]] * (1 - cdf_clin) + cdf_clin
+  if (!"condition_var" %in% names(params_calib$l_params_outcome[[v_state_targets[[2]]]][["lit_params"]])) {
+    # If preclinical target is prevalence out of total population, use directly
+    cdf_states[[2]][[val]] <- l_targets[[2]][[val]] * (1 - cdf_clin) + cdf_clin
+  } else {
+    # Otherwise if preclinical target is conditional on cancer onset before death
+    # (e.g., proportion of cancer cases that are incidental), CDF of preclinical
+    # times proportion of known cases equals CDF of clinical
+    cdf_states[[2]][[val]] <- cdf_clin / (1 - l_targets[[2]][[val]])
+  }
   
   # Calculate probabilities for time to precancerous lesion by adding and scaling lesion prevalence and preclinical probability
   # Note - multiplied by clinical CDF rather than preclinical CDF because lesion screening study includes preclinical cases in the denominator
@@ -154,6 +162,29 @@ for (val in v_cols) {
   }
 }
 
+# Find maximum upper bound
+max_ub <- max(sapply(cdf_states, function(x) max(x[[v_cols[3]]])))
+
+# Plot fitted CDFs from targets
+for (i in seq(cdf_states)) {
+  # Subset to state CDF and x-values for plotting
+  state <- cdf_states[[i]]
+  
+  # Plot estimated CDF
+  if (i == 1) {
+    plot(x_states[[i]], state[[v_cols[1]]], col = v_colors[i], ylim = c(0, max_ub),
+         xlab = "Age", ylab = "Probability", main = "CDFs of time to event")
+  } else {
+    points(x_states[[i]], state[[v_cols[1]]], col = v_colors[i])
+  }
+  
+  # Plot lower and upper bounds
+  arrows(x_states[[i]], state[[v_cols[2]]], 
+         x_states[[i]], state[[v_cols[3]]], 
+         col = v_colors[i], 
+         length = 0.05, angle = 90, code = 3)
+}
+
 
 ##### 4.2 Fit distribution for time to onset
 
@@ -179,27 +210,7 @@ params_onset_reshaped <- list(
 params_onset_scaled <- lapply(params_onset_reshaped, 
                               function(x) x*c(1 - multiplier_bounds, 1 + multiplier_bounds))
 
-# Plot fitted CDFs from targets
-for (i in seq(cdf_states)) {
-  # Subset to state CDF and x-values for plotting
-  state <- cdf_states[[i]]
-
-  # Plot estimated CDF
-  if (i == 1) {
-    plot(x_states[[i]], state[[v_cols[1]]], col = v_colors[i],
-         xlab = "Age", ylab = "Probability", main = "CDFs of time to event")
-  } else {
-    points(x_states[[i]], state[[v_cols[1]]], col = v_colors[i])
-  }
-  
-  # Plot lower and upper bounds
-  arrows(x_states[[i]], state[[v_cols[2]]], 
-         x_states[[i]], state[[v_cols[3]]], 
-         col = v_colors[i], 
-         length = 0.05, angle = 90, code = 3)
-}
-
-# Plot Weibull fit for onset
+# Plot distribution fit for onset
 for (val in v_cols) {
   lines(v_ages, 
         do.call(paste0("p", distr_onset),
