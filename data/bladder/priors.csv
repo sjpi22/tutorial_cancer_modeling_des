@@ -1,5 +1,5 @@
 var_name,idx,var_distr,param_name,var_id,distr,min,max,param_val
-d_time_H_P,NA,weibull,cure_max,d_time_H_P.cure_max,unif,0.04,0.5,0.05
+d_time_H_P,NA,weibull,cure_max,d_time_H_P.cure_max,unif,0.02,0.1,0.045
 d_time_H_P,NA,weibull,shape,d_time_H_P.shape,unif,4.550246262,12.34164846,7.583743771
 d_time_H_P,NA,weibull,scale,d_time_H_P.scale,unif,46.03068389,117.9268846,82.82897151
 d_time_P1_P2,NA,exponential,rate,d_time_P1_P2.rate,unif,0.05,2,0.11

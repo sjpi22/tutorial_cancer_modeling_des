@@ -139,7 +139,7 @@ params_imabc:
   alpha_current: 1.0e-15
   alpha_stop: 0.05
   fn_use_seed: FALSE
-  N_start_multiplier: 2000 # Number of initial samples per parameter
+  N_start_multiplier: 500 # Number of initial samples per parameter
   vars_rate: "incidence_clin" # Target group names for any targets calculated as rates instead of proportions
   optional_args:
     N_centers: 10

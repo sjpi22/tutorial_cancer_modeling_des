@@ -80,6 +80,9 @@ params_priors:
     - "green"
     - "red"
     - "orange"
+  delta: 1
+  penalty1: 0
+  penalty2: 0
   
 # Calibration parameters (inputs to load_calib_params() in R/03_calibration_general_functions.R after modifications in configs/process_configs.R for lesion model)
 params_calib:
