@@ -66,8 +66,8 @@ list2env(configs$params_baycann$params_stan, envir = .GlobalEnv)
 log_dir <- file_logs
 
 ###### 2.2 Other parameters
-rerun_training <- FALSE # Switch to false to load data without rerunning ANN training
-rerun_stan <- FALSE # Switch to false to load data without rerunning Stan
+rerun_training <- TRUE # Switch to false to load data without rerunning ANN training
+rerun_stan <- TRUE # Switch to false to load data without rerunning Stan
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -324,8 +324,11 @@ if (rerun_training) {
 # Reload model
 model <- load_model(file_keras_model)
 
-# Model performance evaluation
-acc_err <- model %>% evaluate(xtest_scaled, ytest_scaled_reshape) 
+# # Model performance evaluation
+# acc_err <- model %>% evaluate(xtest_scaled, ytest_scaled_reshape) 
+# Commented out 9/24/25 because triggered error: Error in py_call_impl(callable, call_args$unnamed, call_args$named) : 
+# AttributeError: module 'keras.src.backend' has no attribute 'convert_to_numpy'
+# Run `reticulate::py_last_error()` for details.
 
 if (rerun_training) {
   # Save predictions on test data
@@ -544,6 +547,9 @@ write.csv(Xq_lp,
 # 10. Save BayCANN statistics and run final diagnostic plots ---------------------
 
 ## Save BayCANN statistics
+if (!exists("acc_err")) {
+  acc_err <- NA
+}
 baycann_stats <- list(l_hyperparams_best = l_hyperparams_best,
                       scale_type = scale_type,
                       df_fn_grps = df_fn_grps,

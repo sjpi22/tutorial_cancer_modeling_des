@@ -51,20 +51,29 @@ m_params <- read.csv(file_posterior) %>%
   dplyr::select(-lp) %>% # Remove last non-parameter column
   as.matrix()
 
-# Set base case outcome parameters (include calibration target parameters)
-l_params_outcome_base <- c(l_params_calib$l_params_outcome,
-                           params_screen$l_outcome_base)
+# Check for internal validation only flag
+if (is.null(params_screen$internal_val_only)) {
+  internal_val_only <- FALSE
+} else {
+  internal_val_only <- params_screen$internal_val_only
+}
 
-# Set screening test and strategy parameters
-l_params_screen <- list(test_chars = params_screen$test_chars,
-                        strats = params_screen$strats,
-                        surveil = params_screen$surveil)
-
-# Set screening outcome parameters
-l_params_outcome_screen <- params_screen$l_outcome_base
-
-# Set counterfactual comparison parameters
-l_params_outcome_counter <- params_screen$l_outcome_counterfactual
+if (!internal_val_only) {
+  # Set base case outcome parameters (include calibration target parameters)
+  l_params_outcome_base <- c(l_params_calib$l_params_outcome,
+                             params_screen$l_outcome_base)
+  
+  # Set screening test and strategy parameters
+  l_params_screen <- list(test_chars = params_screen$test_chars,
+                          strats = params_screen$strats,
+                          surveil = params_screen$surveil)
+  
+  # Set screening outcome parameters
+  l_params_outcome_screen <- params_screen$l_outcome_base
+  
+  # Set counterfactual comparison parameters
+  l_params_outcome_counter <- params_screen$l_outcome_counterfactual
+}
 
 # Set seed
 seed <- l_params_calib$l_params_model$seed
@@ -89,31 +98,55 @@ print(paste("# parallel workers:", getDoParWorkers()))
 #### 4. Generate BayCANN outputs  ===========================================
 
 # Run model for each input parameter sample and get corresponding targets
-stime <- system.time({
-  l_outputs <- foreach(
-    i=1:nrow(m_params), 
-    .combine=c, 
-    .inorder=TRUE, 
-    .packages=c("data.table","tidyverse")) %dopar% {
-      # Get row of parameters and calculate outputs
-      v_params_update <- m_params[i,]
-      l_calib_outputs <- with(l_params_calib, {
-        params_to_outputs(
-          l_params_model = l_params_model,
-          v_params_update = v_params_update,
-          param_map = prior_map,
-          l_params_outcome = l_params_outcome_base,
-          l_params_screen = l_params_screen,
-          l_params_outcome_screen = l_params_outcome_screen,
-          l_params_outcome_counter = l_params_outcome_counter,
-          l_censor_vars = l_censor_vars,
-          reshape_output = FALSE
-        )
-      })
-      # Call item to save
-      list(l_calib_outputs)
-    }
-})
+if (internal_val_only) {
+  stime <- system.time({
+    l_outputs <- foreach(
+      i=1:nrow(m_params), 
+      .combine=rbind, 
+      .inorder=TRUE, 
+      .packages=c("data.table","tidyverse")) %dopar% {
+        # Get row of parameters and calculate outputs
+        v_params_update <- m_params[i,]
+        v_calib_outputs <- with(l_params_calib, {
+          params_to_outputs(
+            l_params_model = l_params_model,
+            v_params_update = v_params_update,
+            param_map = prior_map,
+            l_params_outcome = l_params_outcome,
+            l_censor_vars = l_censor_vars
+          )
+        })
+        # Call item to save
+        t(v_calib_outputs)
+      }
+  })
+} else {
+  stime <- system.time({
+    l_outputs <- foreach(
+      i=1:nrow(m_params), 
+      .combine=c, 
+      .inorder=TRUE, 
+      .packages=c("data.table","tidyverse")) %dopar% {
+        # Get row of parameters and calculate outputs
+        v_params_update <- m_params[i,]
+        l_calib_outputs <- with(l_params_calib, {
+          params_to_outputs(
+            l_params_model = l_params_model,
+            v_params_update = v_params_update,
+            param_map = prior_map,
+            l_params_outcome = l_params_outcome_base,
+            l_params_screen = l_params_screen,
+            l_params_outcome_screen = l_params_outcome_screen,
+            l_params_outcome_counter = l_params_outcome_counter,
+            l_censor_vars = l_censor_vars,
+            reshape_output = FALSE
+          )
+        })
+        # Call item to save
+        list(l_calib_outputs)
+      }
+  })
+}
 print(stime)
 closeAllConnections()
 
