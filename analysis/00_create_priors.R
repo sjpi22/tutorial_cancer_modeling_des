@@ -250,7 +250,7 @@ if (params_model$lesion_state == T) {
     # Perform deconvolution using CDFs of lesion and cancer onset to get PDF of time between states
     pdf_L_P <- deconvolve(x_target = x_states[[state_P]],
                           y_target = cdf_states[[state_P]][[val]],
-                          fn_cdf_1 = function(x) function(x) query_distr("p", x, distr = distr_onset, params = list(shape = params_onset[[1]]$shape, scale = params_onset[[1]]$scale, cure_max = cure_max)),
+                          fn_cdf_1 = function(x) query_distr("p", x, distr = distr_onset, params = list(shape = params_onset[[1]]$shape, scale = params_onset[[1]]$scale, cure_max = cure_max)),
                           delta = delta,
                           penalty_jump = penalty1,
                           penalty_flip = penalty2)
