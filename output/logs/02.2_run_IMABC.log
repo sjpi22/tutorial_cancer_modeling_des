@@ -55,10 +55,10 @@ visible FALSE                   FALSE                 FALSE
 <environment: R_GlobalEnv>
 [1] "Running on Sherlock"
 [1] "# parallel workers: 8"
------ Tue Sep 23 05:42:22 PM 2025 -----
+----- Tue Sep 23 11:28:08 PM 2025 -----
 New IMABC with specifications:
 Max iterations                           = 2000
-Starting simulation size                 = 4000
+Starting simulation size                 = 8000
 Number of centers of mass                = 10
 Number of samples around each center     = 50
 Minimum valid samples to end calibration = 1000
@@ -92,7 +92,7 @@ stage_distr_2: 0.0979249707001665 - 0.282749036678622
 stage_distr_3: 0 - 0.0741383682691322
 
 ---------- Start Iter 1 ----------
-Starting at: 2025-09-23 17:42:22.67412
+Starting at: 2025-09-23 23:28:08.803176
 Current in range draws = 0
 Current bound info:
 ---- prevalence_preclin ----
