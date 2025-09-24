@@ -302,27 +302,6 @@ params_screen:
       age_screen_stop: 71
       int_screen: 30
       mod_conf: ~
-    strategy_s_int5:
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 5
-      mod_conf: "confirm"
-      int_conf: 10
-    strategy_s_int10:
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 10
-      mod_conf: "confirm"
-      int_conf: 10
-    strategy_s_int30: # Effectively one-time screening at age 50
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 71
-      int_screen: 30
-      mod_conf: "confirm"
-      int_conf: 30
   surveil: # Surveillance regimen
     mod: "confirm"
     n_detected: [3, 1]
