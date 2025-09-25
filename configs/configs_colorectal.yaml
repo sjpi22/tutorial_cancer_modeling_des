@@ -207,6 +207,8 @@ params_baycann:
     n_chains: 4
     validate_stan_model: TRUE
     eps_stan: 0.0001
+  params_validation:
+    plot_by_chain: TRUE
   
 # Parameters for screening strategy evaluation
 params_screen:

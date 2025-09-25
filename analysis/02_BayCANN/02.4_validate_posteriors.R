@@ -29,6 +29,9 @@ configs <- load_configs(file_configs)
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
 file_plot_labels <- configs$paths$file_plot_labels
+n_chains <- configs$params_baycann$params_stan$n_chains
+plot_by_chain <- configs$params_baycann$params_validation$plot_by_chain
+if (is.null(plot_by_chain)) plot_by_chain <- FALSE
 
 # Get list of BayCANN output file paths and load to global environment
 l_filepaths <- update_config_paths("files_baycann", configs$paths)
@@ -67,9 +70,13 @@ v_quantiles_calc <- sort(c(v_quantiles_lb, v_quantiles_ub))
 #### 4. Plots ===========================================
 
 # Extract calibration outputs and convert to data frame
-m_outputs <- do.call(rbind, lapply(l_outputs, function(u) {
-  reshape_outputs(u[["outputs_base"]][names(l_params_calib$l_params_outcome)])
-}))
+if(is.list(l_outputs)) {
+  m_outputs <- do.call(rbind, lapply(l_outputs, function(u) {
+    reshape_outputs(u[["outputs_base"]][names(l_params_calib$l_params_outcome)])
+  }))
+} else {
+  m_outputs <- l_outputs
+}
 
 # Calculate mean of outputs
 df_targets$model_mean <- colMeans(m_outputs)
@@ -81,9 +88,35 @@ m_output_quantiles <- t(apply(m_outputs, 2, function(u) {
 colnames(m_output_quantiles) <- names(v_quantiles_calc)
 
 # Append quantiles to df_targets
-df_targets <- cbind(df_targets, m_output_quantiles)
+df_targets_outputs <- cbind(df_targets, m_output_quantiles)
 
 # Get and save coverage plot
-plt_coverage <- plot_coverage(df_targets = df_targets,
+plt_coverage <- plot_coverage(df_targets = df_targets_outputs,
+                              target_range = "ci",
                               file_fig_coverage = file_fig_validation)
 plt_coverage
+
+# Plot by chain if applicable
+if (plot_by_chain) {
+  n_rows_per_chain <- nrow(m_outputs) / n_chains
+  for (i in 1:n_chains) {
+    # Get quantiles of calibration outputs
+    m_output_quantiles <- t(apply(m_outputs[((i-1)*n_rows_per_chain + 1):(i*n_rows_per_chain),], 2, function(u) {
+      quantile(u, probs = v_quantiles_calc)
+    }))
+    colnames(m_output_quantiles) <- names(v_quantiles_calc)
+    
+    # Append quantiles to df_targets
+    df_targets_outputs <- cbind(df_targets, m_output_quantiles)
+    
+    # Modify file path
+    file_fig_validation_chain <- paste0(file_path_sans_ext(file_fig_validation),
+                                        "_chain", i, ".",
+                                        file_ext(file_fig_validation))
+    
+    # Make coverage plot
+    plt_coverage_chain <- plot_coverage(df_targets = df_targets_outputs,
+                               target_range = "ci",
+                               file_fig_coverage = file_fig_validation_chain)
+  }
+}
