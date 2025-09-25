@@ -212,7 +212,6 @@ params_baycann:
   
 # Parameters for screening strategy evaluation
 params_screen:
-  internal_val_only: TRUE
   l_outcome_base: # Outcomes to add for base and screening scenario
     lifeyears:
       outcome_type: "lifeyears"
