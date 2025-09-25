@@ -58,7 +58,13 @@ if (is.null(params_screen$internal_val_only)) {
   internal_val_only <- params_screen$internal_val_only
 }
 
-if (!internal_val_only) {
+# If only performing internal validation, set screening parameters to NULL
+if (internal_val_only) {
+  l_params_outcome_base <- l_params_outcome
+  l_params_screen <- NULL
+  l_params_outcome_screen <- NULL
+  reshape_output <- TRUE
+} else {
   # Set base case outcome parameters (include calibration target parameters)
   l_params_outcome_base <- c(l_params_calib$l_params_outcome,
                              params_screen$l_outcome_base)
@@ -73,6 +79,9 @@ if (!internal_val_only) {
   
   # Set counterfactual comparison parameters
   l_params_outcome_counter <- params_screen$l_outcome_counterfactual
+  
+  # Keep output as list
+  reshape_output <- FALSE
 }
 
 # Set seed
@@ -98,55 +107,31 @@ print(paste("# parallel workers:", getDoParWorkers()))
 #### 4. Generate BayCANN outputs  ===========================================
 
 # Run model for each input parameter sample and get corresponding targets
-if (internal_val_only) {
-  stime <- system.time({
-    l_outputs <- foreach(
-      i=1:nrow(m_params), 
-      .combine=rbind, 
-      .inorder=TRUE, 
-      .packages=c("data.table","tidyverse")) %dopar% {
-        # Get row of parameters and calculate outputs
-        v_params_update <- m_params[i,]
-        v_calib_outputs <- with(l_params_calib, {
-          params_to_outputs(
-            l_params_model = l_params_model,
-            v_params_update = v_params_update,
-            param_map = prior_map,
-            l_params_outcome = l_params_outcome,
-            l_censor_vars = l_censor_vars
-          )
-        })
-        # Call item to save
-        t(v_calib_outputs)
-      }
-  })
-} else {
-  stime <- system.time({
-    l_outputs <- foreach(
-      i=1:nrow(m_params), 
-      .combine=c, 
-      .inorder=TRUE, 
-      .packages=c("data.table","tidyverse")) %dopar% {
-        # Get row of parameters and calculate outputs
-        v_params_update <- m_params[i,]
-        l_calib_outputs <- with(l_params_calib, {
-          params_to_outputs(
-            l_params_model = l_params_model,
-            v_params_update = v_params_update,
-            param_map = prior_map,
-            l_params_outcome = l_params_outcome_base,
-            l_params_screen = l_params_screen,
-            l_params_outcome_screen = l_params_outcome_screen,
-            l_params_outcome_counter = l_params_outcome_counter,
-            l_censor_vars = l_censor_vars,
-            reshape_output = FALSE
-          )
-        })
-        # Call item to save
-        list(l_calib_outputs)
-      }
-  })
-}
+stime <- system.time({
+  l_outputs <- foreach(
+    i=1:nrow(m_params), 
+    .combine=c, 
+    .inorder=TRUE, 
+    .packages=c("data.table","tidyverse")) %dopar% {
+      # Get row of parameters and calculate outputs
+      v_params_update <- m_params[i,]
+      l_calib_outputs <- with(l_params_calib, {
+        params_to_outputs(
+          l_params_model = l_params_model,
+          v_params_update = v_params_update,
+          param_map = prior_map,
+          l_params_outcome = l_params_outcome_base,
+          l_params_screen = l_params_screen,
+          l_params_outcome_screen = l_params_outcome_screen,
+          l_params_outcome_counter = l_params_outcome_counter,
+          l_censor_vars = l_censor_vars,
+          reshape_output = reshape_output
+        )
+      })
+      # Call item to save
+      list(l_calib_outputs)
+    }
+})
 print(stime)
 closeAllConnections()
 
