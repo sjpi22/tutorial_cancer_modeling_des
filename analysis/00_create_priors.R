@@ -192,10 +192,15 @@ for (i in seq(cdf_states)) {
 distr_onset <- unique(df_priors[df_priors$var_name == paste0("d_", var_onset), "var_distr"])
 
 # Set max for cure model
+cure_max <- list()
 if ("cure_max" %in% df_priors[df_priors$var_name == paste0("d_", var_onset), "param_name"]) {
-  cure_max <- df_priors[df_priors$var_name == paste0("d_", var_onset) & df_priors$param_name == "cure_max", "param_val"]
+  cure_max[[v_cols[1]]] <- df_priors[df_priors$var_name == paste0("d_", var_onset) & df_priors$param_name == "cure_max", "param_val"]
+  cure_max[[v_cols[2]]] <- df_priors[df_priors$var_name == paste0("d_", var_onset) & df_priors$param_name == "cure_max", "min"]
+  cure_max[[v_cols[3]]] <- df_priors[df_priors$var_name == paste0("d_", var_onset) & df_priors$param_name == "cure_max", "max"]
 } else {
-  cure_max <- 1
+  for (val in v_cols[3]) {
+    cure_max[[val]] <- 1
+  }
 }
 
 # Loop over disease states
@@ -203,7 +208,7 @@ params_onset <- list()
 for (val in v_cols) {
   # Fit linear model to transformed CDF
   params_onset[[val]] <- with(l_targets[[n_states]], {
-    do.call(paste0("fit_", distr_onset), list(x_states[[n_states]], pmin(1, cdf_states[[n_states]][[val]] / cure_max)))
+    do.call(paste0("fit_", distr_onset), list(x_states[[n_states]], pmin(1, cdf_states[[n_states]][[val]] / cure_max[[val]])))
   })
 }
 
@@ -223,7 +228,7 @@ for (val in v_cols) {
         query_distr("p", v_ages, distr = distr_onset, 
                     params = list(shape = params_onset[[val]]$shape, 
                                   scale = params_onset[[val]]$scale, 
-                                  cure_max = cure_max)), 
+                                  cure_max = cure_max[[val]])), 
         lty = ifelse(val == v_cols[1], 1, 2),
         col = v_colors[n_states])
 }
@@ -250,7 +255,7 @@ if (params_model$lesion_state == T) {
     # Perform deconvolution using CDFs of lesion and cancer onset to get PDF of time between states
     pdf_L_P <- deconvolve(x_target = x_states[[state_P]],
                           y_target = cdf_states[[state_P]][[val]],
-                          fn_cdf_1 = function(x) query_distr("p", x, distr = distr_onset, params = list(shape = params_onset[[1]]$shape, scale = params_onset[[1]]$scale, cure_max = cure_max)),
+                          fn_cdf_1 = function(x) query_distr("p", x, distr = distr_onset, params = list(shape = params_onset[[1]]$shape, scale = params_onset[[1]]$scale, cure_max = cure_max[[val]])),
                           delta = delta,
                           penalty_jump = penalty1,
                           penalty_flip = penalty2)
@@ -272,7 +277,7 @@ if (params_model$lesion_state == T) {
   # Perform deconvolution using CDFs of lesion and cancer onset to get PDF of time between states
   pdf_P_C <- deconvolve(x_target = x_states[["C"]],
                         y_target = cdf_states[["C"]][[1]],
-                        fn_cdf_1 = function(x) query_distr("p", x, distr = distr_onset, params = list(shape = params_onset[[1]]$shape, scale = params_onset[[1]]$scale, cure_max = cure_max)),
+                        fn_cdf_1 = function(x) query_distr("p", x, distr = distr_onset, params = list(shape = params_onset[[1]]$shape, scale = params_onset[[1]]$scale, cure_max = cure_max[[val]])),
                         delta = delta,
                         penalty_jump = penalty1,
                         penalty_flip = penalty2)

@@ -37,6 +37,9 @@ paths:
       corr: "baycann_corr.png"
       prior_post: "baycann_prior_post.png"
       validation: "baycann_target_validation.png"
+  files_imabc: # File names for IMABC outputs
+    output:
+      samples: "imabc_samples"
   files_decision: # File names for decision and intermediate outcomes
     output:
       nathist: "nathist_outputs.csv"
@@ -67,7 +70,7 @@ params_priors:
   v_state_targets: 
     C: "incidence_clin"
     P: "prevalence_preclin"
-  multiplier_bounds: 0.4 # Factor by which to expand estimated prior bounds
+  multiplier_bounds: 0.5 # Factor by which to expand estimated prior bounds
   var_index: "target_index" # Column name of index (e.g., age) associated with target
   v_cols: # Names of columns in target data for target, lower bound, and upper bound
     - "targets" 
@@ -125,7 +128,7 @@ params_calib:
 params_montecarlo:
   n_init: 500000
   n_mc_reps: 60
-  mc_multiplier: 1.5
+  mc_multiplier: 2
   
 # Parameters for initial coverage analysis and internal validation
 params_coverage:
@@ -139,12 +142,12 @@ params_imabc:
   alpha_current: 1.0e-15
   alpha_stop: 0.05
   fn_use_seed: FALSE
-  N_start_multiplier: 1000 # Number of initial samples per parameter
+  N_start_multiplier: 300 # Number of initial samples per parameter
   vars_rate: "incidence_clin" # Target group names for any targets calculated as rates instead of proportions
   optional_args:
-    N_centers: 10
+    N_centers: 4
     N_post: 1000
-    max_iter: 2000
+    max_iter: 1000
 
 # Parameters specific to BayCANN
 params_baycann:

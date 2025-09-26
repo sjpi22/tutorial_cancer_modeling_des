@@ -45,7 +45,6 @@ file_params_calib <- configs$paths$file_params_calib
 
 # Get list of relevant output file paths and load to global environment
 l_filepaths <- update_config_paths("files_imabc", configs$paths)
-list2env(l_filepaths, envir = .GlobalEnv)
 
 # Load IMABC parameters from configs file
 list2env(configs$params_imabc, envir = .GlobalEnv)
