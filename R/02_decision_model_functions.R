@@ -657,6 +657,7 @@ simulate_screening_L <- function(m_patients,
   # Set patient and lesion IDs as keys
   setkey(m_lesions, pt_id, lesion_id)
   
+  browser()
   # Merge first screen age within lesion state and minimum of cancer 
   # onset and screening stop date as lesion screening censor date (to be updated after every screening)
   m_lesions[m_patients[screen_age >= time_H_L & 
@@ -864,6 +865,7 @@ simulate_screening_P <- function(m_patients,
                                  l_params_strategy,
                                  l_test_chars,
                                  l_params_surveil = NULL,
+                                 nondecreasing = TRUE, # Should screening strictly increase life expectancy?
                                  verbose = FALSE
 ) {  
   # Extract screening and surveillance primary test modalities
@@ -1021,22 +1023,26 @@ simulate_screening_P <- function(m_patients,
   
   # Recalculate time to death from cancer among people with screen-detected cancer
   with(l_params_model, {
-    m_patients[fl_detected == 1, time_C_Dc := query_distr(
+    m_patients[fl_detected == 1, time_C_Dc_screen := query_distr(
       "r", .N,
       get(paste0("d_time_C", stage_dx, "_Dc"))$distr,
       get(paste0("d_time_C", stage_dx, "_Dc"))$params
     ), by = stage_dx]
   })
   
+  # If applicable, restrict time to death from cancer to be no less than time to death without screening
+  if (nondecreasing) {
+    m_patients[fl_detected == 1, time_C_Dc := pmax(time_C_Dc, time_C_Dc_screen)]
+  } else {
+    setnames(m_patients, "time_C_Dc_screen", "time_C_Dc")
+  }
+  
   # Calculate death from cancer
   m_patients[fl_detected == 1, time_H_Dc := time_H_C + time_C_Dc]
   
-  # Calculate time of overall death, but no less than time of death without screening
-  m_patients[fl_detected == 1, time_H_D := pmax(time_H_D, pmin(time_H_Do, time_H_Dc))]
-  
   # Flag cancers diagnosed with symptoms and increment base confirmatory test count
   if ("ct_tests_base" %in% names(m_patients)) m_patients[, ct_tests_base := NULL]
-  m_patients[!fl_detected %in% 1 & time_H_C < time_H_D, `:=` (
+  m_patients[!fl_detected %in% 1 & time_H_C < time_H_Do, `:=` (
     fl_symptom_detected = 1,
     ct_tests_base = 1)]
   

@@ -26,7 +26,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_simulated.yaml")
+file_configs <- file.path("configs", "configs_bladder.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
@@ -45,13 +45,12 @@ l_filepaths_decision <- update_config_paths("files_decision", configs$paths)
 list2env(l_filepaths_decision, envir = .GlobalEnv)
 
 ###### 2.2 Other parameters
-v_methods <- c(truth = "Ground truth", imabc = "IMABC", baycann = "BayCANN") # Calibration methods to evaluate (include "truth" if evaluating against a ground truth)
+v_methods <- c(imabc = "IMABC", baycann = "BayCANN") # Calibration methods to evaluate (include "truth" if evaluating against a ground truth)
 base_test <- "confirm" # Assign name of base test (for diagnosing symptom-detected cases)
 x_var <- "time_total" # Variable for x-axis
 y_var <- "test_burden" # Variable for y-axis
 x_int <- 200 # Interval for x-axis
 y_int <- 2000 # Interval for y-axis
-l_filepaths_truth <- list(file_outputs = file.path("_ground_truth", "true_decision_outputs.rds")) # Ground truth outputs
 
 
 #### 3. Pre-processing actions  ===========================================
