@@ -322,14 +322,24 @@ run_screening_counterfactual <- function(
     l_params_strategy,
     l_params_tests,
     l_params_surveil = NULL,
+    reversible = TRUE,
     verbose = FALSE
 ) {
-  # Separate patient and lesion data as necessary
+  # Separate patient and lesion data as necessary and save original columns
   if (is.data.table(m_cohort)) {
     m_patients <- m_cohort
+    if (reversible) {
+      l_data_overwritten <- list(cols_orig = copy(names(m_patients)))
+    }
   } else {
     m_patients <- m_cohort$patient_level
     m_lesions <- m_cohort$lesion_level
+    if (reversible) {
+      l_data_overwritten <- list(cols_orig = list(
+        m_patients = copy(names(m_patients)),
+        m_lesions = copy(names(m_lesions))
+      ))
+    }
   }
   
   # Extract screening and confirmatory test modalities
@@ -384,15 +394,23 @@ run_screening_counterfactual <- function(
                        l_test_chars = l_params_tests_sample,
                        verbose = verbose)
   
+  # Save data that will be replaced
+  if (reversible) {
+    v_cols_save <- c(
+      "pt_id", "time_H_P", "time_H_C", "time_H_Dc", "time_H_D", "time_P_C", "time_C_Dc", "time_C_D", "stage_dx", "fl_Dc", "ct_tests_base"
+    )
+    m_patient_overwritten <- m_patients[!is.na(screen_age), .SD, .SDcols = intersect(v_cols_save, names(m_patients))]
+  }
+  
   #### Case 2: Lesions developed by screen age, but no preclinical cancer ####
   if ('L' %in% l_params_model$v_states) {
     # Simulate lesion progression to cancer
-    simulate_screening_L(m_patients = m_patients, 
-                         m_lesions = m_lesions,
-                         l_params_strategy = l_params_strategy,
-                         l_test_chars = l_params_tests_sample,
-                         l_params_surveil = l_params_surveil,
-                         verbose = verbose)
+    m_lesion_overwritten <- simulate_screening_L(m_patients = m_patients, 
+                                                 m_lesions = m_lesions,
+                                                 l_params_strategy = l_params_strategy,
+                                                 l_test_chars = l_params_tests_sample,
+                                                 l_params_surveil = l_params_surveil,
+                                                 verbose = verbose)
   }
   
   #### Case 3: Preclinical cancer screening and surveillance ####
@@ -406,7 +424,20 @@ run_screening_counterfactual <- function(
   # Recalculate mortality outcomes
   calc_mortality_outcomes(m_patients)
   
-  return(NULL)
+  # Join overwritten patient and lesion data as necessary
+  if (reversible) {
+    if (is.data.table(m_cohort)) {
+      l_data_overwritten$m_cohort <- m_patient_overwritten
+    } else {
+      l_data_overwritten$m_cohort <- list(
+        patient_level = m_patient_overwritten,
+        lesion_level = m_lesion_overwritten
+      )
+    }
+    return(l_data_overwritten)
+  } else {
+    return(NULL)
+  }
 }
 
 
@@ -438,13 +469,18 @@ simulate_screening_H <- function(m_patients,
     int_conf <- NA
   }
   
+  # Set initial censor time for cancer screening
+  if (!"time_screen_censor" %in% names(m_patients)) {
+    m_patients[, time_screen_censor := pmin(time_H_C, time_H_D, na.rm = T)]
+  }
+  
   # Initialize type of screening (routine vs. surveillance), calculate age at 
   # which individual no longer screens as minimum of patient censor age and 
-  # strategy stop age and reset base tests to 0
+  # strategy stop age
   m_patients[, `:=` (
     screen_type = "screen",
-    time_screen_stop = pmin(time_screen_censor, l_params_strategy$age_screen_stop),
-    ct_tests_base = 0)]
+    time_screen_stop = pmin(time_screen_censor, l_params_strategy$age_screen_stop)
+  )]
   
   # If screening interval is constant, perform simplified calculation of number of screening tests during healthy state
   # Otherwise, loop over testing rounds and assign applicable screening interval
@@ -453,7 +489,7 @@ simulate_screening_H <- function(m_patients,
     v_screen_ages <- with(l_params_strategy, seq(age_screen_start, age_screen_stop, int_screen))
     
     # Get number of screening tests during healthy state before earliest of censor age or disease onset
-    m_patients[, ct_tests_screen := findInterval(pmin(time_screen_stop, get(var_onset)), v_screen_ages, left.open = T)]
+    m_patients[, ct_tests_screen := findInterval(pmin(time_screen_stop, get(var_onset), na.rm = T), v_screen_ages, left.open = T)]
     
     # Simulate number of false positives screens
     m_patients[, `:=` (
@@ -481,7 +517,7 @@ simulate_screening_H <- function(m_patients,
     
     # Initialize running screening age at screening start age for individuals eligible to receive screening at that age
     # and time that screening in the healthy state would end
-    m_patients[l_params_strategy$age_screen_start < time_screen_censor, `:=` (screen_age = l_params_strategy$age_screen_start,
+    m_patients[l_params_strategy$age_screen_start < time_screen_stop, `:=` (screen_age = l_params_strategy$age_screen_start,
                                                                               time_screen_end_H = pmin(get(var_onset), time_screen_stop, na.rm = T))]
     
     # Calculate number of healthy patients remaining to screen
@@ -500,12 +536,12 @@ simulate_screening_H <- function(m_patients,
       
       # Calculate number of additional screening tests in healthy state
       m_patients[time_screen_end_H > screen_age, `:=` (ct_tests_screen_add = pmin(ct_tests_screen_before_FP + 1, 
-                                                                                  (time_screen_end_H - screen_age) %/% int_screen + ((time_screen_end_H - screen_age) %% int_screen > 0)))] 
+                                                                                  (time_screen_end_H - screen_age) %/% int_screen + ((time_screen_end_H - screen_age) %% int_screen > 0), na.rm = T))] 
       # Increment number of screening tests and false positive tests for individuals with screening age before end of healthy state
       m_patients[time_screen_end_H > screen_age, `:=` (
         ct_tests_screen = ct_tests_screen + ct_tests_screen_add,
-        ct_tests_screen_FP = ct_tests_screen_FP + fifelse(ct_tests_screen_add <= ct_tests_screen_before_FP, 0, 1),
-        screen_age = screen_age + fifelse(ct_tests_screen_add <= ct_tests_screen_before_FP, 
+        ct_tests_screen_FP = ct_tests_screen_FP + fifelse(ct_tests_screen_add <= pmin(Inf, ct_tests_screen_before_FP, na.rm = T), 0, 1),
+        screen_age = screen_age + fifelse(ct_tests_screen_add <= pmin(Inf, ct_tests_screen_before_FP, na.rm = T), 
                                           ct_tests_screen_add*int_screen, 
                                           (ct_tests_screen_add - 1)*int_screen + int_conf)
       )]
@@ -618,9 +654,11 @@ simulate_screening_L <- function(m_patients,
     }
   }
   
+  # Set patient and lesion IDs as keys
+  setkey(m_lesions, pt_id, lesion_id)
+  
   # Merge first screen age within lesion state and minimum of cancer 
   # onset and screening stop date as lesion screening censor date (to be updated after every screening)
-  setkey(m_lesions, pt_id)
   m_lesions[m_patients[screen_age >= time_H_L & 
                          screen_age < pmin(time_H_P, time_screen_stop, na.rm = T)], `:=` (
                            time_lesion_censor = pmin(i.time_H_P, i.time_screen_stop, na.rm = T),
@@ -990,10 +1028,23 @@ simulate_screening_P <- function(m_patients,
     ), by = stage_dx]
   })
   
-  # Flag cancers diagnosed with symptoms and increment confirmatory test count
+  # Calculate death from cancer
+  m_patients[fl_detected == 1, time_H_Dc := time_H_C + time_C_Dc]
+  
+  # Calculate time of overall death, but no less than time of death without screening
+  m_patients[fl_detected == 1, time_H_D := pmax(time_H_D, pmin(time_H_Do, time_H_Dc))]
+  
+  # Flag cancers diagnosed with symptoms and increment base confirmatory test count
+  if ("ct_tests_base" %in% names(m_patients)) m_patients[, ct_tests_base := NULL]
   m_patients[!fl_detected %in% 1 & time_H_C < time_H_D, `:=` (
     fl_symptom_detected = 1,
-    ct_tests_base = ct_tests_base + 1)]
+    ct_tests_base = 1)]
+  
+  # Remove unneeded variables
+  m_patients[, `:=` (time_P_C_running = NULL,
+                     screen_age = NULL,
+                     screen_type = NULL,
+                     time_screen_stop = NULL)]
   
   return(NULL)
 }
@@ -1014,7 +1065,7 @@ calc_ntests <- function(m_patients,
 ) {
   # Calculate confirmatory tests
   if (min_age > 0 | !is.null(min_age)) {
-    ct_tests <- m_patients[get(censor_var) > min_age, colSums(.SD, na.rm = T), .SDcols = patterns("ct_")]
+    ct_tests <- m_patients[get(censor_var) > min_age, colSums(.SD, na.rm = T), .SDcols = patterns(test_var_pattern)]
   } else {
     ct_tests <- m_patients[, colSums(.SD, na.rm = T), .SDcols = patterns(test_var_pattern)]
   }
@@ -1096,7 +1147,8 @@ params_to_outputs <- function(l_params_model,
                               l_censor_vars = NULL,
                               reshape_output = TRUE, 
                               individual_data = FALSE, # Output individual-level data
-                              conf_level = 0.95
+                              conf_level = 0.95,
+                              unit_test = FALSE
 ) {
   # Update parameters
   if (!is.null(v_params_update)) {
@@ -1111,10 +1163,26 @@ params_to_outputs <- function(l_params_model,
   # Run base decision model
   m_cohort <- run_base_model(l_params_update)
   
+  # If unit test, make copy of initial data
+  if (unit_test) {
+    m_cohort_orig <- copy(m_cohort)
+  }
+  
   # Get base outputs
   l_outputs <- calc_cohort_outputs(m_cohort, 
                                    l_params_outcome = l_params_outcome,
                                    l_censor_vars = l_censor_vars)
+  
+  # If unit test, check that data has not changed
+  if (unit_test) {
+    if (is.data.table(m_cohort_orig)) {
+      assert_that(all.equal(m_cohort_orig, m_cohort[, -c("time_screen_censor")]))
+    } else {
+      for (dt in names(m_cohort_orig)) {
+        assert_that(all.equal(m_cohort_orig[[dt]], m_cohort[[dt]][, -c("time_screen_censor")]))
+      }
+    }
+  }
   
   # Add individual-level data to results list if necessary
   if (individual_data) {
@@ -1150,31 +1218,29 @@ params_to_outputs <- function(l_params_model,
     # Loop through screening strategies
     l_outputs_screen <- list()
     for (strat in names(l_params_screen$strats)) {
-      # Create copy of original data if needed (otherwise, allow data to be overwritten)
-      if (individual_data == T | length(l_params_screen$strats) > 1) {
-        m_cohort_screen <- copy(m_cohort)
-      } else {
-        m_cohort_screen <- m_cohort
-      }
+      # Generate data under screening counterfactual (save results from base cohort that get overwritten)
+      l_data_overwritten <- do.call(run_screening_counterfactual, 
+                                      list(m_cohort = m_cohort, 
+                                           l_params_model = l_params_model,
+                                           l_params_strategy = l_params_screen$strats[[strat]],
+                                           l_params_tests = l_params_screen$test_chars,
+                                           l_params_surveil = l_params_screen$surveil
+                                      ))
       
-      # Generate data under screening counterfactual
-      do.call(run_screening_counterfactual, 
-              list(m_cohort = m_cohort_screen, 
-                   l_params_model = l_params_model,
-                   l_params_strategy = l_params_screen$strats[[strat]],
-                   l_params_tests = l_params_screen$test_chars,
-                   l_params_surveil = l_params_screen$surveil
-              ))
+      # Calculate screening outcomes from updated data
+      l_outputs_screen[[strat]] <- calc_cohort_outputs(m_cohort, 
+                                                       l_params_outcome = l_params_outcome_screen,
+                                                       l_censor_vars = l_censor_vars)
       
-      # Add individual-level data to results list if necessary
+      # Revert overwritten data
+      m_cohort_screen <- swap_data(data_start = m_cohort, 
+                                   data_swap = l_data_overwritten$m_cohort,
+                                   cols_keep = l_data_overwritten$cols_orig)
+      
+      # Add individual-level data changed in screening scenario to results list if necessary
       if (individual_data) {
         res$m_cohort_screen[[strat]] <- m_cohort_screen
       }
-      
-      # Calculate screening outcomes
-      l_outputs_screen[[strat]] <- calc_cohort_outputs(m_cohort_screen, 
-                                                       l_params_outcome = l_params_outcome_screen,
-                                                       l_censor_vars = l_censor_vars)
       
       # Calculate counterfactual comparison outcomes
       if (!is.null(l_params_outcome_counter)) {
@@ -1204,6 +1270,17 @@ params_to_outputs <- function(l_params_model,
     
     # Add to results
     res <- c(res, outputs_screen = list(l_outputs_screen))
+    
+    # If unit test, check that data has not changed
+    if (unit_test) {
+      if (is.data.table(m_cohort_orig)) {
+        assert_that(all.equal(m_cohort_orig, m_cohort[, -c("time_screen_censor")]))
+      } else {
+        for (dt in names(m_cohort_orig)) {
+          assert_that(all.equal(m_cohort_orig[[dt]], m_cohort[[dt]][, -c("time_screen_censor")]))
+        }
+      }
+    }
   }
   
   # Return single item or list of results if >1 items
@@ -1214,3 +1291,60 @@ params_to_outputs <- function(l_params_model,
   }
 }
 
+# Swap data from specified rows and columns in list of data tables
+# data_start: data table or list of data tables to be updated
+# data_swap: data table or list of data tables with rows and columns to swap in
+# cols_keep: vectors of strings with column names to keep in final result
+# Modifies data_start in place and returns data that changed, including columns removed because they were not in cols_keep 
+swap_data <- function(data_start, data_swap, cols_keep = NULL) {
+  if (is.data.table(data_start)) { # For single data table
+    data_replaced <- swap_data_table(data_start, data_swap, cols_keep)
+  } else {
+    data_replaced <- list()
+    for (i in names(data_start)) {
+      data_replaced[[i]] <- swap_data_table(data_start[[i]], data_swap[[i]], cols_keep[[i]])
+    }
+  }
+  return(data_replaced)
+}
+
+# Internal function to swap data for single data table
+swap_data_table <- function(data_start, data_swap, cols_keep = NULL) {
+  # Error handling
+  if (!is.data.table(data_swap) | !is.data.table(data_start)) {
+    stop("All items must be data tables")
+  }
+  
+  # Set key if necessary
+  if (!haskey(data_swap)) {
+    setkey(data_swap, key(data_start))
+  }
+  
+  # Extract columns to swap
+  v_cols <- names(data_swap)
+  v_cols_diff <- v_cols[!v_cols %in% key(data_start)]
+  
+  # Extract rows that will be switched
+  data_replaced <- data_start[data_swap, nomatch = 0, .SD, .SDcols = v_cols]
+  
+  # Swap data 
+  data_start[data_swap, (v_cols_diff) := mget(paste0("i.", v_cols_diff))]
+  
+  # Extract specified columns to data_replaced if applicable
+  if (!is.null(cols_keep)) {
+    # Select ID variable and columns to remove
+    cols_remove <- setdiff(names(data_start), cols_keep)
+    
+    # Merge data_replace with removed columns
+    if (length(cols_remove) > 0) {
+      cols_merge <- c(key(data_start), cols_remove)
+      data_removed <- data_start[, ..cols_merge]
+      data_replaced <- merge(data_replaced, data_removed, all = TRUE)
+      
+      # Remove unwanted columns from data_start
+      data_start[, (cols_remove) := NULL]
+    }
+  }
+  
+  return(data_replaced)
+}

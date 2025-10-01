@@ -270,20 +270,24 @@ plot_coverage <- function(
       labs(x     = "Age", y     = "")
   }
   
+  # Get number of rows and columns of graphs
+  n_plot_grps <- length(unique(df_targets$plot_grps))
+  n_plot_rows <- ceiling(n_plot_grps/n_cols_max)
+  n_plot_cols <- ceiling(n_plot_grps/n_plot_rows)
+  
   # Depending on number of plots, create final plot layout
   if (length(l_plts) == 1) {
     plt <- l_plts[[1]]
   } else {
-    plt <- l_plts[["cont"]] / l_plts[["cat"]]
+    if (n_plot_rows == 1) {
+      plt <- l_plts[["cont"]] + l_plts[["cat"]]
+    } else {
+      plt <- l_plts[["cont"]] / l_plts[["cat"]]
+    }
   }
   
   # Save plot and adjust size based on number of rows and columns
   if (!is.null(file_fig_coverage)) {
-    # Get number of rows and columns of graphs
-    n_plot_grps <- length(unique(df_targets$plot_grps))
-    n_plot_rows <- ceiling(n_plot_grps/n_cols_max)
-    n_plot_cols <- ceiling(n_plot_grps/n_plot_rows)
-    
     # Save plot
     ggsave(file_fig_coverage, plot = plt,
            width = n_plot_cols*4, height = 4*n_plot_rows)

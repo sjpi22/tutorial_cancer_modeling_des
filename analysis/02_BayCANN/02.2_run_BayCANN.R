@@ -32,6 +32,7 @@ library(MASS)
 library(bestNormalize)
 library(data.table)
 library(GGally) # For correlation graph
+library(dampack) # For prior-posterior graph
 library(assertthat)
 rstan_options(auto_write = TRUE)
 
@@ -611,7 +612,7 @@ df_maps_n_true_params
 
 df_maps_n_true_params$Parameter <- as.factor(x_names)
 
-library(dampack)
+# Plot parameter priors against posteriors
 gg_prior_post <- ggplot(df_samp_prior_post,
                          aes(x = value, y = after_stat(density), fill = Distribution)) +
   facet_wrap(~Parameter, scales = "free",
