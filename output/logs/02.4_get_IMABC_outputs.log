@@ -54,5 +54,5 @@ visible FALSE                   FALSE                 FALSE
 <environment: R_GlobalEnv>
 [1] "Running on Sherlock"
 [1] "# parallel workers: 8"
-   user  system elapsed 
-979.425  24.257 148.838 
+    user   system  elapsed 
+1249.583   28.143  191.973 
