@@ -2,7 +2,7 @@
 #SBATCH --job-name=get_IMABC_outputs
 #SBATCH --nodes=1
 #SBATCH --time=4:00:00
-#SBATCH --mem=10G
+#SBATCH --mem=32G
 #SBATCH --ntasks-per-node=8
 #SBATCH --output=output/logs/02.4_get_IMABC_outputs.log
 #SBATCH --mail-user=sjpi@stanford.edu

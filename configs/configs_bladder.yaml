@@ -233,8 +233,8 @@ params_screen:
         P: 
           distr: "beta"
           params:
-            shape1: 150
-            shape2: 50
+            shape1: 95
+            shape2: 5
       d_p_spec:
         distr: "beta"
         params:
