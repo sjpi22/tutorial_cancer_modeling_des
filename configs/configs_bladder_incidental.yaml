@@ -220,6 +220,20 @@ params_screen:
         P: 
           distr: "beta"
           params:
+            shape1: 90
+            shape2: 10
+      d_p_spec:
+        distr: "beta"
+        params:
+          shape1: 100
+          shape2: 0
+      type: "direct"
+      cost_ratio: 1
+    confirm2:
+      d_p_sens:
+        P: 
+          distr: "beta"
+          params:
             shape1: 95
             shape2: 5
       d_p_spec:
@@ -233,6 +247,12 @@ params_screen:
     strategy_c_int5:
       mod: "confirm"
       age_screen_start: 55
-      age_screen_stop: 71
+      age_screen_stop: 76
+      int_screen: 5
+      mod_conf: ~
+    strategy_c2_int5:
+      mod: "confirm2"
+      age_screen_start: 55
+      age_screen_stop: 76
       int_screen: 5
       mod_conf: ~

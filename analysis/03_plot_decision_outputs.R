@@ -257,29 +257,31 @@ ggsave(file_fig_decision, plt_outcomes, width = 10, height = 8)
 l_res_time <- list()
 for (method in names(v_methods)) {
   for (outcome in c("dwell_time", "sojourn_time")) {
-    # Extract outcome
-    v_outcomes <- l_outcomes[[method]][[outcome]][["base"]]
-    
-    # Calculate mean and quantiles of outputs
-    if (length(l_wts[[method]]) == 1) {
-      mean_outcome <- mean(v_outcomes)
-      ci_outcome <- quantile(v_outcomes, probs = v_quantiles_calc)
-    } else {
-      mean_outcome <- weighted.mean(v_outcomes, w = l_wts[[method]])
-      ci_outcome <- weighted_quantile(
-        x = v_outcomes,
-        probs = v_quantiles_calc,
-        weights = l_wts[[method]]
-      )
+    if (!is.null(l_outcomes[[method]][[outcome]])) {
+      # Extract outcome
+      v_outcomes <- l_outcomes[[method]][[outcome]][["base"]]
+      
+      # Calculate mean and quantiles of outputs
+      if (length(l_wts[[method]]) == 1) {
+        mean_outcome <- mean(v_outcomes)
+        ci_outcome <- quantile(v_outcomes, probs = v_quantiles_calc)
+      } else {
+        mean_outcome <- weighted.mean(v_outcomes, w = l_wts[[method]])
+        ci_outcome <- weighted_quantile(
+          x = v_outcomes,
+          probs = v_quantiles_calc,
+          weights = l_wts[[method]]
+        )
+      }
+      
+      # Add to results list
+      l_res_time <- c(l_res_time, list(
+        list(method = method,
+             outcome = outcome,
+             mean = mean_outcome,
+             ci_lb = ci_outcome[1],
+             ci_ub = ci_outcome[2])))
     }
-    
-    # Add to results list
-    l_res_time <- c(l_res_time, list(
-      list(method = method,
-           outcome = outcome,
-           mean = mean_outcome,
-           ci_lb = ci_outcome[1],
-           ci_ub = ci_outcome[2])))
   }
 }
 

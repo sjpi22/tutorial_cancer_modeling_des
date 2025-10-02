@@ -399,6 +399,10 @@ run_screening_counterfactual <- function(
     v_cols_save <- c(
       "pt_id", "time_H_P", "time_H_C", "time_H_Dc", "time_H_D", "time_P_C", "time_C_Dc", "time_C_D", "stage_dx", "fl_Dc", "ct_tests_base"
     )
+    
+    if (!'L' %in% l_params_model$v_states) { # Time to cancer onset would not change if cancer is denovo
+      v_cols_save <- v_cols_save[!v_cols_save %in% c("time_H_P")]
+    }
     m_patient_overwritten <- m_patients[!is.na(screen_age), .SD, .SDcols = intersect(v_cols_save, names(m_patients))]
   }
   
@@ -657,7 +661,6 @@ simulate_screening_L <- function(m_patients,
   # Set patient and lesion IDs as keys
   setkey(m_lesions, pt_id, lesion_id)
   
-  browser()
   # Merge first screen age within lesion state and minimum of cancer 
   # onset and screening stop date as lesion screening censor date (to be updated after every screening)
   m_lesions[m_patients[screen_age >= time_H_L & 
@@ -1023,22 +1026,21 @@ simulate_screening_P <- function(m_patients,
   
   # Recalculate time to death from cancer among people with screen-detected cancer
   with(l_params_model, {
-    m_patients[fl_detected == 1, time_C_Dc_screen := query_distr(
+    m_patients[fl_detected == 1, time_C_Dc := query_distr(
       "r", .N,
       get(paste0("d_time_C", stage_dx, "_Dc"))$distr,
       get(paste0("d_time_C", stage_dx, "_Dc"))$params
     ), by = stage_dx]
   })
   
+  # Calculate death from cancer
   # If applicable, restrict time to death from cancer to be no less than time to death without screening
   if (nondecreasing) {
-    m_patients[fl_detected == 1, time_C_Dc := pmax(time_C_Dc, time_C_Dc_screen)]
+    m_patients[fl_detected == 1, time_H_Dc_screen := time_H_C + time_C_Dc]
+    m_patients[fl_detected == 1, time_H_Dc := pmax(time_H_Dc, time_H_Dc_screen)]
   } else {
-    setnames(m_patients, "time_C_Dc_screen", "time_C_Dc")
+    m_patients[fl_detected == 1, time_H_Dc := time_H_C + time_C_Dc]
   }
-  
-  # Calculate death from cancer
-  m_patients[fl_detected == 1, time_H_Dc := time_H_C + time_C_Dc]
   
   # Flag cancers diagnosed with symptoms and increment base confirmatory test count
   if ("ct_tests_base" %in% names(m_patients)) m_patients[, ct_tests_base := NULL]
@@ -1220,7 +1222,7 @@ params_to_outputs <- function(l_params_model,
     if (individual_data) {
       res$m_cohort_screen <- list()
     }
-    
+    browser()
     # Loop through screening strategies
     l_outputs_screen <- list()
     for (strat in names(l_params_screen$strats)) {
