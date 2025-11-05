@@ -22,8 +22,10 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+# Load configs
+file_configs <- file.path("configs", "configs_bladder.yaml")
+configs <- load_configs(file_configs)
+list2env(configs, envir = .GlobalEnv)
 
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
@@ -36,9 +38,9 @@ list2env(l_filepaths, envir = .GlobalEnv)
 # Load coverage analysis parameters from configs file
 list2env(configs$params_coverage, envir = .GlobalEnv)
 
+
 # Other parameters
-strat <- c(1, 7) # Screening strategy/strategies to run
-strat <- c(7) # Screening strategy/strategies to run
+strat <- c(1, 2) # Screening strategy/strategies to run
 paramset <- 1 # Parameter set(s) to run
 
 
@@ -89,3 +91,4 @@ l_calib_outputs <- with(l_params_calib, {
 })
 
 # Manually examine outputs
+View(l_calib_outputs)

@@ -81,10 +81,10 @@ run_screening_counterfactual <- function(
   # Save data that will be replaced
   if (reversible) {
     v_cols_save <- c(
-      "pt_id", "time_H_P", "time_H_C", "time_H_Dc", "time_H_D", "time_P_C", "time_C_Dc", "time_C_D", "stage_dx", "fl_Dc", "ct_tests_base"
+      "pt_id", "time_H_P", "time_H_C", "time_H_Dc", "time_H_D", "time_P_C", "time_C_Dc", "time_C_D", "time_screen_censor", "stage_dx", "fl_Dc", "ct_tests_base"
     )
     
-    if (!'L' %in% l_params_model$v_states) { # Time to cancer onset would not change if cancer is denovo
+    if (!'L' %in% l_params_model$v_states) { # Time to cancer onset would not change if cancer is de novo
       v_cols_save <- v_cols_save[!v_cols_save %in% c("time_H_P")]
     }
     m_patient_overwritten <- m_patients[!is.na(screen_age), .SD, .SDcols = intersect(v_cols_save, names(m_patients))]
@@ -216,11 +216,16 @@ simulate_screening_H <- function(m_patients,
     while (n_healthy_screen > 0) {
       if (verbose) print(n_healthy_screen)
       # Generate number of screening tests before first false positive
-      m_patients[time_screen_end_H > screen_age, `:=` (
-        ct_tests_screen_before_FP = rgeom(
-          .N,
-          prob = 1 - p_spec
-        ))]
+      if (p_spec == 1) {
+        m_patients[time_screen_end_H > screen_age, `:=` (
+          ct_tests_screen_before_FP = NA)]
+      } else {
+        m_patients[time_screen_end_H > screen_age, `:=` (
+          ct_tests_screen_before_FP = rgeom(
+            .N,
+            prob = 1 - p_spec
+          ))]
+      }
       
       # Calculate number of additional screening tests in healthy state
       m_patients[time_screen_end_H > screen_age, `:=` (ct_tests_screen_add = pmin(ct_tests_screen_before_FP + 1, 
@@ -906,7 +911,7 @@ params_to_outputs <- function(l_params_model,
     if (individual_data) {
       res$m_cohort_screen <- list()
     }
-    browser()
+    
     # Loop through screening strategies
     l_outputs_screen <- list()
     for (strat in names(l_params_screen$strats)) {

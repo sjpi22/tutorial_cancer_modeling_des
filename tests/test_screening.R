@@ -290,7 +290,7 @@ test_that("Match expected number of screens with variation", {
           label_var <- strat
         }
         
-        # Screening test count
+        # # Screening test count
         # if (strat == 1) {
         #   expect_equal("ct_tests_screen" %in% names(m_patient_screen), FALSE)
         # } else {
