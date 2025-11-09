@@ -325,21 +325,21 @@ params_screen:
     strategy_s_int10:
       mod: "screen"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 10
       mod_conf: "confirm"
       int_conf: 10
     strategy_s_int20: # Effectively two-time screening at age 50 and 70
       mod: "screen"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 20
       mod_conf: "confirm"
       int_conf: 20
     strategy_s_int30: # Effectively one-time screening at age 50
       mod: "screen"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 30
       mod_conf: "confirm"
       int_conf: 30

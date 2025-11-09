@@ -294,14 +294,14 @@ params_screen:
   strats: # Screening test strategies 
     strategy_c_int10:
       mod: "confirm"
-      age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_start: 45
+      age_screen_stop: 75
       int_screen: 10
       mod_conf: ~
     strategy_c_int30: # Effectively one-time screening at age 50
       mod: "confirm"
-      age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_start: 45
+      age_screen_stop: 75
       int_screen: 30
       mod_conf: ~
   surveil: # Surveillance regimen

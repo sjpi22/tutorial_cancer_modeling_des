@@ -247,12 +247,12 @@ params_screen:
     strategy_c_int5:
       mod: "confirm"
       age_screen_start: 55
-      age_screen_stop: 76
+      age_screen_stop: 75
       int_screen: 5
       mod_conf: ~
     strategy_c2_int5:
       mod: "confirm2"
       age_screen_start: 55
-      age_screen_stop: 76
+      age_screen_stop: 75
       int_screen: 5
       mod_conf: ~

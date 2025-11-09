@@ -42,30 +42,7 @@ run_screening_counterfactual <- function(
   }
   
   # Sample sensitivity and specificity of screening and (if applicable) confirmatory tests
-  l_params_tests_sample <- list()
-  for (mod in v_mods) {
-    l_params_tests_sample[[mod]] <- with(l_params_tests[[mod]], {
-      res <- list()
-      # Assign sensitivity
-      if(exists("p_sens")) {
-        res$p_sens <- p_sens
-      } else {
-        res$p_sens <- lapply(d_p_sens, 
-                             function (u) query_distr("r", 1, u$distr, u$params))
-      }
-      
-      # Assign specificity
-      if(exists("p_spec")) {
-        res$p_spec <- p_spec
-      } else {
-        res$p_spec <- query_distr("r", 1, d_p_spec$distr, d_p_spec$params)
-      }
-      
-      # Assign test type
-      res$type <- type
-      return(res)
-    })
-  }
+  l_params_tests_sample <- sample_test_chars(l_params_tests)
   
   #### Case 1: Simulate screening before disease ####
   # Set variable for time to disease onset
@@ -78,7 +55,7 @@ run_screening_counterfactual <- function(
                        l_test_chars = l_params_tests_sample,
                        verbose = verbose)
   
-  # Save data that will be replaced
+  # Save data that may be overwritten due to screening
   if (reversible) {
     v_cols_save <- c(
       "pt_id", "time_H_P", "time_H_C", "time_H_Dc", "time_H_D", "time_P_C", "time_C_Dc", "time_C_D", "time_screen_censor", "stage_dx", "fl_Dc", "ct_tests_base"
@@ -87,18 +64,20 @@ run_screening_counterfactual <- function(
     if (!'L' %in% l_params_model$v_states) { # Time to cancer onset would not change if cancer is de novo
       v_cols_save <- v_cols_save[!v_cols_save %in% c("time_H_P")]
     }
+    
+    # Subset to patients that undergo screening beyond the healthy state
     m_patient_overwritten <- m_patients[!is.na(screen_age), .SD, .SDcols = intersect(v_cols_save, names(m_patients))]
   }
   
   #### Case 2: Lesions developed by screen age, but no preclinical cancer ####
   if ('L' %in% l_params_model$v_states) {
     # Simulate lesion progression to cancer
-    m_lesion_overwritten <- simulate_screening_L(m_patients = m_patients, 
-                                                 m_lesions = m_lesions,
-                                                 l_params_strategy = l_params_strategy,
-                                                 l_test_chars = l_params_tests_sample,
-                                                 l_params_surveil = l_params_surveil,
-                                                 verbose = verbose)
+    simulate_screening_L(m_patients = m_patients, 
+                         m_lesions = m_lesions,
+                         l_params_strategy = l_params_strategy,
+                         l_test_chars = l_params_tests_sample,
+                         l_params_surveil = l_params_surveil,
+                         verbose = verbose)
   }
   
   #### Case 3: Preclinical cancer screening and surveillance ####
@@ -126,6 +105,77 @@ run_screening_counterfactual <- function(
   } else {
     return(NULL)
   }
+}
+
+
+# Sample test characteristics (sensitivity and specificity)
+sample_test_chars <- function(l_params_tests) {
+  l_params_tests_sample <- list()
+  for (mod in names(l_params_tests)) {
+    l_params_tests_sample[[mod]] <- with(l_params_tests[[mod]], {
+      res <- list()
+      # Assign sensitivity
+      if(exists("p_sens")) {
+        res$p_sens <- p_sens
+      } else {
+        res$p_sens <- lapply(d_p_sens, 
+                             function (u) query_distr("r", 1, u$distr, u$params))
+      }
+      
+      # Assign specificity
+      if(exists("p_spec")) {
+        res$p_spec <- p_spec
+      } else {
+        res$p_spec <- query_distr("r", 1, d_p_spec$distr, d_p_spec$params)
+      }
+      
+      # Assign test type
+      res$type <- type
+      return(res)
+    })
+  }
+  return(l_params_tests_sample)
+}
+
+
+# Set surveillance interval for negative case (no lesions detected)
+set_int_surveil_neg <- function(l_params_surveil, l_params_strategy, l_test_types) {
+  int_surveil_neg <- c()
+  if (0 %in% l_params_surveil[["n_detected"]]) {
+    # If case for 0 lesions is populated in n_detected and int_surveil, use as next surveillance screen interval
+    int_surveil_neg["screen"] <- l_params_surveil[["int_surveil"]][[which(l_params_surveil[["n_detected"]] == 0)]]
+  } else {
+    # If case for 0 lesions is not populated in n_detected and int_surveil, use defaults from routine screening
+    if (l_params_surveil[["mod"]] %in% l_test_types[["direct"]]) {
+      # For direct test, use the direct test interval from routine screening
+      if (l_params_strategy[["mod"]] %in% l_test_types[["direct"]]) {
+        int_surveil_neg["screen"] <- l_params_strategy[["int_screen"]]
+      } else {
+        int_surveil_neg["screen"] <- l_params_strategy[["int_conf"]]
+      }
+    } else {
+      # For indirect test, use the routine screening interval
+      int_surveil_neg["screen"] <- l_params_strategy[["int_screen"]]
+    }
+  }
+  
+  # Populate surveillance confirmatory test interval if primary surveillance test is not confirmatory
+  if (!l_params_surveil[["mod"]] %in% l_test_types[["direct"]]) {
+    # Use confirmatory interval reported surveillance parameters if possible
+    if ("int_conf" %in% names(l_params_surveil)) {
+      int_surveil_neg["conf"] <- l_params_surveil[["int_conf"]]
+    } else {
+      # If confirmatory interval is not specified, use confirmatory test interval in screening
+      if (v_mod["screen"] %in% l_test_types[["direct"]]) {
+        # If primary modality is also confirmatory, use primary interval
+        int_surveil_neg["conf"] <- l_params_strategy[["int_screen"]]
+      } else {
+        # If primary modality is not confirmatory, use confirmatory interval
+        int_surveil_neg["conf"] <- l_params_strategy[["int_conf"]]
+      }
+    }
+  }
+  return(int_surveil_neg)
 }
 
 
@@ -167,12 +217,12 @@ simulate_screening_H <- function(m_patients,
   # strategy stop age
   m_patients[, `:=` (
     screen_type = "screen",
-    time_screen_stop = pmin(time_screen_censor, l_params_strategy$age_screen_stop)
+    time_screen_stop = pmin(time_screen_censor, l_params_strategy$age_screen_stop + 1)
   )]
   
   # If screening interval is constant, perform simplified calculation of number of screening tests during healthy state
   # Otherwise, loop over testing rounds and assign applicable screening interval
-  if (is.null(mod_conf) | int_conf %in% int_screen) {
+  if (is.null(mod_conf) | int_conf %in% int_screen | p_spec == 1) {
     # Get routine screening ages
     v_screen_ages <- with(l_params_strategy, seq(age_screen_start, age_screen_stop, int_screen))
     
@@ -193,7 +243,7 @@ simulate_screening_H <- function(m_patients,
     }
     
     # Get first screening age with disease present
-    m_patients[, screen_age := v_screen_ages[ct_tests_screen + 1], by = ct_tests_screen]
+    m_patients[, screen_age := v_screen_ages[ct_tests_screen + 1]]
     
     # Reset first screening age to NA if after end date
     m_patients[screen_age >= time_screen_stop, screen_age := NA]
@@ -206,50 +256,49 @@ simulate_screening_H <- function(m_patients,
     # Initialize running screening age at screening start age for individuals eligible to receive screening at that age
     # and time that screening in the healthy state would end
     m_patients[l_params_strategy$age_screen_start < time_screen_stop, `:=` (screen_age = l_params_strategy$age_screen_start,
-                                                                            time_screen_end_H = pmin(get(var_onset), time_screen_stop, na.rm = T))]
+                                                                            time_screen_stop_H = pmin(get(var_onset), time_screen_stop, na.rm = T))]
     
-    # Calculate number of healthy patients remaining to screen
+    # Calculate number of healthy patients remaining to screen and save their row indices
     if (verbose) print("Number of healthy individuals remaining to be screened:")
-    n_healthy_screen <- m_patients[screen_age < time_screen_end_H, .N]
+    idx_screen <- m_patients[, which(screen_age < time_screen_stop_H)]
+    n_healthy_screen <- length(idx_screen)
     
     # Run while loop
     while (n_healthy_screen > 0) {
       if (verbose) print(n_healthy_screen)
       # Generate number of screening tests before first false positive
-      if (p_spec == 1) {
-        m_patients[time_screen_end_H > screen_age, `:=` (
-          ct_tests_screen_before_FP = NA)]
-      } else {
-        m_patients[time_screen_end_H > screen_age, `:=` (
-          ct_tests_screen_before_FP = rgeom(
-            .N,
-            prob = 1 - p_spec
-          ))]
-      }
+      m_patients[idx_screen, `:=` (
+        ct_tests_screen_before_FP = rgeom(
+          .N,
+          prob = 1 - p_spec
+        ))]
       
       # Calculate number of additional screening tests in healthy state
-      m_patients[time_screen_end_H > screen_age, `:=` (ct_tests_screen_add = pmin(ct_tests_screen_before_FP + 1, 
-                                                                                  (time_screen_end_H - screen_age) %/% int_screen + ((time_screen_end_H - screen_age) %% int_screen > 0), na.rm = T))] 
+      m_patients[idx_screen, `:=` (ct_tests_screen_add = pmin(ct_tests_screen_before_FP + 1, 
+                                                              (time_screen_stop_H - screen_age) %/% int_screen + ((time_screen_stop_H - screen_age) %% int_screen > 0), na.rm = T))] 
+      
       # Increment number of screening tests and false positive tests for individuals with screening age before end of healthy state
-      m_patients[time_screen_end_H > screen_age, `:=` (
+      m_patients[idx_screen, `:=` (
         ct_tests_screen = ct_tests_screen + ct_tests_screen_add,
-        ct_tests_screen_FP = ct_tests_screen_FP + fifelse(ct_tests_screen_add <= pmin(Inf, ct_tests_screen_before_FP, na.rm = T), 0, 1),
-        screen_age = screen_age + fifelse(ct_tests_screen_add <= pmin(Inf, ct_tests_screen_before_FP, na.rm = T), 
+        ct_tests_screen_FP = ct_tests_screen_FP + fifelse(ct_tests_screen_add <= ct_tests_screen_before_FP, 0, 1),
+        screen_age = screen_age + fifelse(ct_tests_screen_add <= ct_tests_screen_before_FP, 
                                           ct_tests_screen_add*int_screen, 
                                           (ct_tests_screen_add - 1)*int_screen + int_conf)
       )]
       
-      # Update screen age, reset to NA if after stop date, and reset temporary variables
-      m_patients[screen_age >= time_screen_stop, screen_age := NA]
-      m_patients[, `:=` (ct_tests_screen_before_FP = NULL,
-                         ct_tests_screen_add = NULL)]
-      
-      # Recalculate number of healthy patients remaining to screen
-      n_healthy_screen <- m_patients[screen_age < time_screen_end_H, .N]
+      # Recalculate indices and number of healthy patients remaining to screen
+      idx_screen <- idx_screen[m_patients[idx_screen, which(screen_age < time_screen_stop_H)]]
+      n_healthy_screen <- length(idx_screen)
     }
     
-    # Set number of FP as number of confirmatory tests
-    m_patients[, ct_tests_conf := ct_tests_screen_FP]
+    # Update screen age to NA if after screening stop date
+    m_patients[screen_age >= time_screen_stop, screen_age := NA]
+    
+    # Set number of FP as number of confirmatory tests, set variables that are no longer needed to NULL
+    m_patients[, `:=` (ct_tests_conf = ct_tests_screen_FP,
+                       time_screen_stop_H = NULL,
+                       ct_tests_screen_before_FP = NULL,
+                       ct_tests_screen_add = NULL)]
   }
   
   # Rename test variables
@@ -303,41 +352,7 @@ simulate_screening_L <- function(m_patients,
     expr_surveil <- paste0(expr_surveil, ")")
     
     # Set surveillance interval for no lesions based on routine screening intervals
-    int_surveil_neg <- c()
-    if (0 %in% l_params_surveil[["n_detected"]]) {
-      # If case for 0 lesions is populated in n_detected and int_surveil, use as next surveillance screen interval
-      int_surveil_neg["screen"] <- l_params_surveil[["int_surveil"]][[which(l_params_surveil[["n_detected"]] == 0)]]
-    } else {
-      # If case for 0 lesions is not populated in n_detected and int_surveil, use defaults from routine screening
-      if (l_params_surveil[["mod"]] %in% l_test_types[["direct"]]) {
-        # For direct test, use the direct test interval from routine screening
-        if (l_params_strategy[["mod"]] %in% l_test_types[["direct"]]) {
-          int_surveil_neg["screen"] <- l_params_strategy[["int_screen"]]
-        } else {
-          int_surveil_neg["screen"] <- l_params_strategy[["int_conf"]]
-        }
-      } else {
-        # For indirect test, use the routine screening interval
-        int_surveil_neg["screen"] <- l_params_strategy[["int_screen"]]
-      }
-    }
-    
-    # Populate surveillance confirmatory test interval if primary surveillance test is not confirmatory
-    if (!l_params_surveil[["mod"]] %in% l_test_types[["direct"]]) {
-      # Use confirmatory interval reported surveillance parameters if possible
-      if ("int_conf" %in% names(l_params_surveil)) {
-        int_surveil_neg["conf"] <- l_params_surveil[["int_conf"]]
-      } else {
-        # If confirmatory interval is not specified, use confirmatory test interval in screening
-        if (v_mod["screen"] %in% l_test_types[["direct"]]) {
-          # If primary modality is also confirmatory, use primary interval
-          int_surveil_neg["conf"] <- l_params_strategy[["int_screen"]]
-        } else {
-          # If primary modality is not confirmatory, use confirmatory interval
-          int_surveil_neg["conf"] <- l_params_strategy[["int_conf"]]
-        }
-      }
-    }
+    int_surveil_neg <- set_int_surveil_neg(l_params_surveil, l_params_strategy, l_test_types)
   }
   
   # Ensure that all modalities are represented in patient data counts
@@ -433,9 +448,8 @@ simulate_screening_L <- function(m_patients,
         )), by = screen_type]
     }
     
-    # For removed lesions, set time to cancer onset to Inf, and set detection time
+    # For removed lesions, set detection time
     m_lesions[fl_present == 1 & fl_removed == 1, `:=` (
-      time_H_Pj = Inf,
       time_detected = screen_age)]
     
     # Check number of eligible lesions and removed lesions among individuals screened at this round
@@ -446,7 +460,7 @@ simulate_screening_L <- function(m_patients,
                                      fl_positive = max(fl_positive), # Whether any lesions produced a positive screen result
                                      fl_conf = max(fl_conf), # Whether confirmatory test was conducted
                                      ct_removed = sum(fl_present == 1 & fl_removed == 1), # Count number of lesions removed during screening round
-                                     time_H_P = min(time_H_Pj, na.rm = T)), 
+                                     time_H_P = min(fifelse(fl_removed == 1, NA, time_H_Pj), na.rm = T)), 
                                    by = pt_id]
     
     # Set primary modality again for summarized data
@@ -580,78 +594,49 @@ simulate_screening_P <- function(m_patients,
     v_mod_conf["surveil"] <- ifelse(is.null(l_params_surveil[["mod_conf"]]), NA, l_params_surveil[["mod_conf"]])
     
     # Set surveillance interval for no lesions based on routine screening intervals
-    int_surveil_neg <- c()
-    if (0 %in% l_params_surveil[["n_detected"]]) {
-      # If case for 0 lesions is populated in n_detected and int_surveil, use as next surveillance screen interval
-      int_surveil_neg["screen"] <- l_params_surveil[["int_surveil"]][[which(l_params_surveil[["n_detected"]] == 0)]]
-    } else {
-      # If case for 0 lesions is not populated in n_detected and int_surveil, use defaults from routine screening
-      if (l_params_surveil[["mod"]] %in% l_test_types[["direct"]]) {
-        # For direct test, use the direct test interval from routine screening
-        if (l_params_strategy[["mod"]] %in% l_test_types[["direct"]]) {
-          int_surveil_neg["screen"] <- l_params_strategy[["int_screen"]]
-        } else {
-          int_surveil_neg["screen"] <- l_params_strategy[["int_conf"]]
-        }
-      } else {
-        # For indirect test, use the routine screening interval
-        int_surveil_neg["screen"] <- l_params_strategy[["int_screen"]]
-      }
-    }
-    
-    # Populate surveillance confirmatory test interval if primary surveillance test is not confirmatory
-    if (!l_params_surveil[["mod"]] %in% l_test_types[["direct"]]) {
-      # Use confirmatory interval reported surveillance parameters if possible
-      if ("int_conf" %in% names(l_params_surveil)) {
-        int_surveil_neg["conf"] <- l_params_surveil[["int_conf"]]
-      } else {
-        # If confirmatory interval is not specified, use confirmatory test interval in screening
-        if (v_mod["screen"] %in% l_test_types[["direct"]]) {
-          # If primary modality is also confirmatory, use primary interval
-          int_surveil_neg["conf"] <- l_params_strategy[["int_screen"]]
-        } else {
-          # If primary modality is not confirmatory, use confirmatory interval
-          int_surveil_neg["conf"] <- l_params_strategy[["int_conf"]]
-        }
-      }
-    }
+    int_surveil_neg <- set_int_surveil_neg(l_params_surveil, l_params_strategy, l_test_types)
   }
   
-  # Run while loop
+  # Initialize running count of patients remaining to be screened during preclinical cancer state
+  idx_screen <- m_patients[, which(!is.na(screen_age))]
+  
+  # Set screening and confirmatory modality based on routine vs. surveillance screening
+  m_patients[idx_screen, `:=` (modality = v_mod[screen_type],
+                               modality_conf = v_mod_conf[screen_type])]
+  
+  # Run while loop until no preclinical cancers remain to screen
   if (verbose) print("Number of individuals with preclinical cancer remaining to screen:")
-  while (m_patients[!is.na(screen_age), .N] > 0) {
-    if (verbose) print(m_patients[!is.na(screen_age), .N])
-    # Set modality based on routine vs. surveillance screening
-    m_patients[!is.na(screen_age), modality := v_mod[screen_type], by = screen_type]
-    
+  while (length(idx_screen) > 0) {
+    if (verbose) print(length(idx_screen))
     # Sample whether cancer would produce positive test result
-    m_patients[!is.na(screen_age), `:=` (
+    m_patients[idx_screen, `:=` (
       fl_positive = rbinom(
         .N,
         size = 1,
         prob = l_test_chars[[modality]][["p_sens"]][["P"]]
       )), by = modality]
     
+    # Get indices of positive results
+    idx_positive <- idx_screen[m_patients[idx_screen, which(fl_positive == 1)]]
+    
     #### Apply downstream effect of positive result depending on test type (direct, targeted, indirect) ####
     ### If test is direct, positive cancer is detected
     if ("direct" %in% names(l_test_types)) {
-      m_patients[!is.na(screen_age) & fl_positive == 1 & modality %in% l_test_types[["direct"]], `:=` (
-        fl_conf = 0,
-        fl_detected = 1
-      )]
+      idx_subset <- idx_positive[m_patients[idx_positive, which(modality %in% l_test_types[["direct"]])]]
+      m_patients[idx_subset, `:=` (fl_conf = 0, fl_detected = 1)]
     }
     
     ### If test is targeted or indirect, apply confirmatory test to sample whether it is detected
     if ("targeted" %in% names(l_test_types) | "indirect" %in% names(l_test_types)) {
-      if (m_patients[!is.na(screen_age) & fl_positive == 1 & modality %in% unlist(l_test_types[c("targeted", "indirect")]), .N] > 0) {
-        m_patients[!is.na(screen_age) & fl_positive == 1 & modality %in% unlist(l_test_types[c("targeted", "indirect")]), `:=` (
+      idx_subset <- idx_positive[m_patients[idx_positive, which(modality %in% unlist(l_test_types[c("targeted", "indirect")]))]]
+      if (length(idx_subset) > 0) {
+        m_patients[idx_subset, `:=` (
           fl_conf = 1,
-          modality_conf = v_mod_conf[screen_type],
           fl_detected = rbinom(
             .N,
             size = 1,
-            prob = l_test_chars[[v_mod_conf[screen_type]]][["p_sens"]][["P"]]
-          )), by = screen_type]
+            prob = l_test_chars[[modality_conf]][["p_sens"]][["P"]]
+          )), by = modality_conf]
       }
     }
     
@@ -693,9 +678,10 @@ simulate_screening_P <- function(m_patients,
       time_P_C = screen_age - time_H_P,
       screen_age = NA)]
     
-    # Update screen age, reset to NA if after stop date, and reset temporary variables
+    # Update screen age, reset to NA if after stop date, update count of screen-eligible patients, and reset temporary variables
     m_patients[!is.na(screen_age), screen_age := screen_age + int_test_next]
     m_patients[screen_age >= time_screen_stop, screen_age := NA]
+    idx_screen <- idx_screen[m_patients[idx_screen, which(!is.na(screen_age))]]
     m_patients[, `:=` (fl_positive = NULL,
                        int_test_next = NULL,
                        fl_conf = NULL)]
