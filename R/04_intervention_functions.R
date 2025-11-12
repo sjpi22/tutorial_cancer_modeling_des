@@ -416,13 +416,14 @@ simulate_screening_L <- function(m_patients,
     screen_age = i.screen_age, # Current age at screening
     screen_type = i.screen_type, # Type of regimen (screening vs. surveillance)
     modality = v_mod[screen_type], # Screening test modality
+    int_test_next = l_params_strategy[["int_screen"]], # Default interval to next test (updated if confirmatory test or surveillance)
     time_screen_stop_L = i.time_screen_stop_L, # Time that screening in the lesion state ends (updated if lesions are removed)
     time_screen_stop_max = pmin(time_H_Do, l_params_strategy$age_screen_stop + 1), # Maximum screening stop time due to death from other causes or screening stop age
     fl_removed = 0)]
   
   # Add confirmatory test modality if applicable
-  if (any(!is.na(v_mod_conf[unique(m_lesions$modality)]))) {
-    m_lesions[, modality_conf := v_mod_conf[modality]]
+  if (any(!is.na(v_mod_conf[unique(m_lesions$screen_type)]))) {
+    m_lesions[, modality_conf := v_mod_conf[screen_type]]
   }
   
   # Initialize running variable of row indices of lesions that may be detected with screening 
@@ -521,47 +522,78 @@ simulate_screening_L <- function(m_patients,
         }
       }
       
-      #### Increment confirmatory modality counts
+      #### Update time interval and confirmatory test count for positive non-invasive tests (implying there was confirmatory test)
       if (length(pt_noninvasive_positive) > 0) {
+        # Set time after confirmatory test depending on regimen type (screen or surveillance)
+        m_lesions[pt_id %in% pt_noninvasive_positive, `:=` (int_test_next = l_params_strategy[[screen_type]][["int_conf"]])]
+        
+        # Increment confirmatory modality counts
         for (mod in unique(m_lesions[pt_id %in% pt_noninvasive_positive, modality_conf])) {
           colname <- paste0("ct_tests_", mod)
           pt_subset <- m_lesions[pt_id %in% pt_noninvasive_positive][modality_conf == mod, unique(pt_id)]
           m_patients[pt_id %in% pt_subset, (colname) := get(colname) + 1]
         }
       }
+      
+      
+      # Update time to preclinical cancer and following times, increment number of screens, number of confirmatory tests, and screen age
+      m_patients[m_lesions_summary, `:=` (time_H_P = i.time_H_P,
+                                          screen_type = i.screen_type,
+                                          screen_age = screen_age + i.int_test_next,
+                                          modality = i.modality,
+                                          modality_conf = i.modality_conf)]
+      
+      # Update time for people with no removed lesions
+      
+      ###### 2.2 Process outcomes from removed lesions
+      # Get row indices of newly removed lesions
+      idx_removed <- idx_positive[m_lesions[idx_positive, which(fl_removed == 1)]]
+      
+      # For removed lesions, set detection time
+      m_lesions[idx_removed, `:=` (time_detected = screen_age)]
+      
+      # Update time to preclinical cancer for patients with removed lesions
+      m_removed_preclin <- m_lesions[pt_id %in% m_lesions[idx_removed, pt_id] & fl_removed == 0, .(time_H_P := min(time_H_Pj)), by = pt_id]
+      
+      # Merge preclinical cancer data to all IDs (so IDs with 0 remaining lesions have NA preclinical onset time)
+      m_update <- merge(m_lesions[idx_removed, .(pt_id)], m_removed_preclin, by = "pt_id", all = TRUE)
+      setkey(m_update, pt_id)
+      
+      # Merge updated preclinical cancer times to lesion data and update lesion screening end time
+      m_lesions[m_update, `:=` (time_H_P = i.time_H_P,
+                                time_screen_stop_L = pmin(i.time_H_P, time_screen_stop_max, na.rm = T))]
+      
+      # If there is surveillance, apply surveillance regimen
+      if (!is.null(l_params_surveil)) {
+        # Summarize number of removed lesions per patient
+        m_removed_ct <- m_lesions[idx_removed, .(ct_removed = .N), by = pt_id]
+        
+        # Set next surveillance interval based on number of lesions detected
+        m_removed_ct[, `:=` (
+          int_test_next = eval(parse(text = expr_surveil))
+        )]
+        
+        # Merge to lesion data
+        m_lesions[m_removed_ct, `:=` (screen_type = "surveil",
+                                      modality = v_mod["surveil"], # Screening test modality
+                                      int_test_next = i.int_test_next)]
+        
+        # Add confirmatory test modality if applicable
+        if (any(!is.na(v_mod_conf[unique(m_lesions[m_removed_ct, screen_type])]))) {
+          m_lesions[m_removed_ct, modality_conf := v_mod_conf[screen_type]]
+        }
+      }
+      
+      ###### 2.3 Update screening age and default test interval for patients with lesions present
+      # Screening age
+      m_lesion[pt_id %in% m_lesion[idx_present], `:=` (screen_age = screen_age + int_test_next)]
+      
+      # TO DO: for positive noninvasive and surveillance cases, change interval back to default of none detected
+      
     }
     
     
-    ###### 2.2 Process outcomes from removed lesions
-    # Get row indices of removed lesions
-    idx_removed <- idx_positive[m_lesions[idx_positive, which(fl_removed == 1)]]
-    
-    # For removed lesions, set detection time
-    m_lesions[idx_removed, `:=` (time_detected = screen_age)]
-    
-    # Summarize number of removed lesions per patient
-    m_removed_ct <- m_lesions[idx_removed, ct_removed = .N, by = pt_id]
-    
-    # Update time to preclinical cancer for patients with removed lesions
-    m_updated_preclin <- m_lesions[pt_id %in% m_removed$pt_id & fl_removed == 0, .(time_H_P := min(time_H_Pj)), by = pt_id]
-    
-    # Merge updated preclinical cancer times to lesion data and update lesion screening end time
-    m_lesions[m_updated_preclin, `:=` (time_H_P = i.time_H_P,
-                                       time_screen_stop_L = pmin(i.time_H_P, time_screen_stop_max))]
-    
-    # Identify patients where all eligible lesions are now removed
-    m_inf_preclin <- m_removed_ct[!pt_id %in% m_updated_preclin$pt_id, pt_id]
-    
-    # Set time to preclinical cancer to Inf for above patients
-    m_lesions[m_inf_preclin, `:=` (time_H_P = Inf,
-                                   time_screen_stop_L = time_screen_stop_max)]
-    
-    # Update to surveillance if applicable
-    
-    # Update screening interval
-    
-    
-    ###### 2.3 Flag false positives among screened individuals with no active lesions
+    ###### 2.4 Flag false positives among screened individuals with no active lesions
     # Get patient IDs with no lesions present at this round of screening
     # (this will happen if an earlier lesion was found and removed, but patient will develop another lesion in the future)
     v_pt_none <- setdiff(m_lesions[idx_screen_lesion, unique(pt_id)], m_lesions[idx_present, unique(pt_id)])
@@ -647,40 +679,8 @@ simulate_screening_L <- function(m_patients,
       m_lesions[m_patients[idx_continue_lesion], `:=` (screen_age = i.screen_age)]
     }
     
-    ###### 2.4 Update screening data
-    #### Set next screen time based on screening type, whether there was confirmatory test applied, and number of lesions detected
-    if (!is.null(l_params_surveil)) {
-
-      # If lesions are found for the first time, switch to surveillance
-      # @@@ TO DO
-      
-      # For any screening finding lesions, set to surveillance and set time based on number of lesions detected
-      if (m_lesions_summary[ct_removed > 0, .N] > 0) {
-        m_lesions_summary[ct_removed > 0, `:=` (
-          screen_type = "surveil",
-          int_test_next = eval(parse(text = expr_surveil))
-        )]
-      }
-    } else {
-      # For routine screening, set time depending on whether confirmatory test was applied
-      m_lesions_summary[, `:=` ( 
-        int_test_next = ifelse(!fl_conf %in% 1, 
-                               l_params_strategy[["int_screen"]],
-                               l_params_strategy[["int_conf"]]))]
-    }
     
-    # Update time to preclinical cancer and following times, increment number of screens, number of confirmatory tests, and screen age
-    m_patients[m_lesions_summary, `:=` (time_H_P = i.time_H_P,
-                                        screen_type = i.screen_type,
-                                        screen_age = screen_age + i.int_test_next,
-                                        modality = i.modality,
-                                        modality_conf = i.modality_conf)]
-    
-    
-    # Reset flags for eligible screeners and lesions
-    cols_remove <- c("screen_age", "fl_screen", "fl_positive", "fl_conf")
-    m_lesions[, (intersect(cols_remove, names(m_lesions))) := NULL]
-    
+    ###### 2.5 Recalculate number of lesions remaining to screen
     # Update list of screen-eligible lesions to exclude removed lesions and patients that are no longer in lesion state
     idx_screen_lesion <- setdiff(idx_screen_lesion, idx_removed)
     idx_screen_lesion <- idx_screen_lesion[m_lesions[idx_screen_lesion, which(screen_age < time_screen_stop_L)]]
@@ -688,9 +688,6 @@ simulate_screening_L <- function(m_patients,
     # Recalculate number of lesions remaining to screen
     n_screen_lesion <- length(idx_screen_lesion)
   }
-  
-  # Merge updated screening info to patient data for patients who will receive screening in preclinical cancer stage
-  
   
   # Merge updated preclinical cancer times to patient data
   m_preclin_final <- m_lesions[fl_removed == 1][rowid(pt_id) == 1, .(pt_id, time_H_P)]
