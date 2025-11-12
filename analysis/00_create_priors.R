@@ -31,7 +31,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_bladder_incidental.yaml")
+file_configs <- file.path("configs", "configs_simulated.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
@@ -198,7 +198,7 @@ if ("cure_max" %in% df_priors[df_priors$var_name == paste0("d_", var_onset), "pa
   cure_max[[v_cols[2]]] <- df_priors[df_priors$var_name == paste0("d_", var_onset) & df_priors$param_name == "cure_max", "min"]
   cure_max[[v_cols[3]]] <- df_priors[df_priors$var_name == paste0("d_", var_onset) & df_priors$param_name == "cure_max", "max"]
 } else {
-  for (val in v_cols[3]) {
+  for (val in v_cols) {
     cure_max[[val]] <- 1
   }
 }

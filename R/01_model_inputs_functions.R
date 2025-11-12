@@ -91,11 +91,16 @@ load_model_params <- function(
     # Create distribution data
     if (smooth_surv$smooth) {
       l_d_time_C_Dc <- list()
-      for (distr in names(l_surv_data$l_distr_surv)) {
-        l_d_time_C_Dc[[distr]] <- smooth_empirical_distr(l_surv_data$l_distr_surv[[distr]], 
+      for (idx in 1:length(l_surv_data$l_distr_surv)) {
+        l_d_time_C_Dc[[idx]] <- smooth_empirical_distr(l_surv_data$l_distr_surv[[idx]], 
                                                          max_age = max_age,
                                                          idx_start = smooth_surv$idx_start,
                                                          constraints = smooth_surv$constraints)
+      }
+      
+      # Name distributions if applicable
+      if (!is.null(names(l_surv_data$l_distr_surv))) {
+        names(l_d_time_C_Dc) <- names(l_surv_data$l_distr_surv)
       }
     } else {
       l_d_time_C_Dc <- l_surv_data$l_distr_surv

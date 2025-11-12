@@ -68,13 +68,33 @@ params_model:
   lifetable_skip: 0 # Number of initial rows to skip in lifetable files
   surv_version: "simulated"
 
+# Prior parameters
+params_priors:
+  v_state_targets: 
+    C: "incidence_clin"
+    P: "prevalence_preclin"
+    L: "prevalence_lesion"
+  multiplier_bounds: 0.2 # Factor by which to expand estimated prior bounds
+  var_index: "target_index" # Column name of index (e.g., age) associated with target
+  v_cols: # Names of columns in target data for target, lower bound, and upper bound
+    - "targets" 
+    - "ci_lb"
+    - "ci_ub"
+  v_colors: # Colors to label states listed in v_state_targets
+    - "green"
+    - "red"
+    - "orange"
+  delta: 1
+  penalty1: 0
+  penalty2: 0
+  
 # Calibration parameters (inputs to load_calib_params() in R/03_calibration_general_functions.R after modifications in configs/process_configs.R for lesion model)
 params_calib:
   seed_calib: 42
   file_targets: "data/simulated/targets.csv" # File path for calibration targets
   file_priors: "data/simulated/priors.csv" # File path for prior distributions for calibration parameters
   l_params_outcome: # Parameters for calculating calibration outcomes
-    prevalence:
+    prevalence_preclin:
       outcome_type: "prevalence"
       categorical: FALSE
       get_params:
@@ -84,7 +104,7 @@ params_calib:
         end_var: "time_H_C"
         censor_var: "time_screen_censor"
         method: "cs"
-    incidence:
+    incidence_clin:
       outcome_type: "incidence"
       categorical: FALSE
       get_params:
@@ -119,7 +139,7 @@ params_calib:
           start_var: "time_H_L"
           end_var: "time_H_P"
           censor_var: "time_screen_censor"
-      n_lesions:
+      n_lesion:
         outcome_type: "nlesions"
         categorical: TRUE
         get_params:
@@ -128,8 +148,6 @@ params_calib:
           start_var: "time_H_Lj"
           end_var: "time_H_P"
           censor_var: "time_screen_censor"
-          start_age: 50
-          end_age: 80
           n_max: 3
           method: "cs"
         
@@ -280,45 +298,45 @@ params_screen:
     strategy_c_int5:
       mod: "confirm"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 5
       mod_conf: ~
     strategy_c_int10:
       mod: "confirm"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 10
       mod_conf: ~
     strategy_c_int20: # Effectively two-time screening at age 50 and 70
       mod: "confirm"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 20
       mod_conf: ~
     strategy_c_int30: # Effectively one-time screening at age 50
       mod: "confirm"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 30
       mod_conf: ~
     strategy_s_int1:
       mod: "screen"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 1
       mod_conf: "confirm"
       int_conf: 10
     strategy_s_int3:
       mod: "screen"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 3
       mod_conf: "confirm"
       int_conf: 10
     strategy_s_int5:
       mod: "screen"
       age_screen_start: 50
-      age_screen_stop: 71
+      age_screen_stop: 70
       int_screen: 5
       mod_conf: "confirm"
       int_conf: 10

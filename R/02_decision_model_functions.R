@@ -303,14 +303,27 @@ simulate_cancer_mortality <- function(m_patients, l_params_model) {
 
 
 # Generate mortality outcomes
-calc_mortality_outcomes <- function(m_patients) {
-  # Join cancer data to patient-level data
-  # Calculate all-cause death and cause of death
-  m_patients[, time_H_D := pmin(time_H_Do, time_H_Dc, na.rm = TRUE)]
-  m_patients[, fl_Dc := (time_H_Do > pmin(time_H_Dc, Inf, na.rm = TRUE))]
-  
-  # Calculate survival from cancer diagnosis
-  m_patients[time_H_C <= time_H_D, time_C_D := time_H_D - time_H_C]
+calc_mortality_outcomes <- function(m_patients, 
+                                    idx_subset = NULL # Row indices to subset to (optional)
+) {
+  if (is.null(idx_subset)) {
+    # Join cancer data to patient-level data
+    # Calculate all-cause death and cause of death
+    m_patients[, time_H_D := pmin(time_H_Do, time_H_Dc, na.rm = TRUE)]
+    m_patients[, fl_Dc := (time_H_Do > pmin(time_H_Dc, Inf, na.rm = TRUE))]
+    
+    # Calculate survival from cancer diagnosis
+    m_patients[time_H_C <= time_H_D, time_C_D := time_H_D - time_H_C]
+  } else {
+    # Join cancer data to patient-level data
+    # Calculate all-cause death and cause of death
+    m_patients[idx_subset, time_H_D := pmin(time_H_Do, time_H_Dc, na.rm = TRUE)]
+    m_patients[idx_subset, fl_Dc := (time_H_Do > pmin(time_H_Dc, Inf, na.rm = TRUE))]
+    
+    # Calculate survival from cancer diagnosis
+    idx_subset_cancer <- idx_subset[m_patients[idx_subset, which(time_H_C <= time_H_D)]]
+    m_patients[idx_subset_cancer, time_C_D := time_H_D - time_H_C]
+  }
   return(NULL)
 }
 
