@@ -1,6 +1,6 @@
-###########################  Coverage Analysis  ##########################
+###########################  Coverage Analysis Diagnostics  ##########################
 #
-#  Objective: Program to check coverage of targets
+#  Objective: Program to check which parameter sets were in bounds
 # 
 ########################### <<<<<>>>>> #########################################
 

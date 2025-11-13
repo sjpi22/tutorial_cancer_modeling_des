@@ -76,7 +76,6 @@ params_model:
 params_priors:
   v_state_targets: 
     C: "incidence_clin"
-    P: "prevalence_preclin"
   multiplier_bounds: 0.5 # Factor by which to expand estimated prior bounds
   var_index: "target_index" # Column name of index (e.g., age) associated with target
   v_cols: # Names of columns in target data for target, lower bound, and upper bound
@@ -96,18 +95,6 @@ params_calib:
   file_priors: "data/bladder/priors.csv" # File path for prior distributions for calibration parameters
   file_targets: "data/bladder/targets.xlsx" # File path for calibration targets
   l_params_outcome: # Parameters for calculating calibration outcomes
-    prevalence_preclin:
-      outcome_type: "prevalence"
-      categorical: FALSE
-      get_params:
-        m_patients: "m_patients"
-      lit_params:
-        start_var: "time_H_P"
-        end_var: "time_H_C"
-        censor_var: "time_H_D"
-        condition_var: "time_H_P"
-        method: "cs"
-        sample_var: "time_H_D"
     incidence_clin:
       outcome_type: "incidence"
       categorical: FALSE
@@ -149,12 +136,13 @@ params_imabc:
   alpha_current: 1.0e-15
   alpha_stop: 0.05
   fn_use_seed: FALSE
-  N_start_multiplier: 500 # Number of initial samples per parameter
+  N_start_multiplier: 1000 # Number of initial samples per parameter
   vars_rate: "incidence_clin" # Target group names for any targets calculated as rates instead of proportions
   optional_args:
-    N_centers: 5
+    N_centers: 8
     N_post: 1000
-    max_iter: 1200
+    Center_n: 100
+    max_iter: 1000
 
 # Parameters specific to BayCANN
 params_baycann:
@@ -247,15 +235,15 @@ params_screen:
         P: 
           distr: "beta"
           params:
-            shape1: 100
-            shape2: 0
+            shape1: 95
+            shape2: 5
       d_p_spec:
         distr: "beta"
         params:
           shape1: 100
           shape2: 0
       type: "direct"
-      cost_ratio: 2
+      cost_ratio: 1
   strats: # Screening test strategies 
     strategy_c_int5:
       mod: "confirm"

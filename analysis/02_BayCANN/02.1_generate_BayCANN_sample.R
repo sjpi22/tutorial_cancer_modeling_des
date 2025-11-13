@@ -142,4 +142,4 @@ plt_coverage <- plot_coverage(df_targets = df_targets,
 plt_coverage
 
 # Report runtime
-print(paste("Total runtime (hours):", BayCANN_sample$runtime[3] / 3600))
+print(paste("Total runtime (min):", BayCANN_sample$runtime[3] / 60))
