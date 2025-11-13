@@ -253,7 +253,7 @@ params_screen:
       lit_params:
         unit: 1000
   test_chars: # Test characteristics
-    confirm:
+    col:
       d_p_sens:
         L:
           distr: "beta"
@@ -263,49 +263,50 @@ params_screen:
         P: 
           distr: "beta"
           params:
-            shape1: 99
-            shape2: 1
+            shape1: 95
+            shape2: 5
       d_p_spec:
         distr: "beta"
         params:
           shape1: 100
           shape2: 0
-      type: "direct"
       cost_ratio: 1
-    screen:
+    stool:
       d_p_sens:
         L:
           distr: "beta"
           params:
-            shape1: 80
-            shape2: 120
+            shape1: 15
+            shape2: 75
         P: 
           distr: "beta"
           params:
-            shape1: 45
-            shape2: 5
+            shape1: 70
+            shape2: 30
       d_p_spec:
         distr: "beta"
         params:
-          shape1: 840
-          shape2: 160
-      type: "indirect"
+          shape1: 84
+          shape2: 16
       cost_ratio: 0.1
   strats: # Screening test strategies 
     strategy_c_int10:
-      mod: "confirm"
+      mod: "col"
       age_screen_start: 45
       age_screen_stop: 75
       int_screen: 10
-      mod_conf: ~
     strategy_c_int30: # Effectively one-time screening at age 50
-      mod: "confirm"
+      mod: "col"
       age_screen_start: 45
       age_screen_stop: 75
       int_screen: 30
-      mod_conf: ~
-  surveil: # Surveillance regimen
-    mod: "confirm"
-    n_detected: [3, 1]
-    int_surveil: [3, 7]
-    mod_conf: ~
+    strategy_s_int10:
+      mod: "stool"
+      age_screen_start: 45
+      age_screen_stop: 75
+      int_screen: 10
+    strategy_s_int30: # Effectively one-time screening at age 50
+      mod: "stool"
+      age_screen_start: 45
+      age_screen_stop: 75
+      int_screen: 30
