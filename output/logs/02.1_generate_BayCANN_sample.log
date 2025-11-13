@@ -7,7 +7,6 @@
 ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
 ✔ purrr     1.1.0     
 ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-✖ purrr::accumulate()  masks foreach::accumulate()
 ✖ dplyr::between()     masks data.table::between()
 ✖ dplyr::filter()      masks stats::filter()
 ✖ dplyr::first()       masks data.table::first()
@@ -20,15 +19,22 @@
 ✖ lubridate::month()   masks data.table::month()
 ✖ lubridate::quarter() masks data.table::quarter()
 ✖ lubridate::second()  masks data.table::second()
-✖ dplyr::select()      masks MASS::select()
 ✖ purrr::transpose()   masks data.table::transpose()
 ✖ lubridate::wday()    masks data.table::wday()
 ✖ lubridate::week()    masks data.table::week()
-✖ purrr::when()        masks foreach::when()
 ✖ lubridate::yday()    masks data.table::yday()
 ✖ lubridate::year()    masks data.table::year()
 ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+Loading required package: foreach
+
+Attaching package: ‘foreach’
+
+The following objects are masked from ‘package:purrr’:
+
+    accumulate, when
+
 Loading required package: iterators
+Loading required package: parallel
 
 Attaching package: ‘assertthat’
 
@@ -54,10 +60,8 @@ visible FALSE                     FALSE                   FALSE
         R/utils/sum_of_cdfs.R
 value   ?                    
 visible FALSE                
-Error in file(file, "rt", encoding = fileEncoding) : 
-  cannot open the connection
-Calls: load_configs -> read_yaml -> file
-In addition: Warning message:
-In file(file, "rt", encoding = fileEncoding) :
-  cannot open file 'configs/configs_bladder_incidental.yaml': No such file or directory
-Execution halted
+<environment: R_GlobalEnv>
+<environment: R_GlobalEnv>
+<environment: R_GlobalEnv>
+[1] "Running on Sherlock"
+[1] "# parallel workers: 8"
