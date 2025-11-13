@@ -54,10 +54,66 @@ visible FALSE                     FALSE                   FALSE
         R/utils/sum_of_cdfs.R
 value   ?                    
 visible FALSE                
-Error in file(file, "rt", encoding = fileEncoding) : 
-  cannot open the connection
-Calls: load_configs -> read_yaml -> file
-In addition: Warning message:
-In file(file, "rt", encoding = fileEncoding) :
-  cannot open file 'configs/configs_bladder_incidental.yaml': No such file or directory
-Execution halted
+<environment: R_GlobalEnv>
+<environment: R_GlobalEnv>
+[1] "Running on Sherlock"
+[1] "# parallel workers: 24"
+----- Wed Nov 12 11:53:06 PM 2025 -----
+New IMABC with specifications:
+Max iterations                           = 1000
+Starting simulation size                 = 8000
+Number of centers of mass                = 8
+Number of samples around each center     = 100
+Minimum valid samples to end calibration = 1000
+Current bound info:
+---- incidence_clin ----
+incidence_clin_2: -0.001 - 0.883824494756257
+incidence_clin_7: -0.001 - 0.825296171722417
+incidence_clin_12: -0.001 - 0.545467201106661
+incidence_clin_17: -0.001 - 0.833989303105006
+incidence_clin_22: -0.001 - 1.33804445838435
+incidence_clin_27: -0.001 - 1.8496975030325
+incidence_clin_32: -0.001 - 3.02931852253474
+incidence_clin_37: 0.128984431062857 - 4.76528414641592
+incidence_clin_42: 1.46586155944544 - 7.57838957631282
+incidence_clin_47: 5.28593600211824 - 14.1509253197714
+incidence_clin_52: 12.352699358482 - 25.126597793092
+incidence_clin_57: 25.4676453650598 - 43.6559884390001
+incidence_clin_62: 41.0877069447503 - 65.2974481712256
+incidence_clin_67: 66.4269276714313 - 99.9234676750802
+incidence_clin_72: 87.8190323000442 - 131.34079842286
+incidence_clin_77: 104.363652500259 - 161.356757575529
+incidence_clin_82: 111.234669256221 - 189.633361896859
+incidence_clin_92: 96.3782181800392 - 190.299985011373
+---- stage_distr ----
+stage_distr_1: 0.749695306718538 - 0.80796677284028
+stage_distr_2: 0.162087051076571 - 0.217119313188142
+stage_distr_3: 0.0194897824860431 - 0.0440588008963204
+
+---------- Start Iter 1 ----------
+Starting at: 2025-11-12 23:53:06.884067
+Current in range draws = 0
+Current bound info:
+---- incidence_clin ----
+incidence_clin_2: -0.001 - 0.883824494756257
+incidence_clin_7: -0.001 - 0.825296171722417
+incidence_clin_12: -0.001 - 0.545467201106661
+incidence_clin_17: -0.001 - 0.833989303105006
+incidence_clin_22: -0.001 - 1.33804445838435
+incidence_clin_27: -0.001 - 1.8496975030325
+incidence_clin_32: -0.001 - 3.02931852253474
+incidence_clin_37: 0.128984431062857 - 4.76528414641592
+incidence_clin_42: 1.46586155944544 - 7.57838957631282
+incidence_clin_47: 5.28593600211824 - 14.1509253197714
+incidence_clin_52: 12.352699358482 - 25.126597793092
+incidence_clin_57: 25.4676453650598 - 43.6559884390001
+incidence_clin_62: 41.0877069447503 - 65.2974481712256
+incidence_clin_67: 66.4269276714313 - 99.9234676750802
+incidence_clin_72: 87.8190323000442 - 131.34079842286
+incidence_clin_77: 104.363652500259 - 161.356757575529
+incidence_clin_82: 111.234669256221 - 189.633361896859
+incidence_clin_92: 96.3782181800392 - 190.299985011373
+---- stage_distr ----
+stage_distr_1: 0.749695306718538 - 0.80796677284028
+stage_distr_2: 0.162087051076571 - 0.217119313188142
+stage_distr_3: 0.0194897824860431 - 0.0440588008963204
