@@ -52,8 +52,8 @@ rsconnect/
 **/.DS_Store
 
 # Custom
-examples/
-output/model*.*
-sherlock/output/
-output/imabc/debug/
-simplified/output/imabc/debug/
+data/general/HMD_lifetables
+output/*/baycann_logs
+output/*/baycann_run_best
+output/*/baycann_runs
+

@@ -36,13 +36,10 @@ ir_clinical <- function(x) {
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+# Load configs
+file_configs <- file.path("configs", "configs_simulated.yaml")
+configs <- load_configs(file_configs)
 list2env(configs, envir = .GlobalEnv)
-
-# Get list of relevant output file paths and load to global environment
-l_filepaths <- update_config_paths("files_tests", configs$paths)
-list2env(l_filepaths, envir = .GlobalEnv)
 
 ###### 2.2 File paths
 path_truth <- "_ground_truth"

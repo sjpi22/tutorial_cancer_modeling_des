@@ -1,0 +1,14 @@
+"var_name","idx","var_distr","param_name","var_id","distr","min","max"
+"d_time_H_L",NA,"weibull","shape","d_time_H_L.shape","unif",1.56275204694543,2.45310041672196
+"d_time_H_L",NA,"weibull","scale","d_time_H_L.scale","unif",76.4152702331927,125.123818263727
+"d_time_L_P",NA,"weibull","shape","d_time_L_P.shape","unif",1.47,5.08
+"d_time_L_P",NA,"weibull","scale","d_time_L_P.scale","unif",23.95,83.92
+"d_n_L",NA,"pois","lambda","d_n_L.lambda","unif",0.04,0.12
+"d_time_P1_P2",NA,"exponential","rate","d_time_P1_P2.rate","unif",0.14,0.51
+"hr_cancer",1,NA,NA,"hr_cancer.1","unif",0.7,2
+"hr_cancer",2,NA,NA,"hr_cancer.2","unif",0.7,2
+"hr_cancer",3,NA,NA,"hr_cancer.3","unif",0.7,2
+"hr_cancer",4,NA,NA,"hr_cancer.4","unif",0.7,2
+"diff_p_cancer",1,NA,NA,"diff_p_cancer.1","unif",-0.05,0.03
+"diff_p_cancer",2,NA,NA,"diff_p_cancer.2","unif",-0.03,0.03
+"diff_p_cancer",3,NA,NA,"diff_p_cancer.3","unif",-0.03,0.03

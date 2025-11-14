@@ -32,6 +32,7 @@ library(MASS)
 library(bestNormalize)
 library(data.table)
 library(GGally) # For correlation graph
+library(dampack) # For prior-posterior graph
 library(assertthat)
 rstan_options(auto_write = TRUE)
 
@@ -45,8 +46,9 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+# Load configs
+file_configs <- file.path("configs", "configs_colorectal.yaml")
+configs <- load_configs(file_configs)
 
 # Extract calibration parameters from configs
 file_params_calib <- configs$paths$file_params_calib
@@ -65,8 +67,8 @@ list2env(configs$params_baycann$params_stan, envir = .GlobalEnv)
 log_dir <- file_logs
 
 ###### 2.2 Other parameters
-rerun_training <- TRUE # Switch to false to load data without rerunning ANN training
-rerun_stan <- TRUE # Switch to false to load data without rerunning Stan
+rerun_training <- FALSE # Switch to false to load data without rerunning ANN training
+rerun_stan <- FALSE # Switch to false to load data without rerunning Stan
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -214,7 +216,13 @@ for (grp in df_fn_grp_chars$fn_grp) {
 
 # Load targets and SE
 true_targets_mean  <- l_params_calib$df_target$targets
-true_targets_se   <- l_params_calib$df_target$se
+if ("se" %in% l_params_calib$df_target) {
+  true_targets_se   <- l_params_calib$df_target$se
+} else {
+  # If no SE provided, estimate from CI bounds
+  true_targets_se   <- (l_params_calib$df_target$ci_ub - l_params_calib$df_target$ci_lb) / (2 * qnorm((1 + configs$params_model$conf_level)/2))
+}
+
 
 # Scale targets and SE
 if (scale_type==1) {
@@ -318,7 +326,10 @@ if (rerun_training) {
 model <- load_model(file_keras_model)
 
 # Model performance evaluation
-acc_err <- model %>% evaluate(xtest_scaled, ytest_scaled_reshape) 
+acc_err <- model %>% evaluate(xtest_scaled, ytest_scaled_reshape)
+# Commented out 9/24/25 because triggered error: Error in py_call_impl(callable, call_args$unnamed, call_args$named) : 
+# AttributeError: module 'keras.src.backend' has no attribute 'convert_to_numpy'
+# Run `reticulate::py_last_error()` for details.
 
 if (rerun_training) {
   # Save predictions on test data
@@ -537,6 +548,9 @@ write.csv(Xq_lp,
 # 10. Save BayCANN statistics and run final diagnostic plots ---------------------
 
 ## Save BayCANN statistics
+if (!exists("acc_err")) {
+  acc_err <- NA
+}
 baycann_stats <- list(l_hyperparams_best = l_hyperparams_best,
                       scale_type = scale_type,
                       df_fn_grps = df_fn_grps,
@@ -598,7 +612,7 @@ df_maps_n_true_params
 
 df_maps_n_true_params$Parameter <- as.factor(x_names)
 
-library(dampack)
+# Plot parameter priors against posteriors
 gg_prior_post <- ggplot(df_samp_prior_post,
                          aes(x = value, y = after_stat(density), fill = Distribution)) +
   facet_wrap(~Parameter, scales = "free",

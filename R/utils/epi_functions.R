@@ -12,6 +12,9 @@
 #' @param censor_var The name (string) of the variable indicating age at censoring 
 #'   (e.g., death or loss to follow-up). Patients who are censored before a given 
 #'   age are excluded from the denominator at that age.
+#' @param condition_var Optional string with variable for time of an event that
+#'   must occur before the censor time for patients to be considered in the
+#'   analysis.
 #' @param id_var The name (string) of the variable indicating the patient ID.
 #' @param v_ages A numeric vector of ages at which to estimate prevalence. If \code{NULL}, 
 #'   prevalence will be calculated across the age range of the population.
@@ -55,6 +58,7 @@ calc_prevalence <- function(m_patients,
                             start_var, 
                             end_var, 
                             censor_var, 
+                            condition_var = NULL,
                             id_var = "pt_id",
                             v_ages = NULL,
                             method = "cs",
@@ -62,9 +66,16 @@ calc_prevalence <- function(m_patients,
                             dt_sample_ages = NULL,
                             output_uncertainty = FALSE,
                             conf_level = 0.95) {
+  # If condition_var is given, filter to patients who have the condition before censoring
+  if (!is.null(condition_var)) {
+    m_subset <- m_patients[get(condition_var) < get(censor_var)]
+  } else { # Otherwise use full dataset
+    m_subset <- m_patients
+  }
+  
   # If v_ages is NULL, calculate prevalence across entire age range of population
   if (is.null(v_ages)) {
-    v_ages <- c(0, m_patients[, max(get(censor_var))])
+    v_ages <- c(0, m_subset[, max(get(censor_var))])
   }
   
   # Create age range data frame
@@ -74,7 +85,7 @@ calc_prevalence <- function(m_patients,
   )
   
   # Ensure that key is set for cohort data
-  if (is.null(key(m_patients))) setkeyv(m_patients, id_var)
+  if (is.null(key(m_subset))) setkeyv(m_subset, id_var)
   
   # Cross-sectional vs. longitudinal formulation
   if (method == "cs") {
@@ -82,10 +93,10 @@ calc_prevalence <- function(m_patients,
     l_overwrite <- list()
     for (varname in c("sample_age", "age_start", "fl_case")) {
       # Save sample_age variable if it will be overwritten
-      if (varname %in% colnames(m_patients)) {
+      if (varname %in% colnames(m_subset)) {
         # Exception for sample_age when sample_var is "sample_age"
         if (!(varname == "sample_age" & ifelse(is.null(sample_var), "", sample_var) == "sample_age")) {
-          l_overwrite[[varname]] <- copy(m_patients[[varname]])
+          l_overwrite[[varname]] <- copy(m_subset[[varname]])
         }
       }
     }
@@ -94,7 +105,7 @@ calc_prevalence <- function(m_patients,
     if (is.null(sample_var)) {
       # Sample age of study
       if (is.null(dt_sample_ages)) {
-        dt_sample_ages <- data.table(pt_id = m_patients[[id_var]])
+        dt_sample_ages <- data.table(pt_id = m_subset[[id_var]])
         dt_sample_ages[, sample_age := runif(.N, min(v_ages), max(v_ages))]
       }
       
@@ -109,36 +120,35 @@ calc_prevalence <- function(m_patients,
       if (id_var != "pt_id") setnames(dt_sample_ages, "pt_id", id_var)
       
       # Merge sample age to patient data table
-      m_patients[dt_sample_ages, `:=` (sample_age = i.sample_age,
+      m_subset[dt_sample_ages, `:=` (sample_age = i.sample_age,
                                        age_start = i.age_start)]
     } else {
       # Rename given sample variable
       if (sample_var != "sample_age") {
-        if (!is.null(m_patients[["sample_age"]])) m_patients[, sample_age := NULL] # Remove sample_age variable from data table if already present
-        setnames(m_patients, sample_var, "sample_age") # Replace name of sample age variable to sample_age
+        m_subset[, sample_age := get(sample_var)] # Copy sample age variable to sample_age
       }
       
       # Save age_idx variable if it will be overwritten
-      if ("age_idx" %in% colnames(m_patients)) {
-        age_idx_saved <- m_patients$age_idx
+      if ("age_idx" %in% colnames(m_subset)) {
+        age_idx_saved <- m_subset$age_idx
       }
       
       # Get age range of sample age
-      m_patients[, age_idx := findInterval(sample_age, v_ages)]
-      m_patients[, age_start := v_ages[age_idx], by = age_idx]
+      m_subset[, age_idx := findInterval(sample_age, v_ages)]
+      m_subset[, age_start := v_ages[age_idx], by = age_idx]
       
       # Replace age_idx variable
       if (exists("age_idx_saved")) {
-        m_patients[, age_idx := age_idx_saved]
+        m_subset[, age_idx := age_idx_saved]
       } else {
-        m_patients[, age_idx := NULL]
+        m_subset[, age_idx := NULL]
       }
     }
     
     # Calculate cross-sectional prevalence by age group among people not censored by sample age
-    m_patients[get(censor_var) > sample_age, fl_case := (get(start_var) <= sample_age & get(end_var) > sample_age)]
-    m_patients[get(censor_var) > sample_age & is.na(fl_case), fl_case := F] # Reset NA to FALSE
-    summ_prevalence <- m_patients[get(censor_var) > sample_age, .(
+    m_subset[get(censor_var) >= sample_age, fl_case := (get(start_var) <= sample_age & get(end_var) > sample_age)]
+    m_subset[get(censor_var) >= sample_age & is.na(fl_case), fl_case := F] # Reset NA to FALSE
+    summ_prevalence <- m_subset[get(censor_var) >= sample_age, .(
       n_total = .N,
       n_cases = sum(fl_case),
       value = mean(fl_case)), by = age_start]
@@ -148,39 +158,35 @@ calc_prevalence <- function(m_patients,
     if (output_uncertainty) {
       ci_prop(summ_prevalence, 
               conf_level = conf_level,
-              calc_se = TRUE)
+              calc_se = TRUE,
+              var_prop = "value")
     }
     
-    # Reset or remove sample_age variable
+    # Reset or remove added and modified variables
     vars_remove <- c("age_start", "fl_case")
-    if (!is.null(sample_var)) { # If sample age variable was already included in patient matrix
-      # Reset variable name
-      if (sample_var != "sample_age") { # If sample age variable was not the standardized name
-        setnames(m_patients, "sample_age", sample_var) # Revert to unstandardized name
-      }
-    } else { # If sample age variable was not included in patient matrix
+    if (is.null(sample_var)) { # If sample age variable was not included in patient matrix
       # Add "sample_age" to list of variables to remove
       vars_remove <- c(vars_remove, "sample_age")
     }
     
     # Remove variables that were added as side effects
     vars_remove <- setdiff(vars_remove, names(l_overwrite)) # Remove variables that were added and not replaced
-    vars_remove <- intersect(vars_remove, names(m_patients))  # Only remove columns that exist
+    vars_remove <- intersect(vars_remove, names(m_subset))  # Only remove columns that exist
     if (length(vars_remove) > 0) {
-      m_patients[, c(vars_remove) := NULL]
+      m_subset[, c(vars_remove) := NULL]
     }
     
     # Replace saved variables that were overwritten
     for (varname in names(l_overwrite)) {
-      m_patients[, (varname) := l_overwrite[[varname]]]
+      m_subset[, (varname) := l_overwrite[[varname]]]
     }
     
   } else if (method == "long") {
     # Calculate prevalence in the given age ranges
     summ_prevalence <- cbind(dt_ages, t(mapply(
       function(age_start, age_end) {
-        denom <- unname(unlist(m_patients[, sum(pmax(pmin(get(censor_var), age_end) - age_start, 0))]))
-        num <- unname(unlist(m_patients[, sum(pmax(pmin(get(end_var), get(censor_var), age_end, na.rm = TRUE) - pmax(pmin(get(start_var), Inf, na.rm = T), age_start, na.rm = TRUE), 0))]))
+        denom <- unname(unlist(m_subset[, sum(pmax(pmin(get(censor_var), age_end) - age_start, 0))]))
+        num <- unname(unlist(m_subset[, sum(pmax(pmin(get(end_var), get(censor_var), age_end, na.rm = TRUE) - pmax(pmin(get(start_var), Inf, na.rm = T), age_start, na.rm = TRUE), 0))]))
         return(c(
           person_years_cases = num, 
           person_years_total = denom, 
@@ -194,9 +200,9 @@ calc_prevalence <- function(m_patients,
     v_ages_tabulate <- unique(c(-Inf, seq(min(v_ages), max(v_ages))))
     
     # Tabulate counts in age intervals for start age, end age, and censor age
-    counts_censor <- tabulate(cut(m_patients[, get(censor_var)], v_ages_tabulate))
-    counts_start <- tabulate(cut(m_patients[, fifelse(get(start_var) < get(censor_var), get(start_var), NA)], v_ages_tabulate))
-    counts_end <- tabulate(cut(m_patients[, fifelse(get(start_var) < get(censor_var), pmin(get(end_var), get(censor_var), na.rm = T), NA)], v_ages_tabulate))
+    counts_censor <- tabulate(cut(m_subset[, get(censor_var)], v_ages_tabulate))
+    counts_start <- tabulate(cut(m_subset[, fifelse(get(start_var) < get(censor_var), get(start_var), NA)], v_ages_tabulate))
+    counts_end <- tabulate(cut(m_subset[, fifelse(get(start_var) < get(censor_var), pmin(get(end_var), get(censor_var), na.rm = T), NA)], v_ages_tabulate))
     
     # Pad start and end counts
     counts_start <- c(counts_start, rep(0, length(v_ages_tabulate) - 1 - length(counts_start)))
@@ -208,7 +214,7 @@ calc_prevalence <- function(m_patients,
       age_idx = findInterval(tail(v_ages_tabulate, -1), v_ages), # Index of age range vector (left closed)
       age_idx_ub = findInterval(tail(v_ages_tabulate, -1), v_ages, left.open = T), # Index of age range vector (left open)
       person_years_cases = cumsum(counts_start) - cumsum(counts_end), # Count number of prevalence cases at beginning of each year starting from v_ages_tabulate[2]
-      person_years_total = nrow(m_patients) - cumsum(counts_censor) # Count number of uncensored patients at beginning of each year starting from v_ages_tabulate[2]
+      person_years_total = nrow(m_subset) - cumsum(counts_censor) # Count number of uncensored patients at beginning of each year starting from v_ages_tabulate[2]
     )
     
     # Map age range groups
@@ -270,7 +276,7 @@ ci_prop <- function(dt_cases,
                     calc_se = FALSE,
                     var_cases = "n_cases",
                     var_total = "n_total",
-                    var_prop = "value") {
+                    var_prop = "targets") {
   # Calculate standard error
   if (calc_se) {
     dt_cases[, se := sqrt(get(var_prop)*(1-get(var_prop))/get(var_total))]
@@ -344,8 +350,7 @@ calc_nlesions <- function(m_lesions,
                           end_var, 
                           censor_var,
                           id_var = "pt_id",
-                          start_age = 0, 
-                          end_age = NULL, 
+                          v_ages = c(0, NULL),
                           n_max = 3,
                           method = "cs",
                           dt_sample_ages = NULL, 
@@ -353,6 +358,10 @@ calc_nlesions <- function(m_lesions,
                           conf_level = 0.95) {
   # Ensure that key is set for cohort data
   if (is.null(key(m_lesions))) setkeyv(m_lesions, id_var)
+  
+  # Set start and end ages
+  start_age <- v_ages[1]
+  end_age <- ifelse(is.null(v_ages[2]), m_lesions[, max(get(censor_var))], v_ages[2])
   
   if (method == "cs") {
     # Account for case of null data
@@ -394,7 +403,8 @@ calc_nlesions <- function(m_lesions,
       if (output_uncertainty) {
         ci_prop(lesion_cts,
                 conf_level = conf_level,
-                calc_se = TRUE)
+                calc_se = TRUE,
+                var_prop = "value")
       }
       
       # Ensure that all numbers from 0 to n_max are represented with count of 0 if necessary
@@ -421,10 +431,13 @@ calc_nlesions <- function(m_lesions,
       # Convert data to lesion start and end events
       dt_events <- rbindlist(list(
         m_lesions[get(start_var) < pmin(get(censor_var), end_age), 
-                  .(get(id_var), event_time = pmax(get(start_var), start_age), delta = 1)],  # Start of lesion or eligible screening period
+                  .(get(id_var), pmax(get(start_var), start_age), 1)],  # Start of lesion or eligible screening period
         m_lesions[get(start_var) < pmin(get(censor_var), end_age), 
-                  .(get(id_var), event_time = pmin(get(end_var), get(censor_var), end_age), delta = -1)] # End of lesion or eligible screening period
+                  .(get(id_var), pmin(get(end_var), get(censor_var), end_age), -1)] # End of lesion or eligible screening period
       ))
+      
+      # Set names
+      setnames(dt_events, c("V1", "V2", "V3"), c(id_var, "event_time", "delta"))
       
       # Sort by patient and event time
       setorderv(dt_events, c(id_var, "event_time"))
@@ -630,8 +643,8 @@ ci_rate <- function(dt_event,
                     conf_level = 0.95, 
                     rate_unit = 1,
                     calc_se = FALSE,
-                    var_event = "n_events",
-                    var_total = "person_years_total"
+                    var_event = "n_cases",
+                    var_total = "n_total"
 ) {
   # Calculate standard error
   if (calc_se) {

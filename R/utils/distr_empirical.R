@@ -346,3 +346,74 @@ check_empirical <- function(xs, probs, warn_sum_probs = TRUE, eps = 1e-6) {
   } else if(length(xs) != length(probs)) stop("xs and probs have different lengths")
 }
 
+
+# Function to fit constrained B-spline to empirical distribution
+smooth_empirical_distr <- function(distr, 
+                                   max_age = NULL, 
+                                   delta = 0.5, 
+                                   fit_to = c("chaz", "cdf"),
+                                   v_knots = NULL, 
+                                   idx_start = 1,
+                                   constraints = "increase") {
+  # Set max_age if NULL to maximum value of xs
+  if (is.null(max_age)) {
+    max_age <- max(distr$params$xs)
+  }
+  
+  if (is.null(v_knots)) {
+    # Sample every three values of ages for spline knots
+    v_knots <- distr$params$xs[idx_start:length(distr$params$xs)]
+    v_knots <- c(v_knots[seq(1, length(v_knots) - 1, 3)], max_age)
+  }
+  
+  # Calculate cumulative percentage
+  v_cdf <- c(0, cumsum(distr$params$probs))
+  
+  # Unless fitting to CDF, convert to cumulative hazard
+  if (tolower(fit_to[1]) != "cdf") {
+    v_fit <- -log(1 - v_cdf)
+  } else {
+    v_fit <- v_cdf
+  }
+  
+  # Fit spline
+  fit_spline <- cobs(
+    x = distr$params$xs[-(1:idx_start)],
+    y = head(v_fit[(idx_start+1):length(v_fit)], -1), 
+    constraint = constraints,
+    knots = v_knots,
+    pointwise = matrix(c(distr$params$xs[idx_start], v_fit[idx_start], 0), ncol = 3))
+  
+  # Create age vector from 0 to max_age with step delta
+  v_ages <- seq(distr$params$xs[idx_start], max_age, delta)
+  
+  # Calculate predictions from spline
+  v_pred <- predict(fit_spline, v_ages)[, "fit"]
+  
+  # Unless fitting to CDF, convert to cumulative hazard
+  if (tolower(fit_to[1]) != "cdf") {
+    v_cdf_pred <- 1 - exp(-v_pred)
+  } else {
+    v_cdf_pred <- v_pred
+  }
+  
+  # Bound between 0 and 1
+  v_cdf_pred <- pmax(0, pmin(v_cdf_pred, 1))
+  
+  # Append unfitted values if necessary
+  if (idx_start > 1) {
+    v_ages <- c(distr$params$xs[1:(idx_start - 1)], v_ages)
+    v_cdf_pred <- c(v_cdf[1:(idx_start - 1)], v_cdf_pred)
+  }
+  
+  # Calculate probability mass function from CDF
+  v_probs <- diff(v_cdf_pred)
+  v_probs <- c(v_probs, 1 - sum(v_probs))
+  
+  # Create spline distribution data
+  d_time_spline <- modifyList(distr, list(params = list(xs = v_ages,
+                                                        probs = v_probs,
+                                                        max_x = max_age)))
+
+  return(d_time_spline)
+}

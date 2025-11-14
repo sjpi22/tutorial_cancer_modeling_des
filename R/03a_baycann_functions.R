@@ -61,12 +61,12 @@ prepare_data <- function(xtrain, ytrain, xtest, ytest, scale_type, scale_cols = 
 }
 
 scale_data  <- function(unscaled_data, type, scale_cols=NULL){
-  vec.maxs  <- apply(unscaled_data, 2, max) 
-  vec.mins  <- apply(unscaled_data, 2, min)
-  vec.means <- apply(unscaled_data, 2, mean)
-  vec.sds   <- apply(unscaled_data, 2, sd)
+  vec.maxs  <- apply(unscaled_data, 2, max, na.rm = T) 
+  vec.mins  <- apply(unscaled_data, 2, min, na.rm = T)
+  vec.means <- apply(unscaled_data, 2, mean, na.rm = T)
+  vec.sds   <- apply(unscaled_data, 2, sd, na.rm = T)
   
-  vec.quant <- apply(unscaled_data, 2, quantile)
+  vec.quant <- apply(unscaled_data, 2, quantile,  na.rm = T)
   vec.q50   <- vec.quant[3,]
   vec.q25   <- vec.quant[2,]
   vec.q75   <- vec.quant[4,]

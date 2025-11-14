@@ -25,8 +25,9 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+# Load configs
+file_configs <- file.path("configs", "configs_bladder_incidental.yaml")
+configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
 params_screen <- configs$params_screen
@@ -44,13 +45,12 @@ l_filepaths_decision <- update_config_paths("files_decision", configs$paths)
 list2env(l_filepaths_decision, envir = .GlobalEnv)
 
 ###### 2.2 Other parameters
-v_methods <- c(truth = "Ground truth", imabc = "IMABC", baycann = "BayCANN") # Calibration methods to evaluate (include "truth" if evaluating against a ground truth)
+v_methods <- c(imabc = "IMABC", baycann = "BayCANN") # Calibration methods to evaluate (include "truth" if evaluating against a ground truth)
 base_test <- "confirm" # Assign name of base test (for diagnosing symptom-detected cases)
 x_var <- "time_total" # Variable for x-axis
 y_var <- "test_burden" # Variable for y-axis
 x_int <- 200 # Interval for x-axis
 y_int <- 2000 # Interval for y-axis
-l_filepaths_truth <- list(file_outputs = file.path("_ground_truth", "true_decision_outputs.rds")) # Ground truth outputs
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -257,29 +257,31 @@ ggsave(file_fig_decision, plt_outcomes, width = 10, height = 8)
 l_res_time <- list()
 for (method in names(v_methods)) {
   for (outcome in c("dwell_time", "sojourn_time")) {
-    # Extract outcome
-    v_outcomes <- l_outcomes[[method]][[outcome]][["base"]]
-    
-    # Calculate mean and quantiles of outputs
-    if (length(l_wts[[method]]) == 1) {
-      mean_outcome <- mean(v_outcomes)
-      ci_outcome <- quantile(v_outcomes, probs = v_quantiles_calc)
-    } else {
-      mean_outcome <- weighted.mean(v_outcomes, w = l_wts[[method]])
-      ci_outcome <- weighted_quantile(
-        x = v_outcomes,
-        probs = v_quantiles_calc,
-        weights = l_wts[[method]]
-      )
+    if (!is.null(l_outcomes[[method]][[outcome]])) {
+      # Extract outcome
+      v_outcomes <- l_outcomes[[method]][[outcome]][["base"]]
+      
+      # Calculate mean and quantiles of outputs
+      if (length(l_wts[[method]]) == 1) {
+        mean_outcome <- mean(v_outcomes)
+        ci_outcome <- quantile(v_outcomes, probs = v_quantiles_calc)
+      } else {
+        mean_outcome <- weighted.mean(v_outcomes, w = l_wts[[method]])
+        ci_outcome <- weighted_quantile(
+          x = v_outcomes,
+          probs = v_quantiles_calc,
+          weights = l_wts[[method]]
+        )
+      }
+      
+      # Add to results list
+      l_res_time <- c(l_res_time, list(
+        list(method = method,
+             outcome = outcome,
+             mean = mean_outcome,
+             ci_lb = ci_outcome[1],
+             ci_ub = ci_outcome[2])))
     }
-    
-    # Add to results list
-    l_res_time <- c(l_res_time, list(
-      list(method = method,
-           outcome = outcome,
-           mean = mean_outcome,
-           ci_lb = ci_outcome[1],
-           ci_ub = ci_outcome[2])))
   }
 }
 

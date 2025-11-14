@@ -25,8 +25,9 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+# Load configs
+file_configs <- file.path("configs", "configs_colorectal.yaml")
+configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
@@ -50,20 +51,38 @@ m_params <- read.csv(file_posterior) %>%
   dplyr::select(-lp) %>% # Remove last non-parameter column
   as.matrix()
 
-# Set base case outcome parameters (include calibration target parameters)
-l_params_outcome_base <- c(l_params_calib$l_params_outcome,
-                           params_screen$l_outcome_base)
+# Check for internal validation only flag
+if (is.null(params_screen$internal_val_only)) {
+  internal_val_only <- FALSE
+} else {
+  internal_val_only <- params_screen$internal_val_only
+}
 
-# Set screening test and strategy parameters
-l_params_screen <- list(test_chars = params_screen$test_chars,
-                        strats = params_screen$strats,
-                        surveil = params_screen$surveil)
-
-# Set screening outcome parameters
-l_params_outcome_screen <- params_screen$l_outcome_base
-
-# Set counterfactual comparison parameters
-l_params_outcome_counter <- params_screen$l_outcome_counterfactual
+# If only performing internal validation, set screening parameters to NULL
+if (internal_val_only) {
+  l_params_outcome_base <- l_params_outcome
+  l_params_screen <- NULL
+  l_params_outcome_screen <- NULL
+  reshape_output <- TRUE
+} else {
+  # Set base case outcome parameters (include calibration target parameters)
+  l_params_outcome_base <- c(l_params_calib$l_params_outcome,
+                             params_screen$l_outcome_base)
+  
+  # Set screening test and strategy parameters
+  l_params_screen <- list(test_chars = params_screen$test_chars,
+                          strats = params_screen$strats,
+                          surveil = params_screen$surveil)
+  
+  # Set screening outcome parameters
+  l_params_outcome_screen <- params_screen$l_outcome_base
+  
+  # Set counterfactual comparison parameters
+  l_params_outcome_counter <- params_screen$l_outcome_counterfactual
+  
+  # Keep output as list
+  reshape_output <- FALSE
+}
 
 # Set seed
 seed <- l_params_calib$l_params_model$seed
@@ -106,7 +125,7 @@ stime <- system.time({
           l_params_outcome_screen = l_params_outcome_screen,
           l_params_outcome_counter = l_params_outcome_counter,
           l_censor_vars = l_censor_vars,
-          reshape_output = FALSE
+          reshape_output = reshape_output
         )
       })
       # Call item to save

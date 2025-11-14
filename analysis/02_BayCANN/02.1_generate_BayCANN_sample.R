@@ -27,8 +27,9 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+# Load configs
+file_configs <- file.path("configs", "configs_colorectal.yaml")
+configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
@@ -139,3 +140,6 @@ plt_coverage <- plot_coverage(df_targets = df_targets,
                               plt_size_text = plt_size_text,
                               labeller_multiplier = 6)
 plt_coverage
+
+# Report runtime
+print(paste("Total runtime (min):", BayCANN_sample$runtime[3] / 60))

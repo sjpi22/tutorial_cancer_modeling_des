@@ -25,17 +25,19 @@ sapply(distr.sources, source, .GlobalEnv)
 
 #### 2. General parameters ========================================================
 
-###### 2.1 Configurations
-# Run file to process configurations
-source("configs/process_configs.R")
+###### 2.1 File paths
+file_configs <- file.path("configs", "configs_simulated.yaml")
+file_true_params <- file.path("_ground_truth", "true_params.xlsx")
+file_constant_priors <- file.path("_ground_truth", "constant_priors.xlsx")
+
+###### 2.2 Configurations
+# Load configs
+configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
 params_model <- configs$params_model
 params_calib <- configs$params_calib
-
-###### 2.2 File paths
-file_true_params <- file.path("_ground_truth", "true_params.xlsx")
-file_constant_priors <- file.path("_ground_truth", "constant_priors.xlsx")
+file_targets <- configs$params_calib$file_targets
 
 ###### 2.3 Other parameters
 # Simulation parameters and outcome reporting
@@ -111,9 +113,6 @@ for (target in names(l_params_outcome)) {
   l_params_outcome[[target]]$lit_params$v_ages <- v_ages[[target]]
 }
 
-# Check if data directory exists, make if not
-dir.create(dirname(params_calib$l_params_outcome[[1]]$file_path), showWarnings = FALSE)
-
 
 #### 4. Generate population data and outputs ========================================================
 
@@ -137,6 +136,55 @@ for (grp in names(l_outcome_grps)) {
   l_cohorts[[grp]] <- l_results_grp$m_cohort
   l_results <- c(l_results, l_results_grp$outputs)
 }
+
+# Combine calibration targets
+df_target_full <- data.table()
+for (target in names(l_results)) {
+  # Process data based on target type
+  df_target <- l_results[[target]] %>%
+    rename(targets = value) %>%
+    mutate(target_groups = target)
+  
+  if (l_params_outcome[[target]]$outcome_type %in% c("prevalence", "incidence")) {
+    # Set target index and name
+    df_target <- df_target %>%
+      mutate(target_index = (age_start + age_end)/2,
+             target_names = paste(target_groups, age_start, age_end, sep="_"))
+    
+    # Rename column for total n
+    if (l_params_outcome[[target]]$outcome_type %in% c("prevalence")) {
+      df_target <- df_target %>%
+        rename(n = n_total)
+    } else {
+      df_target <- df_target %>%
+        rename(n = person_years_total)
+    }
+  } else if (l_params_outcome[[target]]$outcome_type %in% c("distr")) {
+    df_target <- df_target %>%
+      rename(target_index = stage_dx,
+             n = n_total) %>%
+      mutate(target_names = paste(target_groups, target_index, sep="_"))
+  } else if (l_params_outcome[[target]]$outcome_type %in% c("nlesions")) {
+    df_target <- df_target %>%
+      rename(target_index = n_lesions,
+             target_index_cat = n_lesions_cat,
+             n = n_total) %>% 
+      mutate(target_groups = target_groups,
+             target_names = paste(target_groups, target_index, sep="_"))
+  }
+  
+  # Bind to full dataframe
+  df_target_full <- bind_rows(df_target_full, df_target)
+}
+
+# Subset columns for targets
+df_target_full <- df_target_full %>%
+  dplyr::select(any_of(c("target_names", "target_groups", 
+                         "target_index", "target_index_cat",
+                         "age_start", "age_end",
+                         "targets", "n", 
+                         "se", "ci_lb", "ci_ub", 
+                         "sex", "lesion_type")))
 
 
 ###### 4.2 Calculate relative survival by stage and years from diagnosis
@@ -170,17 +218,11 @@ output_surv <- with(summary(cancer_surv_fit, times = v_time_surv),
 
 #### 5. Save outputs ========================================================
 
-# Save calibration targets
-for (target in names(l_results)) {
-  # Process data based on target type
-  df_target <- l_results[[target]] %>%
-    rename(targets = value) 
-  
-  # Save data to file path
-  write.csv(df_target,
-            l_params_outcome[[target]][["file_path"]],
-            row.names = FALSE)
-}
+# Check if data directory exists, make if not
+dir.create(dirname(file_targets), showWarnings = FALSE)
+
+# Save targets as excel
+write.csv(df_target_full, file_targets, row.names = FALSE)
 
 # Save disease-specific relative survival from diagnosis
 write.csv(output_surv, params_model$file.surv, row.names = FALSE)

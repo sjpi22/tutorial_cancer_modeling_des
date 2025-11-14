@@ -2,6 +2,7 @@
 load_calib_params <- function(l_params_model, # Model parameters to update
                               l_params_outcome, # List of outcome parameters
                               l_censor_vars, # List of variables to combine for censor variables
+                              file_targets, # Path to calibration targets
                               file_priors, # Path to parameter mapping as .rds file
                               outpath = 'output', # Path for output
                               n_cores_reserved_local = 2, # Number of cores to remove when running in parallel locally; all other detected cores will be used for parallel processing
@@ -25,40 +26,34 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   )
   
   # Load targets
-  l_targets <- load_calibration_targets(l_params_outcome)
+  df_targets_flattened <- setDT(load_calibration_targets(file_targets))
+  
+  # Subset targets to specified sex if applicable
+  if ("sex" %in% df_targets_flattened) {
+    df_targets_flattened <- df_targets_flattened %>%
+      filter(sex %in% c(l_params_model$sex, "both"))
+  }
   
   # Further process target data
   v_outcomes_categorical <- c()
   for (label in names(l_params_outcome)) {
-    # Subset columns for consolidated target dataframe
-    l_targets[[label]] <- l_targets[[label]] %>%
-      dplyr::select(any_of(c("target_names", "target_groups", 
-                             "target_index", "target_index_cat",
-                             "age_start", "age_end",
-                             "targets", "se", 
-                             "ci_lb", "ci_ub", 
-                             "n_cases", "n_total",
-                             "n_events", "person_years_total",
-                             "sex", "lesion_type")))
-    
-    # Subset targets to specified sex if applicable
-    if ("sex" %in% colnames(l_targets[[label]])) {
-      l_targets[[label]] <- l_targets[[label]] %>%
-        filter(sex %in% c(l_params_model$sex, "both"))
-    }
+    # Subset to target group
+    df_targets <- df_targets_flattened %>%
+      filter(target_groups == label)
     
     # Augment parameters with v_ages for calculating outcomes
-    if ("age_start" %in% colnames(l_targets[[label]])) {
-      l_params_outcome[[label]]$lit_params$v_ages <- c(l_targets[[label]]$age_start, 
-                                                       tail(l_targets[[label]]$age_end, 1))
+    if (any(!is.na(df_targets$age_start))) {
+      l_params_outcome[[label]]$lit_params$v_ages <- c(unique(df_targets$age_start), 
+                                                       tail(df_targets$age_end, 1))
     }
     
     # Keep list of categorical variables
     if (l_params_outcome[[label]]$categorical == T) v_outcomes_categorical <- c(v_outcomes_categorical, label)
   }
   
-  # Flatten targets in order of l_params_outcome
-  df_targets_flattened <- rbindlist(l_targets[names(l_params_outcome)], fill = TRUE)
+  # Reorder outcomes to be consistent with targets
+  v_target_groups <- unique(df_targets_flattened$target_groups)
+  l_params_outcome <- l_params_outcome[v_target_groups]
   
   # Create directory if it does not exist
   outpath_split <- unlist(strsplit(outpath, split = "/"))
@@ -67,11 +62,14 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   }
   
   # Load parameter mapping
-  prior_map <- read.csv(file_priors)
-  prior_map$param_val = rowMeans(prior_map[, c("min", "max")])
+  prior_map <- setDT(read.csv(file_priors))
+  if (!"param_val" %in% colnames(prior_map)) {
+    prior_map[, param_val := NA]
+  }
+  prior_map[is.na(param_val), param_val := rowMeans(.SD), .SDcols = c("min", "max")]
   
   # Update stage distribution parameters
-  l_params_model[["p_cancer"]] <- l_targets[["stage_distr"]]$targets
+  l_params_model[["p_cancer"]] <- df_targets_flattened[target_groups == "stage_distr"]$targets
   
   # Update default parameters with mean of priors
   l_params_model <- update_param_from_map(l_params_model, 
@@ -158,10 +156,10 @@ plot_coverage <- function(
   
   # Calculate simulated output mean and box plot quantiles
   if (!is.null(m_outputs)) {
-    df_targets[["model_mean"]] <- colMeans(m_outputs)
+    df_targets[["model_mean"]] <- colMeans(m_outputs, na.rm = T)
     for (i in v_quantiles) {
-      df_targets[[paste0("model_LB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 - i/100)/2, simplify = TRUE)
-      df_targets[[paste0("model_UB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 + i/100)/2, simplify = TRUE)
+      df_targets[[paste0("model_LB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 - i/100)/2, simplify = TRUE, na.rm = T)
+      df_targets[[paste0("model_UB_", i)]] <- apply(m_outputs, 2, FUN = quantile, probs = (1 + i/100)/2, simplify = TRUE, na.rm = T)
     }
   }
   
@@ -272,20 +270,24 @@ plot_coverage <- function(
       labs(x     = "Age", y     = "")
   }
   
+  # Get number of rows and columns of graphs
+  n_plot_grps <- length(unique(df_targets$plot_grps))
+  n_plot_rows <- ceiling(n_plot_grps/n_cols_max)
+  n_plot_cols <- ceiling(n_plot_grps/n_plot_rows)
+  
   # Depending on number of plots, create final plot layout
   if (length(l_plts) == 1) {
     plt <- l_plts[[1]]
   } else {
-    plt <- l_plts[["cont"]] / l_plts[["cat"]]
+    if (n_plot_rows == 1) {
+      plt <- l_plts[["cont"]] + l_plts[["cat"]]
+    } else {
+      plt <- l_plts[["cont"]] / l_plts[["cat"]]
+    }
   }
   
   # Save plot and adjust size based on number of rows and columns
   if (!is.null(file_fig_coverage)) {
-    # Get number of rows and columns of graphs
-    n_plot_grps <- length(unique(df_targets$plot_grps))
-    n_plot_rows <- ceiling(n_plot_grps/n_cols_max)
-    n_plot_cols <- ceiling(n_plot_grps/n_plot_rows)
-    
     # Save plot
     ggsave(file_fig_coverage, plot = plt,
            width = n_plot_cols*4, height = 4*n_plot_rows)
