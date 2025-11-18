@@ -124,8 +124,6 @@ saveRDS(list(m_param_samp = m_param_samp,
 plt_coverage <- plot_coverage(df_targets = df_targets, 
                               m_outputs = m_outputs, 
                               file_fig_coverage = file_fig_coverage,
-                              target_range = "ci",
-                              plt_size_text = plt_size_text,
-                              labeller_multiplier = 6)
+                              target_range = "ci")
 plt_coverage
 

@@ -139,10 +139,15 @@ plot_coverage <- function(
     file_fig_coverage = NULL, # File path to save coverage figure
     target_range = "se", # "se" for standard error and "ci" for confidence interval
     v_quantiles = c(50, 95), # Inner box and whisker quantiles for boxplot
-    plt_size_text = 18, # Size of text in plot
+    plt_size_text = 14, # Size of text in plot
     labeller_multiplier = 4, # Multiplier for title label text size
     n_cols_max = 3 # Maximum number of columns in plot
 ) { 
+  # Get number of rows and columns of graphs
+  n_plot_grps <- length(unique(df_targets$plot_grps))
+  n_plot_rows <- ceiling(n_plot_grps/n_cols_max)
+  n_plot_cols <- ceiling(n_plot_grps/n_plot_rows)
+  
   # Get range to plot for targets
   if (target_range == "se") {
     df_targets <- df_targets %>%
@@ -204,6 +209,12 @@ plot_coverage <- function(
   
   # Plot distribution of categorical outputs against targets as box plots
   if (fl_plt["cat"]) {
+    if (n_plot_rows > 1) {
+      width_title_cat <- plt_size_text*labeller_multiplier/length(unique(df_targets_cat$plot_grps))
+    } else {
+      width_title_cat <- plt_size_text*labeller_multiplier/n_plot_grps
+    }
+    
     l_plts[["cat"]] <- ggplot(data = df_targets_cat, 
                               aes(x = target_index)) + 
       geom_errorbar(aes(y    = targets, 
@@ -221,7 +232,7 @@ plot_coverage <- function(
                    width = 0.3,
                    position = position_nudge(x = 0.2)) +
       facet_wrap(~plot_grps, scales = "free", ncol = n_cols_max,
-                 labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*labeller_multiplier/length(unique(df_targets_cat$plot_grps))))) +
+                 labeller = labeller(plot_grps = label_wrap_gen(width_title_cat))) +
       scale_y_continuous(breaks = number_ticks(5)) +
       theme_bw(base_size = plt_size_text + 5) +
       theme(plot.title = element_text(size = plt_size_text, face = "bold"),
@@ -238,6 +249,12 @@ plot_coverage <- function(
   
   # Plot distribution of continuous outputs against targets as ribbons
   if (fl_plt["cont"]) {
+    if (n_plot_rows > 1) {
+      width_title_cont <- plt_size_text*labeller_multiplier/length(unique(df_targets_cont$plot_grps))
+    } else {
+      width_title_cont <- plt_size_text*labeller_multiplier/n_plot_grps
+    }
+    
     l_plts[["cont"]] <- ggplot(data = df_targets_cont, 
                                aes(x = target_index)) + 
       geom_errorbar(aes(y    = targets, 
@@ -255,7 +272,7 @@ plot_coverage <- function(
                   fill = "black",
                   alpha = 0.5) +
       facet_wrap(~plot_grps, scales = "free", ncol = n_cols_max,
-                 labeller = labeller(plot_grps = label_wrap_gen(plt_size_text*labeller_multiplier/length(unique(df_targets_cont$plot_grps))))) +
+                 labeller = labeller(plot_grps = label_wrap_gen(width_title_cont))) +
       scale_y_continuous(breaks = number_ticks(5)) +
       theme_bw(base_size = plt_size_text + 5) +
       theme(plot.title = element_text(size = plt_size_text, face = "bold"),
@@ -269,11 +286,6 @@ plot_coverage <- function(
             legend.position = "none") +
       labs(x     = "Age", y     = "")
   }
-  
-  # Get number of rows and columns of graphs
-  n_plot_grps <- length(unique(df_targets$plot_grps))
-  n_plot_rows <- ceiling(n_plot_grps/n_cols_max)
-  n_plot_cols <- ceiling(n_plot_grps/n_plot_rows)
   
   # Depending on number of plots, create final plot layout
   if (length(l_plts) == 1) {
