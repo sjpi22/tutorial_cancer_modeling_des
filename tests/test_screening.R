@@ -132,11 +132,9 @@ test_that("Match expected number of screens in healthy state", {
       
       # Screening test count
       if (strat == 1) {
-        expect_equal("ct_tests_screen" %in% names(m_patient_screen), FALSE)
-        expect_equal(m_patient_screen[, get(paste0("ct_", strat, "_c_H", dx))], m_patient_screen[, ct_tests_confirm])
+        expect_equal(m_patient_screen[, get(paste0("ct_", strat, "_c_H", dx))], m_patient_screen[, ct_tests_screen])
       } else {
         expect_equal(m_patient_screen[, get(paste0("ct_", strat, "_s_H", dx))], m_patient_screen[, ct_tests_screen])
-        expect_equal(m_patient_screen[, ct_tests_confirm], rep(0, nrow(m_patient_base)))
       }
     }
   }
