@@ -26,7 +26,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_bladder_incidental.yaml")
+file_configs <- file.path("configs", "configs_bladder.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
@@ -96,7 +96,7 @@ df_targets <- cbind(df_targets, m_output_quantiles)
 # Get and save coverage plot
 plt_coverage <- plot_coverage(df_targets = df_targets,
                               target_range = "ci",
-                              file_fig_coverage = file_fig_validation)
+                              outfile = file_fig_validation)
 plt_coverage
 
 # Get and save correlation plot

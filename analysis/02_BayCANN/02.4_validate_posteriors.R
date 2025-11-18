@@ -90,10 +90,17 @@ colnames(m_output_quantiles) <- names(v_quantiles_calc)
 # Append quantiles to df_targets
 df_targets_outputs <- cbind(df_targets, m_output_quantiles)
 
+# Get and save target plot
+plot_targets(df_targets = df_targets_outputs,
+             target_range = "ci",
+             outfile = file_fig_targets,
+             plt_size_text = plt_size_text)
+
 # Get and save coverage plot
 plt_coverage <- plot_coverage(df_targets = df_targets_outputs,
                               target_range = "ci",
-                              file_fig_coverage = file_fig_validation)
+                              outfile = file_fig_validation,
+                              plt_size_text = plt_size_text)
 plt_coverage
 
 # Plot by chain if applicable
@@ -116,7 +123,7 @@ if (plot_by_chain) {
     
     # Make coverage plot
     plt_coverage_chain <- plot_coverage(df_targets = df_targets_outputs,
-                               target_range = "ci",
-                               file_fig_coverage = file_fig_validation_chain)
+                                        target_range = "ci",
+                                        outfile = file_fig_validation_chain)
   }
 }

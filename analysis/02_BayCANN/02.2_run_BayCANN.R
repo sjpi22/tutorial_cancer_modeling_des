@@ -20,8 +20,6 @@ options(scipen = 999) # View data without scientific notation
 #### 1.Libraries and functions  ==================================================
 
 ###### 1.1 Load packages
-library(keras3)   # Install tensorflow beforehand
-library(tfruns)
 library(rstan)
 library(reshape2)
 library(tidyverse)
@@ -34,6 +32,8 @@ library(data.table)
 library(GGally) # For correlation graph
 library(dampack) # For prior-posterior graph
 library(assertthat)
+library(keras3)   # Install tensorflow beforehand
+library(tfruns)
 rstan_options(auto_write = TRUE)
 
 ###### 1.2 Load functions
@@ -67,8 +67,8 @@ list2env(configs$params_baycann$params_stan, envir = .GlobalEnv)
 log_dir <- file_logs
 
 ###### 2.2 Other parameters
-rerun_training <- FALSE # Switch to false to load data without rerunning ANN training
-rerun_stan <- FALSE # Switch to false to load data without rerunning Stan
+rerun_training <- TRUE # Switch to false to load data without rerunning ANN training
+rerun_stan <- TRUE # Switch to false to load data without rerunning Stan
 
 
 #### 3. Pre-processing actions  ===========================================
