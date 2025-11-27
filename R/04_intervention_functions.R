@@ -110,9 +110,6 @@ sample_test_chars <- function(l_params_tests) {
       } else {
         res$p_spec <- query_distr("r", 1, d_p_spec$distr, d_p_spec$params)
       }
-      
-      # Assign test type
-      res$type <- type
       return(res)
     })
   }
@@ -603,8 +600,7 @@ params_to_outputs <- function(l_params_model,
                                     list(m_cohort = m_cohort, 
                                          l_params_model = l_params_model,
                                          l_params_strategy = l_params_screen$strats[[strat]],
-                                         l_params_tests = l_params_screen$test_chars,
-                                         l_params_surveil = l_params_screen$surveil
+                                         l_params_tests = l_params_screen$test_chars
                                     ))
       
       # Calculate screening outcomes from updated data
