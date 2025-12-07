@@ -75,32 +75,21 @@ l_params_screen <- list(
         L = 1,
         P = 1
       ),
-      p_spec = 1,
-      type = "direct"),
-    screen = list(
-      p_sens = list(
-        L = 1,
-        P = 1
-      ),
-      p_spec = 1,
-      type = "indirect")),
+      p_spec = 1)),
   strats = list(
     strat_gold = list(
       mod = "confirm",
       age_screen_start = 50,
-      age_screen_stop = 71,
+      age_screen_stop = 70,
       int_screen = 10
     ),
     strat_screen = list(
-      mod = "screen",
+      mod = "confirm",
       age_screen_start = 50,
-      age_screen_stop = 71,
-      int_screen = 5,
-      mod_conf = "confirm",
-      int_conf = 10
+      age_screen_stop = 70,
+      int_screen = 1
     )
-  ),
-  surveil = params_screen$surveil
+  )
 )
 
 # Set counterfactual comparison parameters
@@ -132,9 +121,9 @@ test_that("Match expected number of screens in healthy state", {
       
       # Screening test count
       if (strat == 1) {
-        expect_equal(m_patient_screen[, get(paste0("ct_", strat, "_c_H", dx))], m_patient_screen[, ct_tests_screen])
+        expect_equal(m_patient_screen[, get(paste0("ct_", l_params_screen$strats[[strat]]$int_screen, "_H", dx))], m_patient_screen[, ct_tests_screen])
       } else {
-        expect_equal(m_patient_screen[, get(paste0("ct_", strat, "_s_H", dx))], m_patient_screen[, ct_tests_screen])
+        expect_equal(m_patient_screen[, get(paste0("ct_", l_params_screen$strats[[strat]]$int_screen, "_H", dx))], m_patient_screen[, ct_tests_screen])
       }
     }
   }
@@ -152,65 +141,39 @@ test_that("Match expected number of total screens for non-lesion cancer", {
     run_screening_counterfactual(m_patient_screen,
                                  l_params_model = modifyList(l_params_calib$l_params_model, list(v_states = c("H", "P", "C", "D"))),
                                  l_params_strategy = l_params_screen$strats[[strat]],
-                                 l_params_test = l_params_screen$test_chars,
-                                 l_params_surveil = NULL)
+                                 l_params_tests = l_params_screen$test_chars)
     
-    # Screening test count
-    if (strat == 1) {
-      expect_equal("ct_tests_screen" %in% names(m_patient_screen), FALSE)
-    } else {
-      expect_equal(m_patient_screen[, get(paste0("ct_", strat, "_s_P"))], m_patient_screen[, ct_tests_screen])
-    }
-    
-    # Confirmatory and base tests
-    expect_equal(m_patient_screen[, get(paste0("ct_", strat, "_c_P"))], m_patient_screen[, ct_tests_confirm])
-    expect_equal(m_patient_screen[, get(paste0("ct_", strat, "_b_P"))], m_patient_screen[, ct_tests_base])
+    # Screening and base tests
+    expect_equal(m_patient_screen[, get(paste("ct", l_params_screen$strats[[strat]]$int_screen, "s", dx, sep = "_"))], m_patient_screen[, ct_tests_screen])
+    expect_equal(m_patient_screen[, get(paste("ct", l_params_screen$strats[[strat]]$int_screen, "b", dx, sep = "_"))], m_patient_screen[, ct_tests_base])
   }
 })
 
-# Test screening during lesion state
+# Test screening with lesion state
 test_that("Match expected number of screens in lesion state", {
   dx <- "L"
-  # With and without surveillance
-  for (survstrat in c("nosurv", "surv")) {
-    # 1 - gold standard test, 2 - screening test
-    for (strat in 1:2) {
-      # Create copy of data
-      m_patient_screen <- copy(m_patient_base)
-      m_lesion_screen <- copy(m_lesion_base)
-      
-      # Combine with lesion data
-      m_cohort <- list(patient_level = m_patient_screen,
-                       lesion_level = m_lesion_screen)
-      
-      # Set surveillance parameters
-      if (survstrat == "nosurv") {
-        params_surv <- NULL
-      } else {
-        params_surv <- l_params_screen$surveil
-      }
-      
-      # Run screening with no surveillance
-      run_screening_counterfactual(m_cohort,
-                                   l_params_model = l_params_calib$l_params_model,
-                                   l_params_strategy = l_params_screen$strats[[strat]],
-                                   l_params_test = l_params_screen$test_chars,
-                                   l_params_surveil = params_surv)
-      
-      # Screening test count
-      if (strat == 1) {
-        expect_equal("ct_tests_screen" %in% names(m_patient_screen), FALSE)
-      } else {
-        expect_equal(m_patient_screen[, get(paste("ct", strat, survstrat, "s", dx, sep = "_"))], m_patient_screen[, ct_tests_screen])
-      }
-      
-      # Confirmatory and base tests
-      expect_equal(m_patient_screen[, get(paste("ct", strat, survstrat, "c", dx, sep = "_"))], m_patient_screen[, ct_tests_confirm])
-      expect_equal(m_patient_screen[, get(paste("ct", strat, survstrat, "b", dx, sep = "_"))], m_patient_screen[, ct_tests_base])
-      
-      # Detection time
-      expect_equal(m_cohort$lesion_level[[paste("test", strat, survstrat, "time_detected", sep = "_")]], m_cohort$lesion_level$time_detected)
-    }
+  # 1 - gold standard test, 2 - screening test
+  for (strat in 1:2) {
+    # Create copy of data
+    m_patient_screen <- copy(m_patient_base)
+    m_lesion_screen <- copy(m_lesion_base)
+    
+    # Combine with lesion data
+    m_cohort <- list(patient_level = m_patient_screen,
+                     lesion_level = m_lesion_screen)
+    
+    # Run screening with no surveillance
+    run_screening_counterfactual(m_cohort,
+                                 l_params_model = l_params_calib$l_params_model,
+                                 l_params_strategy = l_params_screen$strats[[strat]],
+                                 l_params_tests = l_params_screen$test_chars)
+    
+    # Screening and base test count
+    expect_equal(m_patient_screen[, get(paste("ct", l_params_screen$strats[[strat]]$int_screen, "s", dx, sep = "_"))], m_patient_screen[, ct_tests_screen])
+    expect_equal(m_patient_screen[, get(paste("ct", l_params_screen$strats[[strat]]$int_screen, "b", dx, sep = "_"))], m_patient_screen[, ct_tests_base])
+    
+    # Detection time
+    expect_equal(m_cohort$lesion_level[[paste("test", l_params_screen$strats[[strat]]$int_screen, "time_detected", sep = "_")]], m_cohort$lesion_level$time_detected)
   }
 })
 
@@ -270,7 +233,7 @@ test_that("Match expected number of screens with variation", {
         run_screening_counterfactual(m_cohort,
                                      l_params_model = l_params_model_temp,
                                      l_params_strategy = l_params_screen$strats[[strat]],
-                                     l_params_test = params_screen$test_chars, # Original distributions for screening parameters
+                                     l_params_tests = params_screen$test_chars, # Original distributions for screening parameters
                                      l_params_surveil = params_surv)
         
         # Consolidate results at original patient ID level
