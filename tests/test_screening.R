@@ -173,7 +173,7 @@ test_that("Match expected number of screens in lesion state", {
     expect_equal(m_patient_screen[, get(paste("ct", l_params_screen$strats[[strat]]$int_screen, "b", dx, sep = "_"))], m_patient_screen[, ct_tests_base])
     
     # Detection time
-    expect_equal(m_cohort$lesion_level[[paste("test", strat, "time_detected", sep = "_")]], m_cohort$lesion_level$time_detected)
+    expect_equal(m_cohort$lesion_level[[paste("test", l_params_screen$strats[[strat]]$int_screen, "time_detected", sep = "_")]], m_cohort$lesion_level$time_detected)
   }
 })
 
