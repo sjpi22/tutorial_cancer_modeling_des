@@ -28,7 +28,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_colorectal.yaml")
+file_configs <- file.path("configs", "configs_simulated.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs

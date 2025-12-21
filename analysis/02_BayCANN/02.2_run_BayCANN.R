@@ -32,7 +32,7 @@ library(data.table)
 library(GGally) # For correlation graph
 library(dampack) # For prior-posterior graph
 library(assertthat)
-library(keras3)   # Install tensorflow beforehand
+library(keras3)   # Install tensorflow beforehand using instructions in https://tensorflow.rstudio.com/install/
 library(tfruns)
 rstan_options(auto_write = TRUE)
 
