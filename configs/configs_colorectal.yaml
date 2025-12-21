@@ -29,6 +29,7 @@ paths:
       baycann_stats: "baycann_stats.rds"
       outputs: "baycann_decision_outputs.rds"
     figs:
+      targets: "baycann_targets.png"
       coverage: "baycann_coverage.png"
       history: "baycann_ann_history.png"
       ann_valid: "baycann_ann_validation.png"

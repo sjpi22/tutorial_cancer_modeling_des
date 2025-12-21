@@ -51,6 +51,10 @@ run_screening_counterfactual <- function(
     
     # Subset to patients that undergo screening beyond the healthy state
     m_patient_overwritten <- m_patients[!is.na(screen_age), .SD, .SDcols = intersect(v_cols_save, names(m_patients))]
+    
+    if ('L' %in% l_params_model$v_states) { 
+      m_lesion_overwritten <- m_lesions[pt_id %in% m_patients[!is.na(screen_age), pt_id], .SD, .SDcols = c("pt_id", "time_H_P")]
+    }
   }
   
   #### Case 2: Lesions developed by screen age, but no preclinical cancer ####
@@ -110,9 +114,6 @@ sample_test_chars <- function(l_params_tests) {
       } else {
         res$p_spec <- query_distr("r", 1, d_p_spec$distr, d_p_spec$params)
       }
-      
-      # Assign test type
-      res$type <- type
       return(res)
     })
   }
@@ -167,6 +168,86 @@ simulate_screening_H <- function(m_patients,
 }
 
 
+# Loop through screening in a healthy state to calculate false positives
+#
+# Variables that should already be defined in m_patients: 
+# screen_age (initial running age for screening),
+# time_screen_stop_H (censor time for screening healthy state), 
+# p_spec (specificity of screening test),
+# int_screen (screening interval),
+# int_conf (confirmatory test interval)
+#
+# Variables that will be created in m_patients:
+# temp_ct_tests_screen (count of screening tests)
+# temp_ct_tests_screen_FP (count of false positive screening tests, implying confirmatory test)
+run_screening_H_loop <- function(m_patients,
+                                 p_spec,
+                                 int_screen,
+                                 idx_screen = NULL, # Row indices of patients to screen (otherwise defaults to all rows)
+                                 verbose = FALSE) {
+  # Set all row indices if NULL
+  if (is.null(idx_screen)) {
+    idx_screen <- seq(nrow(m_patients))
+  }
+  
+  # Count number of healthy patients to screen
+  n_screen_healthy <- length(idx_screen)
+  
+  # Initialize test counts as 0
+  if (n_screen_healthy > 0) {
+    m_patients[, `:=` (temp_ct_tests_screen = 0,
+                       temp_ct_tests_screen_FP = 0)]
+  }
+  
+  # Run while loop
+  while (n_screen_healthy > 0) {
+    if (verbose) print(n_screen_healthy)
+    if (p_spec < 1) { # Imperfect specificity
+      # Generate number of screening tests before first false positive
+      m_patients[idx_screen, `:=` (
+        ct_tests_screen_before_FP = rgeom(
+          .N,
+          prob = 1 - p_spec
+        ))]
+      
+      # Calculate number of additional screening tests in healthy state
+      m_patients[idx_screen, `:=` (ct_tests_screen_add = pmin(ct_tests_screen_before_FP + 1, 
+                                                              (time_screen_stop_H - screen_age) %/% int_screen + ((time_screen_stop_H - screen_age) %% int_screen > 0), na.rm = T))] 
+      
+      # Increment number of screening tests and false positive tests for individuals with screening age before end of healthy state
+      m_patients[idx_screen, `:=` (
+        temp_ct_tests_screen = temp_ct_tests_screen + ct_tests_screen_add,
+        temp_ct_tests_screen_FP = temp_ct_tests_screen_FP + fifelse(ct_tests_screen_add <= ct_tests_screen_before_FP, 0, 1),
+        screen_age = screen_age + ct_tests_screen_add*int_screen
+      )]
+    } else { # Perfect specificity
+      # Calculate number of additional screening tests in healthy state
+      m_patients[idx_screen, `:=` (ct_tests_screen_add = (time_screen_stop_H - screen_age) %/% int_screen + ((time_screen_stop_H - screen_age) %% int_screen > 0))] 
+      
+      # Increment number of screening tests and false positive tests for individuals with screening age before end of healthy state
+      m_patients[idx_screen, `:=` (
+        temp_ct_tests_screen = temp_ct_tests_screen + ct_tests_screen_add,
+        screen_age = screen_age + ct_tests_screen_add*int_screen
+      )]
+    }
+    
+    # Recalculate indices and number of healthy patients remaining to screen
+    idx_screen <- idx_screen[m_patients[idx_screen, which(screen_age < time_screen_stop_H)]]
+    n_screen_healthy <- length(idx_screen)
+  }
+  
+  # Set variables that are no longer needed to NULL
+  if (p_spec < 1) { # Imperfect specificity
+  m_patients[, `:=` (ct_tests_screen_before_FP = NULL,
+                     ct_tests_screen_add = NULL)]
+  } else {
+    m_patients[, `:=` (ct_tests_screen_add = NULL)]
+  }
+  
+  return(NULL)
+}
+
+
 # Simulate screening occurring during the precancerous lesion state
 # Assumes that screening during healthy state has been completed for population,
 # which initializes the screen_age variable
@@ -197,6 +278,9 @@ simulate_screening_L <- function(m_patients,
     time_screen_stop_L = i.time_screen_stop_L, # Time that screening in the lesion state ends (updated if lesions are removed)
     time_screen_stop_max = pmin(time_H_Do, l_params_strategy$age_screen_stop + 1), # Maximum screening stop time due to death from other causes or screening stop age
     fl_removed = 0)]
+  
+  # Set patient-level screening age to NA for individuals that will be screened in the lesion state, to be updated
+  m_patients[idx_screen_pt, screen_age := NA]
   
   # Initialize running variable of row indices of lesions that may be detected with screening 
   # (note: will not include lesions that develop after maximum screening stop time or that are removed)
@@ -232,7 +316,7 @@ simulate_screening_L <- function(m_patients,
       m_lesions[idx_removed, `:=` (time_detected = screen_age)]
       
       # Update time to preclinical cancer for patients with removed lesions
-      m_removed_preclin <- m_lesions[pt_id %in% m_lesions[idx_removed, pt_id] & fl_removed == 0, .(time_H_P := min(time_H_Pj)), by = pt_id]
+      m_removed_preclin <- m_lesions[pt_id %in% m_lesions[idx_removed, pt_id] & fl_removed == 0, .(time_H_P = min(time_H_Pj)), by = pt_id]
       
       # Merge preclinical cancer data to patient IDs of all present lesions (so IDs with 0 remaining lesions have NA preclinical onset time)
       m_update <- merge(m_lesions[idx_removed, .(pt_id = unique(pt_id))], m_removed_preclin, by = "pt_id", all = TRUE)
@@ -244,7 +328,7 @@ simulate_screening_L <- function(m_patients,
       
       ###### 2.3 Update screening age and test count for patients with lesions present
       # Screening age
-      m_lesion[pt_id %in% m_lesion[idx_present], `:=` (screen_age = screen_age + int_screen)]
+      m_lesions[pt_id %in% m_lesions[idx_present, pt_id], `:=` (screen_age = screen_age + int_screen)]
       
       # Test count
       m_patients[pt_id %in% m_lesions[idx_present, pt_id], ct_tests_screen := ct_tests_screen + 1]
@@ -271,10 +355,9 @@ simulate_screening_L <- function(m_patients,
       # Merge data tables
       m_none <- merge(m_none, m_none_censor, all = TRUE)
       
-      # Merge screening info to patient data and set test modality
+      # Merge screening info to patient data
       m_patients[m_none, `:=` (
         screen_age = i.screen_age,
-        time_screen_stop_L = i.time_screen_stop_L, # Censor time for lesion state
         time_screen_stop_H = pmin(i.time_screen_stop_L, i.min_time_H_Lj, na.rm = T) # Censor time for healthy within lesion state
       )]
       
@@ -283,13 +366,13 @@ simulate_screening_L <- function(m_patients,
       
       # Loop over healthy time in lesion state
       run_screening_H_loop(m_patients,
-                           idx_none,
                            p_spec,
                            int_screen,
+                           idx_none,
                            verbose)
       
       # Update screening and false positive test counts
-      m_patients[idx_none, `:=` (ct_tests_screen := ct_tests_screen + temp_ct_tests_screen,
+      m_patients[idx_none, `:=` (ct_tests_screen = ct_tests_screen + temp_ct_tests_screen,
                                  ct_tests_positive = ct_tests_positive + temp_ct_tests_screen_FP)]
       
       # Set variables that are no longer needed to NULL
@@ -297,9 +380,8 @@ simulate_screening_L <- function(m_patients,
                          temp_ct_tests_screen = NULL,
                          temp_ct_tests_screen_FP = NULL)]
       
-      # For people who still receive screening in lesion state, merge updated screening age to lesion-level data
-      idx_continue_lesion <- idx_none[m_patients[idx_none, which(screen_age < time_screen_stop_L)]]
-      m_lesions[m_patients[idx_continue_lesion], `:=` (screen_age = i.screen_age)]
+      # Merge updated screening age to lesion-level data
+      m_lesions[m_patients[idx_none], `:=` (screen_age = i.screen_age)]
     }
     
     ###### 2.5 Recalculate number of lesions remaining to screen
@@ -311,6 +393,31 @@ simulate_screening_L <- function(m_patients,
     n_screen_lesion <- length(idx_screen_lesion)
   }
   
+  ###### 2.6 Flag false positives among individuals whose screen-eligible lesions have all been removed
+  # Find individuals who are still screened in lesion state but have not reached preclinical stage
+  m_none_final <- m_lesions[screen_age < time_screen_stop_L][rowid(pt_id) == 1]
+  
+  if (nrow(m_none_final) > 0) {
+    # Set screening variables
+    setkey(m_none_final, pt_id)
+    setnames(m_none_final, old = c("time_screen_stop_L"), new = c("time_screen_stop_H")) # Censor time for healthy within lesion state
+    
+    # Loop over healthy time in lesion state
+    run_screening_H_loop(m_none_final,
+                         p_spec,
+                         int_screen,
+                         idx_screen = NULL,
+                         verbose)
+    
+    # Update screening and false positive test counts
+    m_patients[m_none_final, `:=` (ct_tests_screen = ct_tests_screen + i.temp_ct_tests_screen,
+                                   ct_tests_positive = ct_tests_positive + i.temp_ct_tests_screen_FP)]
+    
+    # Merge updated screening age to lesion-level data
+    m_lesions[m_none_final, `:=` (screen_age = i.screen_age)]
+  }
+  
+  ###### 2.7 Update patient-level data for individuals with removed lesions
   # Merge updated preclinical cancer times to patient data
   m_preclin_final <- m_lesions[fl_removed == 1][rowid(pt_id) == 1, .(pt_id, time_H_P)]
   setkey(m_preclin_final, pt_id)
@@ -326,12 +433,18 @@ simulate_screening_L <- function(m_patients,
   m_patients[idx_preclin, `:=` (time_screen_censor = pmin(time_H_C, time_H_D, na.rm = T))]
   m_patients[idx_preclin, `:=` (time_screen_stop = pmin(time_screen_censor, l_params_strategy$age_screen_stop + 1))]
   
-  # Merge screening details for individuals still undergoing screening in preclinical cancer state
+  ###### 2.8 Update screening details for individuals still undergoing screening in preclinical cancer state
+  # Merge screening age
   m_screen_final <- m_lesions[!is.na(screen_age)][rowid(pt_id) == 1]
   m_patients[m_screen_final, `:=` (screen_age = i.screen_age)]
   
   # Reset screening age to NA if after censor date or end age
   m_patients[screen_age >= time_screen_stop, screen_age := NA]
+  
+  ###### 2.9 Remove unneeded variables
+  m_lesions[, `:=` (screen_age = NULL,
+                    time_screen_stop_L = NULL,
+                    time_screen_stop_max = NULL)]
   
   return(NULL)
 }
@@ -603,8 +716,7 @@ params_to_outputs <- function(l_params_model,
                                     list(m_cohort = m_cohort, 
                                          l_params_model = l_params_model,
                                          l_params_strategy = l_params_screen$strats[[strat]],
-                                         l_params_tests = l_params_screen$test_chars,
-                                         l_params_surveil = l_params_screen$surveil
+                                         l_params_tests = l_params_screen$test_chars
                                     ))
       
       # Calculate screening outcomes from updated data
