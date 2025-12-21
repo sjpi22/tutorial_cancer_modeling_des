@@ -65,8 +65,7 @@ visible FALSE
 <environment: R_GlobalEnv>
 [1] "Running on Sherlock"
 [1] "# parallel workers: 8"
-      user     system    elapsed 
-114981.941   1170.365  14842.062 
-[1] TRUE
-[1] TRUE
-[1] "Total runtime (hours): 4.122795"
+Error in { : task 1 failed - "NA/NaN argument"
+Calls: system.time -> %dopar% -> <Anonymous>
+Timing stopped at: 1.68 0.618 0.623
+Execution halted
