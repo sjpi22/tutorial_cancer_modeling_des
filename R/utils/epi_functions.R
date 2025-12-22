@@ -350,7 +350,7 @@ calc_nlesions <- function(m_lesions,
                           end_var, 
                           censor_var,
                           id_var = "pt_id",
-                          v_ages = c(0, NULL),
+                          v_ages = c(0, NA),
                           n_max = 3,
                           method = "cs",
                           dt_sample_ages = NULL, 
@@ -361,7 +361,7 @@ calc_nlesions <- function(m_lesions,
   
   # Set start and end ages
   start_age <- v_ages[1]
-  end_age <- ifelse(is.null(v_ages[2]), m_lesions[, max(get(censor_var))], v_ages[2])
+  end_age <- ifelse(is.na(v_ages[2]), m_lesions[, max(get(censor_var))], v_ages[2])
   
   if (method == "cs") {
     # Account for case of null data
@@ -600,10 +600,12 @@ calc_incidence <- function(m_patients,
     
     # Calculate standard error and confidence intervals
     if (output_uncertainty) {
-      ci_rate(event_counts, 
+      ci_rate(dt_event = event_counts, 
               conf_level = conf_level, 
               rate_unit = rate_unit,
-              calc_se = TRUE)
+              calc_se = TRUE,
+              var_event = "n_events",
+              var_total = "person_years_total")
     }
   } else {
     event_counts <- person_years_at_risk %>%

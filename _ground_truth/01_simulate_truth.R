@@ -1,7 +1,7 @@
 ###########################  Ground truth disease simulator  ################
 #
-#  Objective: Simulate targets for preclinical cancer prevalence and cancer 
-#  incidence with ground truth model
+#  Objective: Simulate cancer targets, background mortality data, and relative
+#  survival data for ground truth model
 ########################### <<<<<>>>>> ##############################################
 
 rm(list = ls()) # Clean environment
@@ -15,6 +15,7 @@ library(data.table)
 library(tidyverse)
 library(survival)
 library(assertthat)
+library(VGAM) # For Gompertz
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 
@@ -38,28 +39,37 @@ configs <- load_configs(file_configs)
 params_model <- configs$params_model
 params_calib <- configs$params_calib
 file_targets <- configs$params_calib$file_targets
+file_surv <- params_model$file.surv
+l_files_mort <- params_model$file.mort
 
 ###### 2.3 Other parameters
 # Simulation parameters and outcome reporting
 seed <- 2025 # Random seed for generating ground truth data
 conf_level <- 0.95 # Confidence level for calculating outcomes
 v_ages <- list( # Age ranges for calculating outcomes
-  prevalence = seq(30, 80, 10),
-  incidence = seq(30, 90, 10),
-  prevalence_lesion = seq(30, 80, 10)
+  prevalence_preclin = seq(30, 80, 10),
+  incidence_clin = seq(30, 90, 10),
+  prevalence_lesion = seq(30, 80, 10),
+  n_lesion = c(50, 80)
 )
 v_time_surv <- seq(0, 10) # Times from event to calculate relative survival
 n_cohort <- c(screen = 10000, pop = 100000) # Number to simulate for screen vs. population samples
 v_outcomes_cs <- c("prevalence", "nlesions") # Outcome types to calculate cross-sectionally
 l_outcome_grps <- list( # Outcomes to calculate together for screen vs. population samples
-  screen = c("prevalence_lesion", "n_lesions", "prevalence"),
-  pop = c("incidence", "stage_distr")
+  screen = c("prevalence_lesion", "n_lesion", "prevalence_preclin"),
+  pop = c("incidence_clin", "stage_distr")
 )
 
 # Prior generation
 prior_pct_width_init <- 0.8 # Percentage width of initial randomly generated prior bounds
 prior_pct_multiplier <- 0.2 # Final multiplier adjustment to increase bounds of priors
 
+# Distribution parameters for background mortality
+shape_male <- 0.000078
+scale_male <- 0.08
+multiplier_female <- 1/1.02
+max_age <- 110
+n_total <- 100000
 
 #### 3. Pre-processing ========================================================
 
@@ -113,10 +123,14 @@ for (target in names(l_params_outcome)) {
   l_params_outcome[[target]]$lit_params$v_ages <- v_ages[[target]]
 }
 
+# Plot to visualize background mortality distributions
+curve(pgompertz(x, shape = shape_male, scale = scale_male), 0, 110, ylim = c(0, 1)) # male
+curve(pgompertz(x, shape = shape_male*multiplier_female, scale = scale_male*multiplier_female), 0, 110, ylim = c(0, 1)) # female
+
 
 #### 4. Generate population data and outputs ========================================================
 
-###### 4.1 Simulate data and outputs
+###### 4.1 Simulate targets
 # Calculate outcomes from different simulated cohorts
 l_cohorts <- list()
 l_results <- list()
@@ -166,6 +180,8 @@ for (target in names(l_results)) {
       mutate(target_names = paste(target_groups, target_index, sep="_"))
   } else if (l_params_outcome[[target]]$outcome_type %in% c("nlesions")) {
     df_target <- df_target %>%
+      mutate(age_start = v_ages[[target]][1],
+             age_end = v_ages[[target]][2]) %>%
       rename(target_index = n_lesions,
              target_index_cat = n_lesions_cat,
              n = n_total) %>% 
@@ -216,6 +232,32 @@ output_surv <- with(summary(cancer_surv_fit, times = v_time_surv),
   mutate(stage = substring(stage, nchar(stage), nchar(stage)))
 
 
+###### 4.3 Calculate background mortality
+# Create necessary variables
+v_ages <- seq(0, max_age) # vector of ages
+shape <- c(male = shape_male, female = shape_male*multiplier_female)
+scale <- c(male = scale_male, female = scale_male*multiplier_female)
+
+l_df_mort <- list()
+for (sex in c("male", "female")) {
+  # Create mortality data table
+  df_mort <- data.table(
+    Age = v_ages,
+    pct_dead = pgompertz(v_ages, shape = shape[sex], scale = scale[sex])
+  )
+  
+  # Calculate probability of dying (qx) and number of survivors (lx)
+  df_mort[, `:=` (qx = diff(c(pct_dead, 1)),
+                  lx = n_total*(1-pct_dead))]
+  
+  # Remove pct_dead variable
+  df_mort[, pct_dead := NULL]
+  
+  # Save data table
+  l_df_mort[[sex]] <- df_mort
+}
+
+
 #### 5. Save outputs ========================================================
 
 # Check if data directory exists, make if not
@@ -225,7 +267,15 @@ dir.create(dirname(file_targets), showWarnings = FALSE)
 write.csv(df_target_full, file_targets, row.names = FALSE)
 
 # Save disease-specific relative survival from diagnosis
-write.csv(output_surv, params_model$file.surv, row.names = FALSE)
+write.csv(output_surv, file_surv, row.names = FALSE)
 
 # Save priors
 write.csv(prior_map, file = params_calib$file_priors, row.names = FALSE)
+
+# Save background mortality
+for (sex in names(l_df_mort)) {
+  # Write to csv file
+  write.table(l_df_mort[[sex]], 
+              file = l_files_mort[[sex]],
+              row.names=FALSE)
+}

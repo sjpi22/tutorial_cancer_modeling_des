@@ -17,7 +17,7 @@ library(data.table)
 library(cobs) # For fitting constrained B-splines
 library(sandwich) # For heteroskedasticity-robust linear model standard errors
 library(CVXR) # For deconvolution
-library(flexsurv) # If using log-logistic
+# library(flexsurv) # If using log-logistic
 
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 

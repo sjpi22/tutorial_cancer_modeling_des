@@ -92,7 +92,7 @@ params_priors:
 params_calib:
   seed_calib: 42
   file_priors: "data/simulated/priors.csv" # File path for prior distributions for calibration parameters
-  file_targets: "data/simulated/targets.xlsx" # File path for calibration targets
+  file_targets: "data/simulated/targets.csv" # File path for calibration targets
   l_params_outcome: # Parameters for calculating calibration outcomes
     prevalence_preclin:
       outcome_type: "prevalence"
