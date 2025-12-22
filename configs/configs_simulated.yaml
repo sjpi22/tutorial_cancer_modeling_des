@@ -5,7 +5,7 @@ paths:
   root_dir: # Root directories
     data: "data"
     output: "output/simulated"
-    figs: "figs"
+    figs: "figs/simulated"
   file_params_calib: "output/simulated/params_calib_updated.rds" # File to save list of calibration parameters updated with cohort size
   file_plot_labels: "data/target_plot_labels.csv" # File path with plot labels for calibration targets and outcomes
   files_coverage: # File names for coverage analysis outputs
@@ -91,8 +91,8 @@ params_priors:
 # Calibration parameters (inputs to load_calib_params() in R/03_calibration_general_functions.R after modifications in configs/process_configs.R for lesion model)
 params_calib:
   seed_calib: 42
-  file_targets: "data/simulated/targets.csv" # File path for calibration targets
   file_priors: "data/simulated/priors.csv" # File path for prior distributions for calibration parameters
+  file_targets: "data/simulated/targets.xlsx" # File path for calibration targets
   l_params_outcome: # Parameters for calculating calibration outcomes
     prevalence_preclin:
       outcome_type: "prevalence"

@@ -10,7 +10,6 @@ run_base_model <- function(l_params_model) {
   if(!is.null(l_params_model$seed)) {
     set.seed(l_params_model$seed)
   }
-  
   # Initialize matrix of patient data
   m_patients <- initialize_cohort(l_params_model)
   
