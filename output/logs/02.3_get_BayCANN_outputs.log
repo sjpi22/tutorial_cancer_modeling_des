@@ -45,14 +45,24 @@ visible FALSE                         FALSE
         R/03_calibration_general_functions.R R/03a_baycann_functions.R
 value   ?                                    ?                        
 visible FALSE                                FALSE                    
-        R/utils/data_processing.R R/utils/distr_empirical.R
-value   ?                         ?                        
-visible FALSE                     FALSE                    
-        R/utils/epi_functions.R R/utils/query_distr.R R/utils/sum_of_cdfs.R
-value   ?                       ?                     ?                    
-visible FALSE                   FALSE                 FALSE                
+        R/04_intervention_functions.R R/utils/data_processing.R
+value   ?                             ?                        
+visible FALSE                         FALSE                    
+        R/utils/distr_empirical.R R/utils/epi_functions.R R/utils/query_distr.R
+value   ?                         ?                       ?                    
+visible FALSE                     FALSE                   FALSE                
+        R/utils/sum_of_cdfs.R
+value   ?                    
+visible FALSE                
 <environment: R_GlobalEnv>
 [1] "Running on Sherlock"
 [1] "# parallel workers: 12"
-     user    system   elapsed 
-80382.363   846.321  6944.730 
+Error in { : 
+  task 1 failed - "Join results in 10898038 rows; more than 5608073 = nrow(x)+nrow(i). Check for duplicate key values in i each of which join to the same group in x over and over again. If that's ok, try by=.EACHI to run j for each group to avoid the large allocation. If you are sure you wish to proceed, rerun with allow.cartesian=TRUE. Otherwise, please search for this error message in the FAQ, Wiki, Stack Overflow and data.table issue tracker for advice."
+Calls: system.time -> %dopar% -> <Anonymous>
+In addition: Warning message:
+In mclapply(argsList, FUN, mc.preschedule = preschedule, mc.set.seed = set.seed,  :
+  scheduled core 9 did not deliver a result, all values of the job will be affected
+Timing stopped at: 1.44e+05 1301 1.371e+04
+Execution halted
+slurmstepd: error: Detected 1 oom_kill event in StepId=12273544.batch. Some of the step tasks have been OOM Killed.
