@@ -64,7 +64,7 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   # Load parameter mapping
   prior_map <- setDT(read.csv(file_priors))
   if (!"param_val" %in% colnames(prior_map)) {
-    prior_map[, param_val := NA]
+    prior_map[, param_val := NA_real_]
   }
   prior_map[is.na(param_val), param_val := rowMeans(.SD), .SDcols = c("min", "max")]
   

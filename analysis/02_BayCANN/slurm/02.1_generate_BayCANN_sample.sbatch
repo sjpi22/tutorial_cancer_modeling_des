@@ -4,7 +4,7 @@
 #SBATCH --time=12:00:00
 #SBATCH --mem=32G
 #SBATCH --ntasks-per-node=8
-#SBATCH --output=output/logs/02.1_generate_BayCANN_sample.log
+#SBATCH --output=output/logs/02.1_generate_BayCANN_sample_simulated.log
 #SBATCH --mail-user=sjpi@stanford.edu
 #SBATCH --mail-type=ALL
 
@@ -15,4 +15,4 @@
 ml R/4.4.2
 
 # run R code
-Rscript analysis/02_BayCANN/02.1_generate_BayCANN_sample.R
+Rscript analysis/02_BayCANN/02.1_generate_BayCANN_sample.R simulated

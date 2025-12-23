@@ -28,7 +28,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # User-set default config
-config_default <- "simulated"
+config_default <- "colorectal"
 
 # Set configs to load
 if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) { # If running on cluster
@@ -48,6 +48,7 @@ if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) { # If running on cl
 # Load configs
 file_configs <- file.path("configs", paste0("configs_", config_version, ".yaml"))
 configs <- load_configs(file_configs)
+print(paste("config path:", file_configs))
 
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib

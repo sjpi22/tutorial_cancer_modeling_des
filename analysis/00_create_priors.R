@@ -31,7 +31,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_colorectal.yaml")
+file_configs <- file.path("configs", "configs_simulated.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
@@ -291,9 +291,7 @@ for (param in names(params_onset_scaled)) {
   df_priors[df_priors$var_id == paste0("d_", var_onset, ".", param), c("min", "max")] <- as.list(params_onset_scaled[[param]])
   
   # Add mean if there is an initial guess column
-  if ("param_val" %in% colnames(df_priors)) {
-    df_priors[df_priors$var_id == paste0("d_", var_onset, ".", param), "param_val"] <- params_onset[[1]][[param]]
-  }
+  df_priors[df_priors$var_id == paste0("d_", var_onset, ".", param), "param_val"] <- params_onset[[1]][[param]]
 }
 
 # Overwrite prior file
