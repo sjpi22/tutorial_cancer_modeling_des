@@ -166,25 +166,21 @@ for (target in names(l_results)) {
              target_names = paste(target_groups, age_start, age_end, sep="_"))
     
     # Rename column for total n
-    if (l_params_outcome[[target]]$outcome_type %in% c("prevalence")) {
+    if (l_params_outcome[[target]]$outcome_type %in% c("incidence")) {
       df_target <- df_target %>%
-        rename(n = n_total)
-    } else {
-      df_target <- df_target %>%
-        rename(n = person_years_total)
+        rename(n_total = person_years_total,
+               n_cases = n_events)
     }
   } else if (l_params_outcome[[target]]$outcome_type %in% c("distr")) {
     df_target <- df_target %>%
-      rename(target_index = stage_dx,
-             n = n_total) %>%
+      rename(target_index = stage_dx) %>%
       mutate(target_names = paste(target_groups, target_index, sep="_"))
   } else if (l_params_outcome[[target]]$outcome_type %in% c("nlesions")) {
     df_target <- df_target %>%
       mutate(age_start = v_ages[[target]][1],
              age_end = v_ages[[target]][2]) %>%
       rename(target_index = n_lesions,
-             target_index_cat = n_lesions_cat,
-             n = n_total) %>% 
+             target_index_cat = n_lesions_cat) %>% 
       mutate(target_groups = target_groups,
              target_names = paste(target_groups, target_index, sep="_"))
   }
@@ -198,8 +194,9 @@ df_target_full <- df_target_full %>%
   dplyr::select(any_of(c("target_names", "target_groups", 
                          "target_index", "target_index_cat",
                          "age_start", "age_end",
-                         "targets", "n", 
-                         "se", "ci_lb", "ci_ub", 
+                         "targets", "se",
+                         "ci_lb", "ci_ub", 
+                         "n_cases", "n_total",
                          "sex", "lesion_type")))
 
 

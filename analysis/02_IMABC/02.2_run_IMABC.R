@@ -36,9 +36,28 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
+# User-set default config
+config_default <- "bladder"
+
+# Set configs to load
+if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) { # If running on cluster
+  # Import arguments from Terminal
+  args <- commandArgs(trailingOnly = TRUE)
+  
+  # Set config version to argument value or default if not provided
+  if (length(args) > 0) {
+    config_version <- args[1]
+  } else {
+    config_version <- config_default
+  }
+} else { # If running locally, set configs to default
+  config_version <- config_default
+}
+
 # Load configs
-file_configs <- file.path("configs", "configs_bladder.yaml")
+file_configs <- file.path("configs", paste0("configs_", config_version, ".yaml"))
 configs <- load_configs(file_configs)
+print(paste("config path:", file_configs))
 
 # Extract relevant parameters from configs
 file_params_calib <- configs$paths$file_params_calib
