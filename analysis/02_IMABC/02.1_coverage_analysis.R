@@ -30,7 +30,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # User-set default config
-config_default <- "bladder"
+config_default <- "simulated"
 
 # Set configs to load
 if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) { # If running on cluster
@@ -139,9 +139,12 @@ saveRDS(list(m_param_samp = m_param_samp,
              runtime = stime), 
         file = file_coverage)
 
+# Load coverage data
+l_data_coverage <- readRDS(file_coverage)
+
 # Plot and save coverage
 plt_coverage <- plot_coverage(df_targets = df_targets, 
-                              m_outputs = m_outputs, 
+                              m_outputs = l_data_coverage$m_calib_outputs, 
                               outfile = file_fig_coverage,
                               target_range = "ci")
 plt_coverage

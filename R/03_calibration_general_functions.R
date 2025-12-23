@@ -457,6 +457,9 @@ plot_coverage <- function(
   
   # Save plot and adjust size based on number of rows and columns
   if (!is.null(outfile)) {
+    # Check if directory exists, make if not
+    dir.create(dirname(outfile), showWarnings = FALSE)
+    
     # Save plot
     ggsave(outfile, plot = plt,
            width = n_plot_cols*4, height = 4*n_plot_rows)
