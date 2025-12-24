@@ -28,8 +28,14 @@ load_calib_params <- function(l_params_model, # Model parameters to update
   # Load targets
   df_targets_flattened <- setDT(load_calibration_targets(file_targets))
   
+  # Subset targets to included ones if applicable
+  if ("include_target" %in% names(df_targets_flattened)) {
+    df_targets_flattened <- df_targets_flattened %>%
+      filter(include_target == T)
+  }
+  
   # Subset targets to specified sex if applicable
-  if ("sex" %in% df_targets_flattened) {
+  if ("sex" %in% names(df_targets_flattened)) {
     df_targets_flattened <- df_targets_flattened %>%
       filter(sex %in% c(l_params_model$sex, "both"))
   }

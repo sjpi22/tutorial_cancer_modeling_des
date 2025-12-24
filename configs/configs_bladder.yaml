@@ -76,6 +76,7 @@ params_model:
 params_priors:
   v_state_targets: 
     C: "incidence_clin"
+    P: "prevalence_incidental"
   multiplier_bounds: 0.5 # Factor by which to expand estimated prior bounds
   var_index: "target_index" # Column name of index (e.g., age) associated with target
   v_cols: # Names of columns in target data for target, lower bound, and upper bound
@@ -114,6 +115,18 @@ params_calib:
         grouping_var: "stage_dx"
         event_var: "time_H_C"
         censor_var: "time_H_D"
+    prevalence_incidental:
+      outcome_type: "prevalence"
+      categorical: FALSE
+      get_params:
+        m_patients: "m_patients"
+      lit_params:
+        start_var: "time_H_P"
+        end_var: "time_H_C"
+        censor_var: "time_H_D"
+        condition_var: "time_H_P"
+        method: "cs"
+        sample_var: "time_H_D"
   l_censor_vars:
     m_patients:
       time_screen_censor: ["time_H_C", "time_H_D"]
@@ -134,15 +147,15 @@ params_coverage:
 # Parameters specific to IMABC
 params_imabc:
   alpha_current: 1.0e-15
-  alpha_stop: 0.05
+  alpha_stop: 1e-4
   fn_use_seed: FALSE
-  N_start_multiplier: 1000 # Number of initial samples per parameter
+  N_start_multiplier: 500 # Number of initial samples per parameter
   vars_rate: "incidence_clin" # Target group names for any targets calculated as rates instead of proportions
   optional_args:
-    N_centers: 8
+    N_centers: 5
     N_post: 1000
-    Center_n: 100
-    max_iter: 1000
+    Center_n: 50
+    max_iter: 1200
 
 # Parameters specific to BayCANN
 params_baycann:

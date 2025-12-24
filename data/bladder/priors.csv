@@ -1,7 +1,7 @@
 "var_name","idx","var_distr","param_name","var_id","distr","min","max","param_val"
 "d_time_H_P",NA,"weibull","cure_max","d_time_H_P.cure_max","unif",0.04,0.1,0.045
-"d_time_H_P",NA,"weibull","shape","d_time_H_P.shape","unif",3.27843123035322,11.875026701832,7.91668446788802
-"d_time_H_P",NA,"weibull","scale","d_time_H_P.scale","unif",40.5029257544478,133.117573161017,81.0058515088955
+"d_time_H_P",NA,"weibull","shape","d_time_H_P.shape","unif",2.88882372234565,11.7332042188705,7.82213614591368
+"d_time_H_P",NA,"weibull","scale","d_time_H_P.scale","unif",41.1440475127186,148.746187781162,82.522318572547
 "d_time_P1_P2",NA,"exponential","rate","d_time_P1_P2.rate","unif",0.05,2,0.2
 "hr_cancer",1,NA,NA,"hr_cancer.1","unif",0.7,3,1.6
 "hr_cancer",2,NA,NA,"hr_cancer.2","unif",0.7,3,1

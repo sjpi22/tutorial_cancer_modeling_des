@@ -30,7 +30,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # User-set default config
-config_default <- "simulated"
+config_default <- "bladder"
 
 # Set configs to load
 if(!is.na(as.integer(Sys.getenv("SLURM_NTASKS_PER_NODE")))) { # If running on cluster
