@@ -178,8 +178,8 @@ simulate_additional_lesions <- function(m_patients, l_params_model) {
       # Calculate time from birth to lesion-specific onset
       m_lesions[, time_H_Lj := time_H_L + time_L_Lj]
       
-      # Set pt_id as key
-      setkey(m_lesions, pt_id)
+      # Set pt_id and lesion ID as key
+      setkey(m_lesions, pt_id, lesion_id)
     }
     return(m_lesions)
   })
@@ -355,8 +355,8 @@ run_screening_counterfactual <- function(
     m_lesions <- m_cohort$lesion_level
     if (reversible) {
       l_data_overwritten <- list(cols_orig = list(
-        m_patients = copy(names(m_patients)),
-        m_lesions = copy(names(m_lesions))
+        patient_level = copy(names(m_patients)),
+        lesion_level = copy(names(m_lesions))
       ))
     }
   }
@@ -378,7 +378,7 @@ run_screening_counterfactual <- function(
   # Save data that may be overwritten due to screening
   if (reversible) {
     v_cols_save <- c(
-      "pt_id", "time_H_P", "time_H_C", "time_H_Dc", "time_H_D", "time_P_C", "time_C_Dc", "time_C_D", "time_screen_censor", "stage_dx", "fl_Dc", "ct_tests_base"
+      key(m_patients), "time_H_P", "time_H_C", "time_H_Dc", "time_H_D", "time_P_C", "time_C_Dc", "time_C_D", "time_screen_censor", "stage_dx", "fl_Dc", "ct_tests_base"
     )
     
     if (!'L' %in% l_params_model$v_states) { # Time to cancer onset would not change if cancer is de novo
@@ -388,8 +388,9 @@ run_screening_counterfactual <- function(
     # Subset to patients that undergo screening beyond the healthy state
     m_patient_overwritten <- m_patients[!is.na(screen_age), .SD, .SDcols = intersect(v_cols_save, names(m_patients))]
     
-    if ('L' %in% l_params_model$v_states) { 
-      m_lesion_overwritten <- m_lesions[pt_id %in% m_patients[!is.na(screen_age), pt_id], .SD, .SDcols = c("pt_id", "time_H_P")]
+    if ('L' %in% l_params_model$v_states) {
+      m_lesion_overwritten <- m_lesions[pt_id %in% m_patients[!is.na(screen_age), pt_id], .SD, .SDcols = c(key(m_lesions), "time_H_P")]
+      setkeyv(m_lesion_overwritten, key(m_lesions))
     }
   }
   
@@ -1147,7 +1148,6 @@ swap_data <- function(data_start, data_swap, cols_keep = NULL) {
 
 # Internal function to swap data for single data table
 swap_data_table <- function(data_start, data_swap, cols_keep = NULL) {
-  browser()
   # Error handling
   if (!is.data.table(data_swap) | !is.data.table(data_start)) {
     stop("All items must be data tables")

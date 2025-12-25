@@ -69,19 +69,28 @@ load_model_params <- function(
   l_lifetables <- load_lifetables(l_filepaths=file.mort, skip=lifetable_skip) # Background mortality
   
   #### Create background mortality distributions and get maximum age ####
-  d_time_H_Do <- list()
-  max_age <- 0
-  for(label in names(l_lifetables)) {
-    d_time_H_Do[[label]] <- with(l_params_model, {
-      l_distr <- set_mort_distr(
-        l_lifetables, 
-        label, 
-        year_base
-      )
-    })
-    max_age <- max(max_age, l_lifetables[[label]]$Age)
+  if (!is.null(file.mort)) {
+    d_time_H_Do <- list()
+    max_age <- 0
+    for(label in names(l_lifetables)) {
+      d_time_H_Do[[label]] <- with(l_params_model, {
+        l_distr <- set_mort_distr(
+          l_lifetables, 
+          label, 
+          year_base
+        )
+      })
+      max_age <- max(max_age, l_lifetables[[label]]$Age)
+    }
+    max_age <- max_age + 1
+  } else {
+    # If no survival file, create placeholder for true survival distribution 
+    # from diagnosis. Manually input parameters after running function in the 
+    # form distr = <string> and params = <list of named parameters>
+    d_time_H_Do <- list(distr = NULL,
+                        params = NULL,
+                        src = "known")
   }
-  max_age <- max_age + 1
   
   # If survival data filepath is given, load disease-specific relative survival 
   # and create distributions

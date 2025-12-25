@@ -30,6 +30,7 @@ sapply(distr.sources, source, .GlobalEnv)
 file_configs <- file.path("configs", "configs_simulated.yaml")
 file_true_params <- file.path("_ground_truth", "true_params.xlsx")
 file_constant_priors <- file.path("_ground_truth", "constant_priors.xlsx")
+file_model_params <- file.path("_ground_truth", "params_model.rds")
 
 ###### 2.2 Configurations
 # Load configs
@@ -71,6 +72,11 @@ multiplier_female <- 1/1.02
 max_age <- 110
 n_total <- 100000
 
+# Plot to visualize background mortality distributions
+curve(pgompertz(x, shape = shape_male, scale = scale_male), 0, 110, ylim = c(0, 1)) # male
+curve(pgompertz(x, shape = shape_male*multiplier_female, scale = scale_male*multiplier_female), 0, 110, ylim = c(0, 1)) # female
+
+
 #### 3. Pre-processing ========================================================
 
 # Set seed
@@ -82,11 +88,32 @@ df_constant_priors <- read_xlsx(file_constant_priors)
 # Load ground truth model parameters (with file_surv set to NULL as survival data is generated in this script)
 l_params_model <- do.call(load_model_params, c(
   modifyList(params_model,
-             list(file.surv = NULL),
+             list(file.mort = NULL,
+                  file.surv = NULL),
              keep.null = T),
   list(seed = NULL,
        file.distr = file_true_params)
 ))
+
+# Set distributions for background mortality
+l_params_model$d_time_H_Do <- list()
+l_params_model$d_time_H_Do$male <- list(
+  distr = "gompertz",
+  params = list(
+    shape = shape_male,
+    scale = scale_male
+  ),
+  src = "known"
+)
+
+l_params_model$d_time_H_Do$female <- list(
+  distr = "gompertz",
+  params = list(
+    shape = shape_male*multiplier_female,
+    scale = scale_male*multiplier_female
+  ),
+  src = "known"
+)
 
 # Map variables to parameters for tuning - make dataframe of all parameters with "src = unknown"
 param_map <- make_param_map(l_params_model)
@@ -122,10 +149,6 @@ for (target in names(l_params_outcome)) {
   # If applicable, add age ranges for calculating outcomes
   l_params_outcome[[target]]$lit_params$v_ages <- v_ages[[target]]
 }
-
-# Plot to visualize background mortality distributions
-curve(pgompertz(x, shape = shape_male, scale = scale_male), 0, 110, ylim = c(0, 1)) # male
-curve(pgompertz(x, shape = shape_male*multiplier_female, scale = scale_male*multiplier_female), 0, 110, ylim = c(0, 1)) # female
 
 
 #### 4. Generate population data and outputs ========================================================
@@ -240,7 +263,9 @@ for (sex in c("male", "female")) {
   # Create mortality data table
   df_mort <- data.table(
     Age = v_ages,
-    pct_dead = pgompertz(v_ages, shape = shape[sex], scale = scale[sex])
+    pct_dead = query_distr("p", v_ages, 
+                           l_params_model$d_time_H_Do[[sex]]$distr,
+                           l_params_model$d_time_H_Do[[sex]]$params)
   )
   
   # Calculate probability of dying (qx) and number of survivors (lx)
@@ -256,6 +281,9 @@ for (sex in c("male", "female")) {
 
 
 #### 5. Save outputs ========================================================
+
+# Save true model parameters
+saveRDS(l_params_model, file = file_model_params)
 
 # Check if data directory exists, make if not
 dir.create(dirname(file_targets), showWarnings = FALSE)
