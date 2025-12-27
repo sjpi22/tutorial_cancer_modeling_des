@@ -94,6 +94,9 @@ simulate_baseline_data <- function(m_patients, l_params_model) {
         d_time_H_Do[["female"]]$distr, 
         d_time_H_Do[["female"]]$params
       )]
+      
+      # Remove male index that was automatically created
+      setindex(m_patients, NULL)
     } else { # Sample time to death from other causes for single sex case
       # Assign male / female
       m_patients[, male := (sex == "male")]
@@ -342,8 +345,14 @@ run_screening_counterfactual <- function(
     l_params_strategy,
     l_params_tests,
     reversible = TRUE,
+    seed = NULL,
     verbose = FALSE
 ) {
+  # If non-null seed, reset seed for every run
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+  
   # Separate patient and lesion data as necessary and save original columns
   if (is.data.table(m_cohort)) {
     m_patients <- m_cohort
@@ -1037,7 +1046,8 @@ params_to_outputs <- function(l_params_model,
                                     list(m_cohort = m_cohort, 
                                          l_params_model = l_params_model,
                                          l_params_strategy = l_params_screen$strats[[strat]],
-                                         l_params_tests = l_params_screen$test_chars
+                                         l_params_tests = l_params_screen$test_chars,
+                                         seed = l_params_screen$seed
                                     ))
       
       # Calculate screening outcomes from updated data
@@ -1049,6 +1059,17 @@ params_to_outputs <- function(l_params_model,
       m_cohort_screen <- swap_data(data_start = m_cohort, 
                                    data_swap = l_data_overwritten$m_cohort,
                                    cols_keep = l_data_overwritten$cols_orig)
+      
+      # If unit test, check that data has not changed
+      if (unit_test) {
+        if (is.data.table(m_cohort_orig)) {
+          assert_that(all.equal(m_cohort_orig, m_cohort[, -c("time_screen_censor")]))
+        } else {
+          for (dt in names(m_cohort_orig)) {
+            assert_that(all.equal(m_cohort_orig[[dt]], m_cohort[[dt]][, -c("time_screen_censor")]))
+          }
+        }
+      }
       
       # Add individual-level data changed in screening scenario to results list if necessary
       if (individual_data) {
