@@ -4,7 +4,7 @@
 #SBATCH --time=4:00:00
 #SBATCH --mem=32G
 #SBATCH --ntasks-per-node=8
-#SBATCH --output=output/logs/02.4_get_IMABC_outputs_bladder.log
+#SBATCH --output=output/logs/02.4_get_IMABC_outputs_simulated.log
 #SBATCH --mail-user=sjpi@stanford.edu
 #SBATCH --mail-type=ALL
 
@@ -19,4 +19,4 @@
 ml R/4.4.2
 
 # run R code
-Rscript analysis/02_IMABC/02.4_get_IMABC_outputs.R bladder
+Rscript analysis/02_IMABC/02.4_get_IMABC_outputs.R simulated

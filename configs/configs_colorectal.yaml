@@ -272,42 +272,9 @@ params_screen:
           shape1: 100
           shape2: 0
       cost_ratio: 1
-    stool:
-      d_p_sens:
-        L:
-          distr: "beta"
-          params:
-            shape1: 15
-            shape2: 75
-        P: 
-          distr: "beta"
-          params:
-            shape1: 70
-            shape2: 30
-      d_p_spec:
-        distr: "beta"
-        params:
-          shape1: 84
-          shape2: 16
-      cost_ratio: 0.1
   strats: # Screening test strategies 
     strategy_c_int10:
       mod: "col"
       age_screen_start: 45
       age_screen_stop: 75
       int_screen: 10
-    strategy_c_int30: # Effectively one-time screening at age 50
-      mod: "col"
-      age_screen_start: 45
-      age_screen_stop: 75
-      int_screen: 30
-    strategy_s_int10:
-      mod: "stool"
-      age_screen_start: 45
-      age_screen_stop: 75
-      int_screen: 10
-    strategy_s_int30: # Effectively one-time screening at age 50
-      mod: "stool"
-      age_screen_start: 45
-      age_screen_stop: 75
-      int_screen: 30

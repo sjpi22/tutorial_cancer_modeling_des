@@ -36,6 +36,10 @@ library(keras3)   # Install tensorflow beforehand using instructions in https://
 library(tfruns)
 rstan_options(auto_write = TRUE)
 
+# If R session is crashing, uncomment 2 lines below and run separately to make sure tensorflow and keras work
+# library(tensorflow)
+# tf$constant("Hello TensorFlow!") # Expect “tf.Tensor(b'Hello TensorFlow!', shape=(), dtype=string)”
+
 ###### 1.2 Load functions
 distr.sources <- list.files("R", 
                             pattern="*.R$", full.names=TRUE, 
@@ -47,7 +51,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_colorectal.yaml")
+file_configs <- file.path("configs", "configs_simulated.yaml")
 configs <- load_configs(file_configs)
 
 # Extract calibration parameters from configs

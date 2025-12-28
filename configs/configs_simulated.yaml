@@ -296,51 +296,12 @@ params_screen:
       type: "indirect"
       cost_ratio: 0.1
   strats: # Screening test strategies 
-    strategy_c_int5:
-      mod: "confirm"
-      age_screen_start: 50
-      age_screen_stop: 70
-      int_screen: 5
-      mod_conf: ~
-    strategy_c_int10:
-      mod: "confirm"
-      age_screen_start: 50
-      age_screen_stop: 70
-      int_screen: 10
-      mod_conf: ~
-    strategy_c_int20: # Effectively two-time screening at age 50 and 70
-      mod: "confirm"
-      age_screen_start: 50
-      age_screen_stop: 70
-      int_screen: 20
-      mod_conf: ~
     strategy_c_int30: # Effectively one-time screening at age 50
       mod: "confirm"
       age_screen_start: 50
       age_screen_stop: 70
       int_screen: 30
       mod_conf: ~
-    strategy_s_int1:
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 70
-      int_screen: 1
-      mod_conf: "confirm"
-      int_conf: 10
-    strategy_s_int3:
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 70
-      int_screen: 3
-      mod_conf: "confirm"
-      int_conf: 10
-    strategy_s_int5:
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 70
-      int_screen: 5
-      mod_conf: "confirm"
-      int_conf: 10
     strategy_s_int10:
       mod: "screen"
       age_screen_start: 50
@@ -348,22 +309,3 @@ params_screen:
       int_screen: 10
       mod_conf: "confirm"
       int_conf: 10
-    strategy_s_int20: # Effectively two-time screening at age 50 and 70
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 70
-      int_screen: 20
-      mod_conf: "confirm"
-      int_conf: 20
-    strategy_s_int30: # Effectively one-time screening at age 50
-      mod: "screen"
-      age_screen_start: 50
-      age_screen_stop: 70
-      int_screen: 30
-      mod_conf: "confirm"
-      int_conf: 30
-  surveil: # Surveillance regimen
-    mod: "confirm"
-    n_detected: [3, 1]
-    int_surveil: [3, 7]
-    mod_conf: ~

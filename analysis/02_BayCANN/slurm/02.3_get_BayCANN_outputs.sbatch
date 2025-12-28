@@ -4,7 +4,7 @@
 #SBATCH --time=16:00:00
 #SBATCH --mem=30G
 #SBATCH --ntasks-per-node=12
-#SBATCH --output=output/logs/02.3_get_BayCANN_outputs.log
+#SBATCH --output=output/logs/02.3_get_BayCANN_outputs_simulated.log
 #SBATCH --mail-user=sjpi@stanford.edu
 #SBATCH --mail-type=ALL
 
@@ -19,4 +19,4 @@
 ml R/4.4.2
 
 # run R code
-Rscript analysis/02_BayCANN/02.3_get_BayCANN_outputs.R
+Rscript analysis/02_BayCANN/02.3_get_BayCANN_outputs.R simulated
