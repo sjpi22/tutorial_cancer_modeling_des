@@ -10,7 +10,7 @@
 # - sbatch _ground_truth/slurm/02_get_true_outcomes.sbatch
 
 # load R module
-ml R/4.3.2
+ml R/4.4.2
 
 # run R code
 Rscript _ground_truth/02_get_true_outcomes.R
