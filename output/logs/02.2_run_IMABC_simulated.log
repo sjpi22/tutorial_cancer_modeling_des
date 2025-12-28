@@ -1,2 +1,127 @@
 - One or more packages recorded in the lockfile are not installed.
 - Use `renv::status()` for more details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.1.4     ✔ readr     2.1.5
+✔ forcats   1.0.0     ✔ stringr   1.5.2
+✔ ggplot2   4.0.0     ✔ tibble    3.3.0
+✔ lubridate 1.9.4     ✔ tidyr     1.3.1
+✔ purrr     1.1.0     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ purrr::accumulate()  masks foreach::accumulate()
+✖ dplyr::between()     masks data.table::between()
+✖ dplyr::filter()      masks stats::filter()
+✖ dplyr::first()       masks data.table::first()
+✖ lubridate::hour()    masks data.table::hour()
+✖ lubridate::isoweek() masks data.table::isoweek()
+✖ dplyr::lag()         masks stats::lag()
+✖ dplyr::last()        masks data.table::last()
+✖ lubridate::mday()    masks data.table::mday()
+✖ lubridate::minute()  masks data.table::minute()
+✖ lubridate::month()   masks data.table::month()
+✖ lubridate::quarter() masks data.table::quarter()
+✖ lubridate::second()  masks data.table::second()
+✖ dplyr::select()      masks MASS::select()
+✖ purrr::transpose()   masks data.table::transpose()
+✖ lubridate::wday()    masks data.table::wday()
+✖ lubridate::week()    masks data.table::week()
+✖ purrr::when()        masks foreach::when()
+✖ lubridate::yday()    masks data.table::yday()
+✖ lubridate::year()    masks data.table::year()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+Loading required package: iterators
+
+Attaching package: ‘assertthat’
+
+The following object is masked from ‘package:tibble’:
+
+    has_name
+
+        R/00_process_configs.R R/00a_prior_functions.R
+value   ?                      ?                      
+visible FALSE                  FALSE                  
+        R/01_model_inputs_functions.R R/02_decision_model_functions.R
+value   ?                             ?                              
+visible FALSE                         FALSE                          
+        R/03_calibration_general_functions.R R/03a_baycann_functions.R
+value   ?                                    ?                        
+visible FALSE                                FALSE                    
+        R/utils/data_processing.R R/utils/distr_empirical.R
+value   ?                         ?                        
+visible FALSE                     FALSE                    
+        R/utils/epi_functions.R R/utils/query_distr.R R/utils/sum_of_cdfs.R
+value   ?                       ?                     ?                    
+visible FALSE                   FALSE                 FALSE                
+[1] "config path: configs/configs_simulated.yaml"
+<environment: R_GlobalEnv>
+<environment: R_GlobalEnv>
+[1] "Running on Sherlock"
+[1] "# parallel workers: 24"
+----- Sat Dec 27 09:24:27 PM 2025 -----
+New IMABC with specifications:
+Max iterations                           = 2000
+Starting simulation size                 = 13000
+Number of centers of mass                = 10
+Number of samples around each center     = 50
+Minimum valid samples to end calibration = 1000
+Current bound info:
+---- prevalence_lesion ----
+prevalence_lesion_30_40: 0.0655372045826467 - 0.18255047261466
+prevalence_lesion_40_50: 0.113977488334938 - 0.254659429422164
+prevalence_lesion_50_60: 0.14657820788103 - 0.298822053867116
+prevalence_lesion_60_70: 0.199716133225922 - 0.378853710431494
+prevalence_lesion_70_80: 0.230091856821715 - 0.438820190625201
+---- n_lesion ----
+n_lesion_1: 0.335026375578758 - 0.505735340052321
+n_lesion_2: 0.21398619428201 - 0.370892760868389
+n_lesion_3: 0.222885951438439 - 0.381322019142412
+---- prevalence_preclin ----
+prevalence_preclin_30_40: 0.0000175009998818733 - 0.0353932398663689
+prevalence_preclin_40_50: 0.00116500345982128 - 0.0455492034264501
+prevalence_preclin_50_60: 0.00302486285672211 - 0.0575300841832888
+prevalence_preclin_60_70: 0.00713152191207753 - 0.0767549312148503
+prevalence_preclin_70_80: 0.00540795887277262 - 0.0911787221993061
+---- incidence_clin ----
+incidence_clin_30_40: 31.3453616866506 - 66.628749663032
+incidence_clin_40_50: 100.144549734445 - 158.808656247319
+incidence_clin_50_60: 211.019343692853 - 295.572499861913
+incidence_clin_60_70: 367.049608352335 - 483.280206497881
+incidence_clin_70_80: 512.127602439333 - 666.411398067451
+incidence_clin_80_90: 628.589379440743 - 849.649071598532
+---- stage_distr ----
+stage_distr_1: 0.22261292884022 - 0.278370096386795
+stage_distr_2: 0.237723933836504 - 0.294599513721579
+stage_distr_3: 0.189484451232019 - 0.242421772495866
+stage_distr_4: 0.242915579829609 - 0.30015315792244
+
+---------- Start Iter 1 ----------
+Starting at: 2025-12-27 21:24:28.008941
+Current in range draws = 0
+Current bound info:
+---- prevalence_lesion ----
+prevalence_lesion_30_40: 0.0655372045826467 - 0.18255047261466
+prevalence_lesion_40_50: 0.113977488334938 - 0.254659429422164
+prevalence_lesion_50_60: 0.14657820788103 - 0.298822053867116
+prevalence_lesion_60_70: 0.199716133225922 - 0.378853710431494
+prevalence_lesion_70_80: 0.230091856821715 - 0.438820190625201
+---- n_lesion ----
+n_lesion_1: 0.335026375578758 - 0.505735340052321
+n_lesion_2: 0.21398619428201 - 0.370892760868389
+n_lesion_3: 0.222885951438439 - 0.381322019142412
+---- prevalence_preclin ----
+prevalence_preclin_30_40: 0.0000175009998818733 - 0.0353932398663689
+prevalence_preclin_40_50: 0.00116500345982128 - 0.0455492034264501
+prevalence_preclin_50_60: 0.00302486285672211 - 0.0575300841832888
+prevalence_preclin_60_70: 0.00713152191207753 - 0.0767549312148503
+prevalence_preclin_70_80: 0.00540795887277262 - 0.0911787221993061
+---- incidence_clin ----
+incidence_clin_30_40: 31.3453616866506 - 66.628749663032
+incidence_clin_40_50: 100.144549734445 - 158.808656247319
+incidence_clin_50_60: 211.019343692853 - 295.572499861913
+incidence_clin_60_70: 367.049608352335 - 483.280206497881
+incidence_clin_70_80: 512.127602439333 - 666.411398067451
+incidence_clin_80_90: 628.589379440743 - 849.649071598532
+---- stage_distr ----
+stage_distr_1: 0.22261292884022 - 0.278370096386795
+stage_distr_2: 0.237723933836504 - 0.294599513721579
+stage_distr_3: 0.189484451232019 - 0.242421772495866
+stage_distr_4: 0.242915579829609 - 0.30015315792244
