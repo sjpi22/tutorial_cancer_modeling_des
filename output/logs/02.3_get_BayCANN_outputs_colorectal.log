@@ -57,7 +57,7 @@ visible FALSE                   FALSE                 FALSE
 [1] "# parallel workers: 12"
 Warning message:
 In mclapply(argsList, FUN, mc.preschedule = preschedule, mc.set.seed = set.seed,  :
-  scheduled cores 1, 2, 4, 5, 8, 10, 12 did not deliver results, all values of the jobs will be affected
-      user     system    elapsed 
-185392.069   2595.724  33728.230 
-slurmstepd: error: Detected 7 oom_kill events in StepId=12564683.batch. Some of the step tasks have been OOM Killed.
+  scheduled cores 3, 4, 5, 7, 9 did not deliver results, all values of the jobs will be affected
+     user    system   elapsed 
+126546.47   2965.00  17465.13 
+slurmstepd: error: Detected 5 oom_kill events in StepId=12564709.batch. Some of the step tasks have been OOM Killed.

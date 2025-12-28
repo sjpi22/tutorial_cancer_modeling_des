@@ -56,4 +56,4 @@ visible FALSE                   FALSE                 FALSE
 [1] "Running on Sherlock"
 [1] "# parallel workers: 8"
     user   system  elapsed 
-2450.598   52.938  323.385 
+2396.202   53.702  328.682 
