@@ -44,6 +44,7 @@ list2env(configs$params_coverage, envir = .GlobalEnv)
 file_times <- "tests/test_screening_data.xlsx"
 file_true_params <- file.path("_ground_truth", "params_model.rds")
 nreps_var <- 500 # Replicates for testing variation
+p_alpha <- 0.05 # p-value threshold
 
 
 #### 3. Pre-processing  ===========================================
@@ -215,72 +216,72 @@ test_that("Match expected number of screens in lesion state", {
 })
 
 # Test imperfect screening
-# test_that("Match expected number of screens with variation", {
-#   l_params_screen$test_chars$confirm$p_sens <- list(
-#     L = 0.5,
-#     P = 0.9
-#   )
-#   
-#   # Set fixed vars
-#   strat <- 1
-#   
-#   # Stack copies of patient and lesion data
-#   m_patient_rep <- do.call(rbind, replicate(nreps_var, m_patient_base, simplify=FALSE))
-#   m_lesion_rep <- do.call(rbind, replicate(nreps_var, m_lesion_base, simplify=FALSE))
-#   
-#   # Save original patient ID and update patient IDs to be unique
-#   m_patient_rep$pt_id_orig <- m_patient_rep$pt_id
-#   m_lesion_rep$pt_id_orig <- m_lesion_rep$pt_id
-#   m_patient_rep$pt_id <- m_patient_rep$pt_id + nrow(m_patient_base)*rep(seq(0, nreps_var-1), each = nrow(m_patient_base))
-#   m_lesion_rep$pt_id <- m_lesion_rep$pt_id + nrow(m_patient_base)*rep(seq(0, nreps_var-1), each = nrow(m_lesion_base))
-#   
-#   # Set patient ID as key
-#   setkey(m_patient_rep, pt_id)
-#   setkey(m_lesion_rep, pt_id)
-#   
-#   # For cancer with and without lesion state
-#   for (dx in c("L", "P")) {
-#     # Create copy of data
-#     m_patient_screen <- copy(m_patient_rep)
-#     
-#     # Set model parameters
-#     if (dx == "L") {
-#       l_params_model_temp <- l_params_calib$l_params_model
-#       
-#       # Create copy of data
-#       m_lesion_screen <- copy(m_lesion_rep)
-#       
-#       # Combine with lesion data
-#       m_cohort <- list(patient_level = m_patient_screen,
-#                        lesion_level = m_lesion_screen)
-#     } else {
-#       l_params_model_temp <- modifyList(l_params_calib$l_params_model, list(v_states = c("H", "P", "C", "D")))
-#       m_cohort <- m_patient_screen
-#     }
-#     
-#     # Run screening with no surveillance
-#     run_screening_counterfactual(m_cohort,
-#                                  l_params_model = l_params_model_temp,
-#                                  l_params_strategy = l_params_screen$strats[[strat]],
-#                                  l_params_tests = params_screen$test_chars # Original distributions for screening parameters
-#     )
-#     
-#     # Consolidate results at original patient ID level
-#     ct_cols <- grep("ct_tests_", names(m_patient_screen), value = TRUE)
-#     m_patient_summ <- m_patient_screen[, {
-#       means <- lapply(.SD, function(x) mean(x, na.rm = TRUE))
-#       sds   <- lapply(.SD, function(x) sd(x, na.rm = TRUE))
-#       setNames(c(means, sds), c(paste0("mean_", ct_cols), paste0("sd_", ct_cols)))
-#     }, by = pt_id_orig, .SDcols = ct_cols]
-#     
-#     # Set label for variable in Excel
-#     if (dx == "L") {
-#       label_var <- paste(strat, survstrat, sep = "_")
-#     } else {
-#       label_var <- strat
-#     }
-#   }
-# })
+test_that("Match expected number of screens with variation", {
+  # Set strategy
+  strat <- 1
+  
+  # Set imperfect sensitivity
+  p_sens_L <- 0.5
+  p_sens_P <- 0.7
+  l_params_screen$test_chars$confirm$p_sens <- list(
+    L = p_sens_L,
+    P = p_sens_P
+  )
+  
+  # Set patients to extract
+  v_pts <- c(3,4)
+  
+  # Select only 3rd and 4th row of data
+  m_patient_subset <- list(
+    patient_level = m_patient_base[pt_id %in% v_pts, ],
+    lesion_level = m_lesion_base[pt_id %in% v_pts, ]
+  )
+  
+  # Create repeated version of data
+  m_cohort <- list()
+  for (i in names(m_patient_subset)) {
+    # Stack copies of patient and lesion data
+    m_cohort[[i]] <- do.call(rbind, replicate(nreps_var, m_patient_subset[[i]], simplify=FALSE))
+    
+    # Save original patient ID and update patient IDs to be unique
+    setnames(m_cohort[[i]], "pt_id", "pt_id_orig")
+  }
+  
+  # Set new patient ID
+  m_cohort$patient_level[, pt_id := 1:.N]
+  m_cohort$lesion_level[, pt_id := rep(1:nrow(m_cohort$patient_level), rep(m_patient_subset$lesion_level[, .N, by = pt_id]$N, nrow(m_cohort$patient_level)/2))]
+  
+  # Set keys
+  setkey(m_cohort[["patient_level"]], pt_id)
+  setkey(m_cohort[["lesion_level"]], pt_id, lesion_id)
+  
+  # Run screening with no surveillance
+  run_screening_counterfactual(m_cohort,
+                               l_params_model = l_params_calib$l_params_model,
+                               l_params_strategy = l_params_screen$strats[[strat]],
+                               l_params_tests = l_params_screen$test_chars
+  )
+  
+  # Check summary statistics for patients
+  ct_cols <- c("time_H_P", "time_H_C", "time_H_D", "ct_tests_screen", "ct_tests_positive", "ct_tests_base")
+  m_patient_summ_P <- m_cohort$patient_level[, .(ct = .N), by = c("pt_id_orig", "time_H_P")]
+  m_patient_summ_C <- m_cohort$patient_level[, .(ct = .N), by = c("pt_id_orig", "time_H_C", "ct_tests_base")]
+  m_patient_summ_C[, max_time := max(time_H_C), by = pt_id_orig]
+  m_patient_summ_D <- m_cohort$patient_level[, .(avg = mean(time_H_D)), by = c("pt_id_orig")]
+  m_patient_summ_ct <- m_cohort$patient_level[, .(ct = .N), by = c("pt_id_orig", "ct_tests_screen")]
+  
+  # Checks for patient 3
+  expect_equal(m_patient_summ_P[pt_id_orig == v_pts[1], ct], nreps_var) # No variation in time_H_P
+  expect_equal(m_patient_summ_ct[pt_id_orig == v_pts[1], ct], nreps_var) # No variation in test count
+  expect_gt(binom.test(m_patient_summ_C[pt_id_orig == v_pts[1] & time_H_C == 50, ct], nreps_var, p_sens_P)$p.value, p_alpha) # Some variation in time_H_C
+  
+  # Checks for patient 4
+  expect_equal(sort(m_patient_summ_P[pt_id_orig == v_pts[2], time_H_P]), sort(unique(c(NA, m_patient_subset$lesion_level[pt_id %in% v_pts[2], time_H_Pj]))))
+  
+  # Checks for both - base test should only be applied for cancer diagnosis at highest age
+  expect_equal(nrow(m_patient_summ_C[ct_tests_base %in% 1 & time_H_C != max_time]), 0)
+  expect_equal(sum(m_patient_summ_D[, avg] <= m_patient_subset$patient_level$time_H_D), 0) # Some variation in time_H_D
+})
 
 # Test that base data is unchanged for multiple screening strategies
 test_that("Data reversion after screening modifications is successful", {

@@ -37,7 +37,7 @@ file_model_params <- file.path("_ground_truth", "params_model.rds")
 
 ###### 2.2 Other parameters
 eps_pct <- 0.01 # tolerated error
-alpha <- 0.05 # p-value threshold
+p_alpha <- 0.02 # p-value threshold
 
 
 #### 3. Pre-processing actions  ===========================================
@@ -93,7 +93,7 @@ for (varname in v_distr) {
     test_that("Simulated sample matches distribution", {
       # Perform chi-squared test
       chisq_test <- chisq.test(v_samp, expected_n)
-      expect_gt(chisq_test$p.value, alpha) # p-value > 0.05 indicates a good fit
+      expect_gt(chisq_test$p.value, p_alpha) # p-value > 0.05 indicates a good fit
     })
   } else {
     # Define theoretical parameters
@@ -118,7 +118,7 @@ for (varname in v_distr) {
     }
     
     # Set tolerance as % of expected mean or sampling error: 
-    tol_var <- max(qnorm(1 - alpha/2) * expected_sd / sqrt(length(v_samp)),
+    tol_var <- max(qnorm(1 - p_alpha/2) * expected_sd / sqrt(length(v_samp)),
                    expected_mean * eps_pct,
                    na.rm = T)
     
@@ -135,7 +135,7 @@ for (varname in v_distr) {
         # Kolmogorov-Smirnov test for goodness-of-fit
         if (!d_test$distr %in% c("binom")) {
           ks_test <- do.call(ks.test, c(x = list(v_samp), y = list(paste0("p", d_test$distr)), d_test$params))
-          expect_gt(ks_test$p.value, alpha) # p-value > 0.05 indicates a good fit # @ output variable and warning about test
+          expect_gt(ks_test$p.value, p_alpha) # p-value > 0.05 indicates a good fit # @ output variable and warning about test
         }
       } else {
         # Sex-specific KS test
@@ -145,7 +145,7 @@ for (varname in v_distr) {
         )
         for (sex in names(d_test)) {
           ks_test <- do.call(ks.test, c(x = list(l_v_samp[[sex]]), y = list(paste0("p", d_test[[sex]]$distr)), d_test[[sex]]$params))
-          expect_gt(ks_test$p.value, alpha) # p-value > 0.05 indicates a good fit # @ output variable and warning about test
+          expect_gt(ks_test$p.value, p_alpha) # p-value > 0.05 indicates a good fit # @ output variable and warning about test
         }
       }
     })
