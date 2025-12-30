@@ -54,10 +54,6 @@ visible FALSE                   FALSE                 FALSE
 [1] "config path: configs/configs_colorectal.yaml"
 <environment: R_GlobalEnv>
 [1] "Running on Sherlock"
-[1] "# parallel workers: 12"
-Warning message:
-In mclapply(argsList, FUN, mc.preschedule = preschedule, mc.set.seed = set.seed,  :
-  scheduled cores 3, 4, 5, 7, 9 did not deliver results, all values of the jobs will be affected
-     user    system   elapsed 
-126546.47   2965.00  17465.13 
-slurmstepd: error: Detected 5 oom_kill events in StepId=12564709.batch. Some of the step tasks have been OOM Killed.
+[1] "# parallel workers: 8"
+      user     system    elapsed 
+193498.478   2686.668  24699.330 
