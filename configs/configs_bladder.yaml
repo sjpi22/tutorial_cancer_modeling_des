@@ -241,8 +241,9 @@ params_screen:
         params:
           shape1: 95
           shape2: 5
-      type: "direct"
       cost_ratio: 1
+      cost_positive: 1
+      label: "Screening"
   strats: # Screening test strategies 
     strategy_c_int5:
       mod: "confirm"

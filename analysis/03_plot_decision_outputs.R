@@ -25,28 +25,43 @@ sapply(distr.sources, source, .GlobalEnv)
 #### 2. General parameters ========================================================
 
 ###### 2.1 Configurations
+# User-set config
+config_version <- "bladder"
+
 # Load configs
-file_configs <- file.path("configs", "configs_bladder.yaml")
+file_configs <- file.path("configs", paste0("configs_", config_version, ".yaml"))
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
 params_screen <- configs$params_screen
-unit <- params_screen$l_outcome_counterfactual$lyg$lit_params$unit # Unit for plotting outcomes
 test_cost <- sapply(params_screen$test_chars, function(u) { # Number of tests equivalent to cost of one confirmatory test
   u[["cost_ratio"]]
 })
+test_cost_positive <- sapply(params_screen$test_chars, function(u) { # Number of positive tests equivalent to cost of one confirmatory test
+  u[["cost_positive"]]
+})
+test_labels <- sapply(params_screen$test_chars, function(u) { # Test labels for plotting
+  u[["label"]]
+})
+unit <- params_screen$l_outcome_counterfactual$lyg$lit_params$unit # Unit for plotting outcomes
 plt_size_text <- configs$params_coverage$plt_size_text # Plot text size
-v_quantiles <- configs$params_coverage$v_quantiles
+v_quantiles <- configs$params_coverage$v_quantiles # Quantiles to calculate for natural history outcomes
 
 # Get list of output file paths
 l_filepaths_imabc <- update_config_paths("files_imabc", configs$paths)
 l_filepaths_baycann <- update_config_paths("files_baycann", configs$paths)
+if (config_version == "simulated") {
+  l_filepaths_truth <- list(file_outputs = file.path("_ground_truth", "true_decision_outputs.rds"))
+} else {
+  l_filepaths_truth <- list(file_outputs = file.path(configs$paths$root_dir$output, "true_decision_outputs.rds"))
+}
 l_filepaths_decision <- update_config_paths("files_decision", configs$paths)
 list2env(l_filepaths_decision, envir = .GlobalEnv)
 
 ###### 2.2 Other parameters
-v_methods <- c(imabc = "IMABC", baycann = "BayCANN") # Calibration methods to evaluate (include "truth" if evaluating against a ground truth)
-base_test <- "confirm" # Assign name of base test (for diagnosing symptom-detected cases)
+v_methods <- c(truth = "Ground truth",
+               imabc = "IMABC", 
+               baycann = "BayCANN") # Calibration methods to evaluate (include "truth" if evaluating against a ground truth)
 x_var <- "time_total" # Variable for x-axis
 y_var <- "test_burden" # Variable for y-axis
 x_int <- 200 # Interval for x-axis
@@ -55,18 +70,11 @@ y_int <- 2000 # Interval for y-axis
 
 #### 3. Pre-processing actions  ===========================================
 
-# Extend base costs
-test_cost["base"] <- -test_cost[base_test] # For subtracting cost of base test in non-screening scenario
-test_cost["base_cf"] <- test_cost[base_test] # For adding cost of base test in screening scenario
-
 # Get screening interval associated with each strategy
 df_intervals <- data.frame(
   scenario = names(params_screen$strats),
   modality = unname(sapply(names(params_screen$strats), function(u) {
     params_screen$strats[[u]]$mod
-  })),
-  modality_conf = unname(sapply(names(params_screen$strats), function(u) {
-    ifelse(is.null(params_screen$strats[[u]]$mod_conf), NA, params_screen$strats[[u]]$mod_conf)
   })),
   int_test = unname(sapply(names(params_screen$strats), function(u) {
     params_screen$strats[[u]]$int_screen
@@ -135,12 +143,11 @@ for (method in names(v_methods)) {
       mutate(N = rep(l_outcomes[[method]][["lifeyears"]][["base"]][, "N"],
                      each = length(params_screen$strats))) %>%
       # Merge base scenario screening burden
-      mutate(ct_tests_base = rep(l_outcomes[[method]][["ntests"]][["base"]],
-                                        each = length(params_screen$strats))) %>%
+      mutate(ct_tests_diagnostic = rep(l_outcomes[[method]][["ntests"]][["base"]],
+                                       each = length(params_screen$strats))) %>%
       # Merge screening test burden
       bind_cols(l_outcomes[[method]][["ntests"]][["screen"]] %>%
-                  dplyr::select(starts_with("ct_tests_")) %>%
-                  rename(c(ct_tests_base_cf = "ct_tests_base"))) %>%
+                  dplyr::select(starts_with("ct_tests_"))) %>%
       # Normalize test count by population (LYG already normalized)
       mutate(across(starts_with("ct_"), ~ . / N * unit)) %>%
       # Merge test interval
@@ -148,7 +155,43 @@ for (method in names(v_methods)) {
       setDT()
     
     # Calculate final test cost variable
-    l_outcomes[[method]][["plot_data"]][, test_burden := rowSums(mapply(`*`, .SD, test_cost), na.rm = TRUE), .SDcols = paste0("ct_tests_", names(test_cost))]
+    l_outcomes[[method]][["plot_data"]][, test_burden := ct_tests_screen*test_cost[modality] +
+                                          ct_tests_positive*test_cost_positive[modality] +
+                                          ct_tests_base - ct_tests_diagnostic,
+                                        by = modality]
+  }
+}
+
+
+# Load dwell and sojourn time
+l_res_time <- list()
+for (method in names(v_methods)) {
+  for (outcome in c("dwell_time", "sojourn_time")) {
+    if (!is.null(l_outcomes[[method]][[outcome]])) {
+      # Extract outcome
+      v_outcomes <- l_outcomes[[method]][[outcome]][["base"]]
+      
+      # Calculate mean and quantiles of outputs
+      if (length(l_wts[[method]]) == 1) {
+        mean_outcome <- mean(v_outcomes)
+        ci_outcome <- quantile(v_outcomes, probs = v_quantiles_calc)
+      } else {
+        mean_outcome <- weighted.mean(v_outcomes, w = l_wts[[method]])
+        ci_outcome <- weighted_quantile(
+          x = v_outcomes,
+          probs = v_quantiles_calc,
+          weights = l_wts[[method]]
+        )
+      }
+      
+      # Add to results list
+      l_res_time <- c(l_res_time, list(
+        list(method = method,
+             outcome = outcome,
+             mean = mean_outcome,
+             ci_lb = ci_outcome[1],
+             ci_ub = ci_outcome[2])))
+    }
   }
 }
 
@@ -174,7 +217,7 @@ df_plot_mean <- df_plot %>%
             test_burden = weighted.mean(test_burden, wt), 
             .groups = "drop")
 
-# Restructure to remove ground truth clouds
+# Restructure to remove ground truth clouds (only plot mean)
 if ("Ground truth" %in% df_plot$method) {
   # Remove ground truth from plot of all simulations
   df_plot <- df_plot %>%
@@ -210,10 +253,11 @@ plt_outcomes <- ggplot(df_plot,
                        aes(x = get(x_var), y = get(y_var))) +
   geom_point(aes(color = factor(int_test)), # Plot cloud of points simulated from posterior
              alpha = 0.2, size = 1) +
+  {if (nrow(df_plot_icer) > 1)
   geom_line(data = df_plot_icer %>% # Plot cost-efficiency frontier
               filter(Status == "ND"), # Keep only non-dominated strategies
             color = "black",
-            linewidth = 1) +
+            linewidth = 1) } +
   geom_point(data = df_plot_mean, # Plot mean of each strategy
              aes(shape = factor(modality),
                  fill = factor(int_test)),
@@ -222,10 +266,13 @@ plt_outcomes <- ggplot(df_plot,
              stroke = 1) +
   scale_shape_manual(values = c(21, 24),
                      name = "Screening \nmodality", 
-                     labels = c("Confirmatory", "Non-invasive")) +
+                     labels = test_labels) +
+  scale_linetype_discrete(name = "Screening \nmodality", 
+                          labels = test_labels) +
   facet_grid(~method) +
   labs(x = paste0("LYG per ", scales::label_comma()(unit)), 
-       y = paste0("Additional confirmatory test burden per ", scales::label_comma()(unit)),
+       y = paste0("Additional confirmatory test burden per ", 
+                  scales::label_comma()(unit)),
        color = "Screening \ninterval (years)") +
   scale_fill_discrete(guide = "none") +
   guides(color = guide_legend(override.aes = list(alpha = 1, size = 3)),
@@ -234,8 +281,6 @@ plt_outcomes <- ggplot(df_plot,
   scale_x_continuous(labels = scales::comma) +
   scale_y_continuous(labels = scales::comma,
                      breaks = number_ticks(5)) +
-  scale_linetype_discrete(name = "Screening \nmodality", 
-                          labels = c("Confirmatory", "Non-invasive")) +
   theme_bw(base_size = plt_size_text + 5) +
   theme(plot.title = element_text(size = plt_size_text, face = "bold"),
         axis.text.x = element_text(size = plt_size_text),
@@ -247,43 +292,16 @@ plt_outcomes <- ggplot(df_plot,
         panel.border = element_rect(colour = "black", fill = NA),
         strip.background = element_blank(),
         strip.text = element_text(hjust = 0),
-        legend.position = "bottom")
+        legend.position = "bottom") +
+  {if (nrow(df_plot_icer) == 1)
+    theme(legend.position = "none")
+  }
 plt_outcomes
 
 # Save plot
 ggsave(file_fig_decision, plt_outcomes, width = 10, height = 8)
 
 ###### 4.2 Dwell and sojourn time
-l_res_time <- list()
-for (method in names(v_methods)) {
-  for (outcome in c("dwell_time", "sojourn_time")) {
-    if (!is.null(l_outcomes[[method]][[outcome]])) {
-      # Extract outcome
-      v_outcomes <- l_outcomes[[method]][[outcome]][["base"]]
-      
-      # Calculate mean and quantiles of outputs
-      if (length(l_wts[[method]]) == 1) {
-        mean_outcome <- mean(v_outcomes)
-        ci_outcome <- quantile(v_outcomes, probs = v_quantiles_calc)
-      } else {
-        mean_outcome <- weighted.mean(v_outcomes, w = l_wts[[method]])
-        ci_outcome <- weighted_quantile(
-          x = v_outcomes,
-          probs = v_quantiles_calc,
-          weights = l_wts[[method]]
-        )
-      }
-      
-      # Add to results list
-      l_res_time <- c(l_res_time, list(
-        list(method = method,
-             outcome = outcome,
-             mean = mean_outcome,
-             ci_lb = ci_outcome[1],
-             ci_ub = ci_outcome[2])))
-    }
-  }
-}
 
 # Convert list to data frame and save
 df_res_time <- rbindlist(l_res_time)

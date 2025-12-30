@@ -272,6 +272,8 @@ params_screen:
           shape1: 100
           shape2: 0
       cost_ratio: 1
+      cost_positive: 1
+      label: "Screening"
   strats: # Screening test strategies 
     strategy_c_int10:
       mod: "col"

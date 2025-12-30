@@ -4,7 +4,7 @@
 #SBATCH --time=2:00:00
 #SBATCH --mem=3G
 #SBATCH --ntasks-per-node=4
-#SBATCH --output=output/logs/02_get_true_outcomes.log
+#SBATCH --output=output/logs/true_outcomes.log
 
 #* To send the job to Sherlock use:
 # - sbatch _ground_truth/slurm/02_get_true_outcomes.sbatch
