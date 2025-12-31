@@ -26,7 +26,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # User-set config
-config_version <- "bladder"
+config_version <- "colorectal"
 
 # Load configs
 file_configs <- file.path("configs", paste0("configs_", config_version, ".yaml"))
@@ -83,11 +83,26 @@ df_intervals <- data.frame(
 
 # Load IMABC parameter weights
 l_wts <- list()
-l_posteriors_imabc <- readRDS(l_filepaths_imabc$file_posterior)
-l_wts[["imabc"]] <- l_posteriors_imabc$good_parm_draws$sample_wt
+if (!is.null(l_filepaths_imabc$file_outputs)) {
+  if (file.exists(l_filepaths_imabc$file_outputs)) {
+    l_posteriors_imabc <- readRDS(l_filepaths_imabc$file_posterior)
+    l_wts[["imabc"]] <- l_posteriors_imabc$good_parm_draws$sample_wt
+  }
+}
 
-# Use uniform weight for BayCANN and truth
-l_wts[["baycann"]] <- l_wts[["truth"]] <- 1
+if (!is.null(l_filepaths_baycann$file_outputs)) {
+  if (file.exists(l_filepaths_baycann$file_outputs)) {
+    # Use uniform weight for BayCANN
+    l_wts[["baycann"]] <- 1
+  }
+}
+
+if (!is.null(l_filepaths_decision$file_outputs)) {
+  if (file.exists(l_filepaths_decision$file_outputs)) {
+    # Use uniform weight for truth
+    l_wts[["truth"]] <- 1
+  }
+}
 
 # Calculate quantiles and column labels from inner quantile vector
 v_quantiles_lb <- (1 - v_quantiles[2]/100)/2
@@ -98,6 +113,7 @@ v_quantiles_calc <- sort(c(v_quantiles_lb, v_quantiles_ub))
 l_outputs_raw <- list() # Vector for holding saved raw outputs
 l_outcomes <- list() # Vector for holding extracted outcomes
 for (method in names(v_methods)) {
+  if (is.null(get(paste0("l_filepaths_", method))$file_outputs)) next
   if (file.exists(get(paste0("l_filepaths_", method))$file_outputs)) {
     # Load data from file
     l_outputs_raw[[method]] <- readRDS(get(paste0("l_filepaths_", method))$file_outputs)

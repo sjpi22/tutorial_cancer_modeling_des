@@ -23,7 +23,7 @@ sapply(distr.sources, source, .GlobalEnv)
 
 ###### 2.1 Configurations
 # Load configs
-file_configs <- file.path("configs", "configs_simulated.yaml")
+file_configs <- file.path("configs", "configs_colorectal.yaml")
 configs <- load_configs(file_configs)
 
 # Extract relevant parameters from configs
@@ -117,9 +117,9 @@ if (plot_by_chain) {
     df_targets_outputs <- cbind(df_targets, m_output_quantiles)
     
     # Modify file path
-    file_fig_validation_chain <- paste0(file_path_sans_ext(file_fig_validation),
+    file_fig_validation_chain <- paste0(tools::file_path_sans_ext(file_fig_validation),
                                         "_chain", i, ".",
-                                        file_ext(file_fig_validation))
+                                        tools::file_ext(file_fig_validation))
     
     # Make coverage plot
     plt_coverage_chain <- plot_coverage(df_targets = df_targets_outputs,
