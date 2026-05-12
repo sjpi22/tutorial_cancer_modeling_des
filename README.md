@@ -27,7 +27,7 @@ history and screening model schema</figcaption>
 ## File directory
 
 The repository layout follows the [DARTH](http://darthworkgroup.com)
-coding framework described in:
+coding framework described in the following publication:
 
 > Alarid-Escudero F, Krijkamp EM, Pechlivanoglou P, Jalal HJ, Kao SYZ,
 > Yang A, Enns EA. [A Need for Change! A Coding Framework for Improving
